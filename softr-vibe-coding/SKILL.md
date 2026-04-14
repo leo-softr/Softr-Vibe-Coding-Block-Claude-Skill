@@ -49,7 +49,19 @@ When the user describes their block, figure out which of these areas apply and a
 
 - **Data source type**: Is it Airtable, Softr Database, REST API, or another source? This determines the data fetching approach. **Load the relevant data source guide** from the [datasources/](datasources/) directory before writing code.
 - **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs, suggest the Field Inspector block.
-- **Brand colors**: Ask for hex values. Defaults: primary `#386AF5`, accent `#FCB500`, destructive `#F53878`, text `#030712`, background `#FFFFFF`.
+- **Brand colors**: Ask for hex values. If none provided, default to **Softr's brand palette**:
+
+  | Color | Hex | Name | Use |
+  |---|---|---|---|
+  | Primary | `#386AF5` | Mariner (blue) | CTAs, links, active states |
+  | Accent | `#FCB500` | Yellow Sea | Highlights, badges, sparkle accents |
+  | Destructive | `#F53878` | Cabaret (pink) | Errors, destructive actions, required markers |
+  | Text | `#030712` | Revolver (near-black) | Body text, headings |
+  | Background | `#FFFFFF` | White | Page and card backgrounds |
+
+  Softr logo assets (for blocks that need branding):
+  - Icon + wordmark (SVG): `https://cdn.brandfetch.io/idytCFzVcY/theme/dark/logo.svg`
+  - Icon only (PNG): `https://cdn.brandfetch.io/idytCFzVcY/w/1024/h/1024/theme/dark/icon.png`
 - **Layout and style**: Cards vs. table vs. list? How many columns? Apply the Premium Visual Baseline regardless.
 - **Interactivity**: Create/edit/delete? Filtering? Sorting? Pagination?
 - **User context**: Does it need to know who's logged in?
