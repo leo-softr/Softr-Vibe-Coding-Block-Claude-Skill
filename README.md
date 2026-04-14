@@ -204,7 +204,7 @@ This is an **UNOFFICIAL**, community-maintained Claude skill. It is provided **a
 
 ## Contributing
 
-This repository can be forked freely under the MIT license. However, **pull requests will not be accepted**. This is a personal skill maintained for a specific workflow. If you want to customize it, fork the repo and make it your own.
+Pull requests are what make open source great, and we appreciate the spirit behind them. That said, this skill is maintained for a specific personal workflow, so PRs won't be merged here. We highly recommend forking this repo and making it your own — customize it for your team, your data sources, your design system. That's the beauty of open source.
 
 ---
 
