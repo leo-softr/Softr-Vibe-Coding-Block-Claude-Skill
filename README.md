@@ -16,9 +16,12 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 
 - **Complete Vibe Coding API reference** — `useRecords`, `q.select()`, mutations, uploads, metrics, charts, editable settings, `useProxyFetch` for REST APIs
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
+- **Helper blocks & cross-block patterns** — Invisible helper blocks for multi-table access via `window` globals + `CustomEvent`, `useWindowData` hook, breadcrumb navigation, saved views architecture
+- **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
 - **UI/UX design guidelines** — 26 sections covering visual hierarchy, color, typography, spacing, motion design, accessibility, responsive patterns, and an AI slop anti-pattern checklist
-- **Self-validation** — Claude checks for Softr bundler compatibility (no optional chaining, correct imports, container wrappers) before delivering code
+- **Self-validation** — Claude checks for Softr bundler compatibility (no optional chaining, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
+- **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
 
 ---
 
@@ -113,9 +116,9 @@ Create a contact form that creates records in our Airtable Contacts table
 ### What the skill does
 
 1. **Asks only what it needs** — data source type and field IDs. Everything else (folder, colors, filename) uses smart defaults.
-2. **Loads the relevant data source guide** — reads the specific guide for your data source (Airtable, REST API, etc.) before writing code.
-3. **Generates a complete `.jsx` file** — production-ready, visually polished, with loading/error/empty states.
-4. **Self-validates** — checks for Softr bundler compatibility before delivering code.
+2. **Loads the relevant guides** — reads the specific data source guide (Airtable, REST API, etc.) and reference files (helper blocks, Shadow DOM) as needed.
+3. **Generates a complete `.jsx` file** — production-ready, visually polished, with loading/error/empty states. Never delivers code inline (prevents JSX character corruption).
+4. **Self-validates** — checks 13 items including Softr bundler compatibility, `getFieldValue()` wrapping, hooks ordering, and mutation patterns before delivering code.
 
 ---
 
@@ -123,17 +126,27 @@ Create a contact form that creates records in our Airtable Contacts table
 
 ```
 softr-vibe-coding/
-├── SKILL.md                          # Main skill (319 lines)
+├── SKILL.md                          # Main skill (355 lines)
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, constraints, anti-patterns
+│                                     # components, settings, 20 hard constraints,
+│                                     # 25-row anti-patterns checklist
 │
 ├── ui-ux-guidelines.md               # Design reference (746 lines)
 │                                     # 26 sections: hierarchy, color, typography,
 │                                     # spacing, motion, accessibility, AI slop checklist
 │
+├── references/                       # Advanced patterns (loaded on demand)
+│   ├── helper-blocks.md              # Cross-block communication (327 lines)
+│   │                                 # Invisible helper blocks, window globals,
+│   │                                 # CustomEvent, useWindowData hook, breadcrumbs,
+│   │                                 # saved views, companion field helpers
+│   └── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
+│                                     # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
+│
 └── datasources/                      # Data source guides (loaded on demand)
     ├── overview.md                   # Comparison matrix, selection guide
-    ├── shared-patterns.md            # useRecords, mutations, uploads, metrics, charts
+    ├── shared-patterns.md            # useRecords, mutations, uploads, metrics,
+    │                                 # charts, getFieldValue(), debug utilities
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
@@ -152,7 +165,7 @@ softr-vibe-coding/
 
 ### How context loading works
 
-Only `SKILL.md` loads into Claude's context when the skill triggers (~319 lines). The data source guides and UI/UX reference load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 18 files totaling 2,400+ lines.
+Only `SKILL.md` loads into Claude's context when the skill triggers (~355 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 20 files totaling 2,800+ lines.
 
 ---
 
@@ -186,8 +199,13 @@ The skill enforces these automatically, but good to know:
 - No arrow functions in JSX callback props — use `function() {}`
 - Must use `export default function Block()`
 - Must wrap layout in `<div className="container py-6"><div className="content">`
-- Only ONE `useRecords` call per block
+- Only ONE `useRecords` call per block (use helper blocks for multi-table)
+- `fetchNextPage` only inside `useEffect` — in render body causes infinite loops
+- All hooks declared before any conditional `return` — React error #310
+- Every field value rendered in JSX must pass through `getFieldValue()`
+- Mutations use `recordId` (not `id`) and always call `refetch()` in `onSuccess`
 - REST API data sources use `useProxyFetch`, NOT `useRecords`
+- Use relative paths in navigation, never hardcoded domains
 
 ---
 
