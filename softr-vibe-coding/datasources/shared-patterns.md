@@ -253,16 +253,31 @@ upload.uploadAsync(file).then(function(results) {
 
 ## Field Type Handling
 
-Use this utility for Airtable Single Select, Linked Records, Collaborators:
+**Every field value rendered in JSX must pass through `getFieldValue()`** before rendering, parsing, or comparing. Softr returns many field types as `{label, ...}` objects, not strings. Rendering them raw crashes React with error #31 ("Objects are not valid as a React child"). The cost of unnecessary `getFieldValue()` calls is zero; the cost of debugging error #31 is 30 minutes.
 
 ```jsx
-var getFieldValue = function(field) {
-  if (!field) return "";
-  if (Array.isArray(field)) return field.map(function(f) { return f.title || f.label || f.name || ""; }).join(", ");
-  if (typeof field === "object") return field.title || field.label || field.name || "";
-  return String(field);
+var getFieldValue = function(f) {
+  if (f == null) return "";
+  if (Array.isArray(f)) {
+    return f.map(function(x) {
+      if (x && typeof x === "object") return x.label || x.name || x.title || "";
+      return String(x);
+    }).filter(Boolean).join(", ");
+  }
+  if (typeof f === "object") return f.label || f.name || f.title || "";
+  return String(f);
 };
 ```
+
+Property priority: `label` first (most common in Softr formatted fields), then `name`, then `title`.
+
+Apply `getFieldValue()` everywhere you read fields:
+- Table cells, badges, tooltips: `<td>{getFieldValue(f.subject)}</td>`
+- Date parsing: `new Date(getFieldValue(f.dueDate))` -- raw value might be `{label: "2025-12-01"}`
+- Number parsing: `parseInt(getFieldValue(f.count), 10)` -- formula numbers come back as objects
+- String methods: `getFieldValue(f.status).toLowerCase()`
+
+For companion helpers (`getLinkedNames`, `getLinkedItems`) used in helper block consumers, see [../references/helper-blocks.md](../references/helper-blocks.md).
 
 ### Common Field Type Shapes
 
