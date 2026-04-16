@@ -31,7 +31,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
 
 3. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type.
 
-4. **Write the complete `.jsx` file** to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought — it ships in v1.
+4. **Write the complete `.jsx` file** to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
 
 5. **Self-validate before delivering.** Before presenting the code as complete, verify:
    - No optional chaining (`?.`) or nullish coalescing (`??`)
@@ -42,6 +42,11 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - Loading, error, and empty states all handled
    - Mutation calls gated behind `enabled` check (if using mutations)
    - Field access uses `record.fields.alias` (not `record.alias`)
+   - Every field rendered in JSX wrapped in `getFieldValue()` -- prevents React error #31
+   - All hooks declared before any conditional `return` -- prevents React error #310
+   - `fetchNextPage` only inside `useEffect`, never in render body
+   - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
+   - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
 
 ## What to Clarify
 
@@ -101,6 +106,15 @@ Softr supports 14 data sources. **Before writing any data-fetching code, read th
 For shared data fetching patterns (useRecords, mutations, uploads, metrics, charts), see [datasources/shared-patterns.md](datasources/shared-patterns.md).
 
 For data source comparison and selection guidance, see [datasources/overview.md](datasources/overview.md).
+
+## Reference Guides
+
+For advanced patterns beyond data fetching, load the relevant reference when the task needs it:
+
+| If the task involves... | Load reference |
+|---|---|
+| Cross-block communication, multi-table data access, invisible helper blocks, window globals, breadcrumbs | [references/helper-blocks.md](references/helper-blocks.md) |
+| Embedding third-party libraries with their own CSS (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar) | [references/advanced-integrations.md](references/advanced-integrations.md) |
 
 ## Code Structure
 
@@ -291,7 +305,10 @@ Non-negotiable rules enforced by the Softr platform:
 14. **React functional components only** — No class components.
 15. **Do NOT `import React from 'react'`** — Use named imports for hooks.
 16. **No CSS modules or styled-components** — Tailwind only.
-17. **setTimeout for scroll** — Wrap programmatic scroll in `setTimeout(fn, 0)`.
+17. **setTimeout for scroll** -- Wrap programmatic scroll in `setTimeout(fn, 0)`.
+18. **`fetchNextPage` inside `useEffect` only** -- Calling it during render causes infinite re-render loops. The component calls `fetchNextPage`, which updates data, which triggers re-render, which calls `fetchNextPage` again.
+19. **All hooks before any conditional `return`** -- Hooks must be called in the same order every render. A hook declared after a conditional `return` causes React error #310.
+20. **Relative paths in navigation** -- Use `/page-name?recordId=...`, never hardcoded domains like `app.client.com/page`.
 
 ## Anti-Patterns Checklist
 
@@ -311,7 +328,14 @@ Non-negotiable rules enforced by the Softr platform:
 | `item.fields.formula === true` | Formula booleans: `=== "1"` |
 | `currentUser.role` for tiers | `window.__softr_current_user.userGroups` |
 | `useLinkedRecords({ fieldId })` | `useLinkedRecords({ select, field: "alias" })` |
-| `opt.label` on linked records | `opt.title` — shape is `{ id, title }` |
+| `opt.label` on linked records | `opt.title` -- shape is `{ id, title }` |
+| `var { mutateAsync } = useRecordUpdate({...})` | `var updateRecord = useRecordUpdate({...})` -- keep full object for `.enabled`, `.status`, `.reset()` |
+| Hook declared after conditional `return` | All hooks at top before any conditional `return` -- React error #310 |
+| `fetchNextPage()` in render body | Inside `useEffect` only -- in render = infinite loop |
+| `useRef` for IDs used in `useMemo` | `useState` -- ref mutations don't trigger recomputation |
+| Hardcoded domain in navigation | Relative paths: `/task-details?recordId=...` |
+| Emojis in UI | lucide-react icons only |
+| `[&_svg]:opacity-0` on SelectTrigger | `<style>` + `data-fix-chevron` attribute (Softr bundler limitation) |
 | `useRecords` with REST API source | Use `useProxyFetch` + `useQuery` |
 | `q.select()` for REST API fields | Access raw API response directly |
 | Hardcoding API keys for connected API | Use `useProxyFetch` — key stays server-side |
