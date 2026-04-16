@@ -141,9 +141,12 @@ softr-vibe-coding/
 │   │                                 # saved views, companion field helpers
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
-│   └── anti-patterns.md              # Categorized violation catalog (69 lines)
-│                                     # Data access, mutations, hooks, layout,
-│                                     # permissions, helper blocks
+│   ├── anti-patterns.md              # Categorized violation catalog (69 lines)
+│   │                                 # Data access, mutations, hooks, layout,
+│   │                                 # permissions, helper blocks
+│   └── quick-reference.md            # Syntax cheat sheet (156 lines)
+│                                     # Imports, hook signatures, mutation shapes,
+│                                     # field mapping, component skeleton
 │
 └── datasources/                      # Data source guides (loaded on demand)
     ├── overview.md                   # Comparison matrix, selection guide
@@ -172,7 +175,7 @@ softr-vibe-coding/
 
 ### How context loading works
 
-Only `SKILL.md` loads into Claude's context when the skill triggers (~330 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 23 files totaling 2,900+ lines.
+Only `SKILL.md` loads into Claude's context when the skill triggers (~330 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 24 files totaling 3,100+ lines.
 
 ---
 

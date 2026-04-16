@@ -116,6 +116,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Cross-block communication, multi-table data access, invisible helper blocks, window globals, breadcrumbs | [references/helper-blocks.md](references/helper-blocks.md) |
 | Embedding third-party libraries with their own CSS (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar) | [references/advanced-integrations.md](references/advanced-integrations.md) |
 | Debugging a broken block, checking patterns before delivery, full violation catalog | [references/anti-patterns.md](references/anti-patterns.md) |
+| Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
 
 ## Code Structure
 
