@@ -20,7 +20,7 @@ A Vibe Coding block can only connect to **one source table**. When your main blo
 
 **Solution:** Drop an invisible helper block on the same Softr page, connected to the second table. It fetches records, publishes them to a `window` global, and dispatches a custom event. The main block reads the global and listens for updates. The helper returns `null` so it renders nothing in the published app.
 
-`useLinkedRecords` always returns `{id, title}` only and silently ignores extra fields in `select`. When you need richer foreign data (status, dates, custom fields from a linked table), you MUST use a helper block -- there is no other way to get those fields.
+`useLinkedRecords` always returns `{id, title}` only and silently ignores extra fields in `select`. This is the core reason the helper block pattern exists. If your task involves showing status, due dates, or any non-title field from a linked table, skip `useLinkedRecords` entirely and build a helper -- there is no other way to get those fields.
 
 Key rules:
 - The helper block must be on the **same Softr page** as the consumer -- `window` is page-scoped, globals don't cross pages.
@@ -93,8 +93,9 @@ var BRAND_PRIMARY = "#386AF5";
 
 Key points:
 - `window.history.back()` uses the browser's native History API -- no routing library needed.
-- The `window.history.length > 1` check handles users who land directly via shared URL (no history).
+- The `window.history.length > 1` check is the fallback for users who land directly via shared URL (no history). Send them to a sensible default like the listing page.
 - Wrap in `setTimeout(fn, 0)` to break out of Softr's event cycle (same as scroll commands).
+- Use alongside `useNavigationSetting` when you also need a Studio-configurable destination -- they solve different problems (contextual back vs. fixed CTA).
 - Works in any Vibe Coding block without extra dependencies.
 
 ## Multi-Table Access via Invisible Helper Blocks
@@ -137,7 +138,9 @@ export default function Block() {
 
   var pageCount = result.data ? result.data.pages.length : 0;
 
-  /* Progressive publish -- push to window every time a new page arrives */
+  /* Progressive publish -- push to window every time a new page arrives.
+     Critical when the source table has hundreds of records: the consumer
+     can render the first 100 options while later pages stream in. */
   useEffect(function() {
     if (result.status !== "success") return;
     if (pageCount <= publishedPageCount.current) return;
@@ -233,6 +236,8 @@ The `tick` state forces re-renders on every event/poll, so consumers naturally p
 
 ## Advanced Patterns
 
+These patterns were hardened in production on real features where the main block needed filtered, enriched data across multiple dimensions with live preview. Apply them whenever a helper serves more than a simple picker.
+
 ### Publishing Rich Filter Options
 
 When the consumer needs dynamic filter UIs, have the helper compute options inside its `useMemo` and publish as a separate global:
@@ -263,6 +268,8 @@ Switch to `return null` only after the feature is stable in production.
 
 Dispatch `_progress` on every paginated update AND `_ready` once when all pages are loaded. Consumers that need progressive data listen to both; consumers that need complete data listen only to `_ready`.
 
+The `detail.complete` flag in `_progress` events lets consumers show a loading indicator while pages are still streaming, then switch to a final state when `complete === true`.
+
 ### Block Ordering Matters
 
 If helper B depends on helper A's globals, helper A MUST be placed **above** helper B in Softr's page block order. Softr renders blocks top-to-bottom. A lower-ordered helper B will mount with A's globals still `undefined`, then catch up -- but this causes initial empty-state flashes.
@@ -279,6 +286,8 @@ When you change a helper's output shape (e.g., `advisorOffice` from array to str
 
 1. Document the published shape as a comment at the top of the helper file and update all consumers in the same commit.
 2. Version the namespace (`__myapp_projects_v2`) -- old consumers keep reading v1 until migrated.
+
+Defensive consumers can use `Array.isArray(x) ? x.map(...) : x` when shape might vary, but don't lean on this -- it hides bugs.
 
 ### useState, Not useRef, for IDs Consumed by useMemo
 
