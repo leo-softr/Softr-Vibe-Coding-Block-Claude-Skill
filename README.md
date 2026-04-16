@@ -3,7 +3,7 @@
 > Turn Claude into a Softr Vibe Coding expert — generate production-ready JSX blocks with polished UI, correct data fetching, and all 14 Softr data sources supported out of the box.
 
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue)
-![Version](https://img.shields.io/badge/version-1.0.0-green)
+![Version](https://img.shields.io/badge/version-1.1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 > **UNOFFICIAL** — This is a community-maintained Claude skill. It is not affiliated with, endorsed by, or officially supported by Softr. Use as-is.
