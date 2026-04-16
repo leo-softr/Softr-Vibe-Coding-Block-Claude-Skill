@@ -115,6 +115,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 |---|---|
 | Cross-block communication, multi-table data access, invisible helper blocks, window globals, breadcrumbs | [references/helper-blocks.md](references/helper-blocks.md) |
 | Embedding third-party libraries with their own CSS (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar) | [references/advanced-integrations.md](references/advanced-integrations.md) |
+| Debugging a broken block, checking patterns before delivery, full violation catalog | [references/anti-patterns.md](references/anti-patterns.md) |
 
 ## Code Structure
 
@@ -312,33 +313,7 @@ Non-negotiable rules enforced by the Softr platform:
 
 ## Anti-Patterns Checklist
 
-| Anti-Pattern | Correct Approach |
-|---|---|
-| `useRecords()` bare hook | `useRecords({ select, count: 25 })` |
-| `records.map(...)` on raw hook | `data.pages.flatMap(function(p) { return p.items; })` |
-| `record.fields["Field Name"]` | `record.fields.alias` via `q.select()` mapping |
-| `import React from 'react'` | Named imports only |
-| `.mutate({ id: ... })` | `.mutate({ recordId: ... })` — `id` causes 404 |
-| `deleteRecord.mutate({ id: r.id })` | `deleteRecord.mutate(r.id)` — just the string |
-| Not calling `refetch()` after mutations | Always `refetch()` in `onSuccess` |
-| Including formulas in create/update | Only writable fields |
-| Linked record as plain string | Must be `[{ id: "..." }]` array |
-| `field.toLowerCase()` on selects | `getFieldValue(field).toLowerCase()` |
-| Named export | `export default function Block()` |
-| `item.fields.formula === true` | Formula booleans: `=== "1"` |
-| `currentUser.role` for tiers | `window.__softr_current_user.userGroups` |
-| `useLinkedRecords({ fieldId })` | `useLinkedRecords({ select, field: "alias" })` |
-| `opt.label` on linked records | `opt.title` -- shape is `{ id, title }` |
-| `var { mutateAsync } = useRecordUpdate({...})` | `var updateRecord = useRecordUpdate({...})` -- keep full object for `.enabled`, `.status`, `.reset()` |
-| Hook declared after conditional `return` | All hooks at top before any conditional `return` -- React error #310 |
-| `fetchNextPage()` in render body | Inside `useEffect` only -- in render = infinite loop |
-| `useRef` for IDs used in `useMemo` | `useState` -- ref mutations don't trigger recomputation |
-| Hardcoded domain in navigation | Relative paths: `/task-details?recordId=...` |
-| Emojis in UI | lucide-react icons only |
-| `[&_svg]:opacity-0` on SelectTrigger | `<style>` + `data-fix-chevron` attribute (Softr bundler limitation) |
-| `useRecords` with REST API source | Use `useProxyFetch` + `useQuery` |
-| `q.select()` for REST API fields | Access raw API response directly |
-| Hardcoding API keys for connected API | Use `useProxyFetch` — key stays server-side |
+Before delivering any block, run through [references/anti-patterns.md](references/anti-patterns.md) — a categorized catalog of every violation observed in production (data access, mutations, hooks, layout, helper blocks).
 
 ## Code Quality Guidelines
 

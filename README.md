@@ -126,10 +126,9 @@ Create a contact form that creates records in our Airtable Contacts table
 
 ```
 softr-vibe-coding/
-├── SKILL.md                          # Main skill (355 lines)
+├── SKILL.md                          # Main skill (330 lines)
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 20 hard constraints,
-│                                     # 25-row anti-patterns checklist
+│                                     # components, settings, 20 hard constraints
 │
 ├── ui-ux-guidelines.md               # Design reference (746 lines)
 │                                     # 26 sections: hierarchy, color, typography,
@@ -140,13 +139,21 @@ softr-vibe-coding/
 │   │                                 # Invisible helper blocks, window globals,
 │   │                                 # CustomEvent, useWindowData hook, breadcrumbs,
 │   │                                 # saved views, companion field helpers
-│   └── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
-│                                     # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
+│   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
+│   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
+│   └── anti-patterns.md              # Categorized violation catalog (69 lines)
+│                                     # Data access, mutations, hooks, layout,
+│                                     # permissions, helper blocks
 │
 └── datasources/                      # Data source guides (loaded on demand)
     ├── overview.md                   # Comparison matrix, selection guide
-    ├── shared-patterns.md            # useRecords, mutations, uploads, metrics,
-    │                                 # charts, getFieldValue(), debug utilities
+    ├── shared-patterns.md            # Index → reading, writing, fields
+    ├── reading.md                    # useRecords, filtering, sorting, pagination,
+    │                                 # metrics, charts, current user (198 lines)
+    ├── writing.md                    # Mutations, uploads, linked record format,
+    │                                 # cross-table REST API writes (146 lines)
+    ├── fields.md                     # getFieldValue(), field type shapes, record
+    │                                 # structure, debug utilities (160 lines)
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
@@ -165,7 +172,7 @@ softr-vibe-coding/
 
 ### How context loading works
 
-Only `SKILL.md` loads into Claude's context when the skill triggers (~355 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 20 files totaling 2,800+ lines.
+Only `SKILL.md` loads into Claude's context when the skill triggers (~330 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 23 files totaling 2,900+ lines.
 
 ---
 

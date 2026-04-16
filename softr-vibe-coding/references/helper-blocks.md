@@ -25,11 +25,11 @@ A Vibe Coding block can only connect to **one source table**. When your main blo
 Key rules:
 - The helper block must be on the **same Softr page** as the consumer -- `window` is page-scoped, globals don't cross pages.
 - **One helper block per foreign table.** Multiple helpers with distinct namespaces coexist fine on the same page.
-- **Read-only pattern.** Helpers expose foreign table data for lookups, pickers, and display only. Writes still happen from the main block via its own `useRecordUpdate` / `useRecordCreate`. If the main block needs to write to the helper's table, use a webhook or the Softr Database REST API (see [shared-patterns.md Cross-Table Operations](../datasources/shared-patterns.md#cross-table-operations)), not the helper.
+- **Read-only pattern.** Helpers expose foreign table data for lookups, pickers, and display only. Writes still happen from the main block via its own `useRecordUpdate` / `useRecordCreate`. If the main block needs to write to the helper's table, use a webhook or the Softr Database REST API (see [writing.md Cross-Table Operations](../datasources/writing.md#cross-table-operations)), not the helper.
 
 ## Companion Field Helpers
 
-The main `getFieldValue()` function lives in [shared-patterns.md](../datasources/shared-patterns.md). These companion helpers handle specific shapes needed for helper block consumers:
+The main `getFieldValue()` function lives in [fields.md](../datasources/fields.md). These companion helpers handle specific shapes needed for helper block consumers:
 
 ```jsx
 /* For multi-value linked records / multi-selects when you need an array */
