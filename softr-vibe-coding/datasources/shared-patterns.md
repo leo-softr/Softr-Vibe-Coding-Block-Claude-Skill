@@ -406,9 +406,11 @@ Notes:
 
 ## Debug Utilities
 
+Two throwaway diagnostic blocks you can drop into a page to diagnose data problems. Neither is meant for production -- delete or hide them once the issue is resolved. During development, drop them on a `/debug` page that's only visible to admins, or on a hidden page you navigate to manually.
+
 ### Field Inspector Block
 
-Paste this into a Vibe Coding block to see raw field structure from any `useRecords`-compatible data source:
+Use when records load but all fields come back empty, or when you're not sure which Field IDs exist on a Softr Database table. Dumps the first 2 raw records as JSON so you can see exactly what the datasource is returning and build the real `q.select()` mapping with confidence.
 
 ```jsx
 import { useRecords, q } from "@/lib/datasource";
@@ -460,6 +462,8 @@ export default function Block() {
 ```
 
 ### User Inspector Block
+
+Use when debugging permissions, user groups, or the `useCurrentUser()` vs `window.__softr_current_user` distinction. Renders both side-by-side as JSON. This catches a common surprise: `userGroups` only lives on the `window.__softr_current_user` object, not on `useCurrentUser()`.
 
 ```jsx
 import { useCurrentUser } from "@/lib/user";
