@@ -276,6 +276,17 @@ Apply `getFieldValue()` everywhere you read fields:
 - Date parsing: `new Date(getFieldValue(f.dueDate))` -- raw value might be `{label: "2025-12-01"}`
 - Number parsing: `parseInt(getFieldValue(f.count), 10)` -- formula numbers come back as objects
 - String methods: `getFieldValue(f.status).toLowerCase()`
+- Inside `useMemo` normalizers, BEFORE storing into state -- prevents the object from propagating
+
+### Debugging error #31
+
+If React crashes with error #31 ("Objects are not valid as a React child"), open console on the first record that crashes and run:
+
+```js
+JSON.stringify(record.fields, null, 2).slice(0, 1000)
+```
+
+You'll see exactly which field is an object. Add `getFieldValue()` around it.
 
 For companion helpers (`getLinkedNames`, `getLinkedItems`) used in helper block consumers, see [../references/helper-blocks.md](../references/helper-blocks.md).
 
