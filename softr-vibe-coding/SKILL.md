@@ -12,7 +12,7 @@ when_to_use: >
   "vibe code this", "custom block for Softr", "JSX component for Softr app",
   "create a form block", "build a list view", "make a portal page",
   "Softr custom component", "vibe coding block".
-effort: high
+effort: max
 allowed-tools: Read Write Glob Grep Bash
 ---
 
