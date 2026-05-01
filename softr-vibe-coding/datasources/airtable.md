@@ -25,6 +25,25 @@ q.select({ name: "fldqSabBeD6RkpTtp" })
 
 Column names are case-sensitive and must match the Airtable header exactly.
 
+**Verified by direct experiment, May 2026:** aliases mapped to `fld...` IDs are silently omitted from the record's `fields` object -- only column-name aliases populate. Airtable's native API supports both formats; Softr's wrapper restricts to names.
+
+### Maintainability gotcha
+
+Renaming a column in Airtable breaks the block **silently**. The alias just stops resolving -- no error, no warning, the field becomes `undefined`. Three mitigations, in order of effort:
+
+1. **Document the field ID alongside the name** in `q.select()` comments. A grep for the field ID then finds every block affected by a rename:
+
+   ```jsx
+   var select = q.select({
+     firstName: "First Name",  // fld6vaQi4ZHxxwP0y
+     lastName: "Last Name",    // fldIQDfFXwBvtSCQp
+   });
+   ```
+
+2. **Centralize `q.select()` mappings** in a single helper block (see [references/helper-blocks.md](../references/helper-blocks.md)). One rename then touches one file rather than every block that reads the table.
+
+3. **Avoid renaming columns mid-project** -- use Airtable's Description field for clarification instead.
+
 ## Supported Fields
 
 | Field Type           | Writable  | Notes |
