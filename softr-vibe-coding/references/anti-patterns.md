@@ -25,6 +25,8 @@ Run through this catalog before delivering any block. Every row is a violation o
 | Not calling `refetch()` after mutations | Always `refetch()` in `onSuccess` |
 | Including formulas in create/update | Only writable fields |
 | Linked record as plain string | Must be `[{ id: "..." }]` array |
+| Writing dropdown values as `{ id, label }` objects (the read shape) | Write the option UUID as a plain string -- e.g. `status: "822b8d69-..."`, not `status: { id: "...", label: "..." }` |
+| Treating Studio's Actions tab as a separately-managed configuration to keep in sync with code | Actions auto-derive from your `useRecordCreate`/`useRecordUpdate`/`useRecordDelete` + `q.select` on every save. The Actions tab is a read-only inspector; there is no manual delete control. To change an Action, change the code |
 
 ## Field Values
 

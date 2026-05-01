@@ -4,10 +4,32 @@ Record mutations, file uploads, linked record format, and cross-table operations
 
 ## Table of Contents
 
+- [How Actions Work (Studio's Actions Tab)](#how-actions-work-studios-actions-tab)
 - [Record Mutations](#record-mutations)
 - [File Uploads](#file-uploads)
 - [Linked Record Format for Mutations](#linked-record-format-for-mutations)
+- [Writing to Field Types](#writing-to-field-types)
 - [Cross-Table Operations](#cross-table-operations)
+
+## How Actions Work (Studio's Actions Tab)
+
+Every Vibe Coding block in Softr Studio has an **Actions tab** alongside Chat / Source / Content / Visibility. The Actions tab is a **read-only inspector** of the Create / Update / Delete operations the platform inferred from your code.
+
+Each Action's "FIELDS USED" list mirrors the aliases in your `q.select()` mapping. Actions are not a separately-managed system:
+
+- The platform parses your block's source on every save
+- For each `useRecordCreate` / `useRecordUpdate` / `useRecordDelete` hook, it auto-derives a corresponding Action
+- The fields list comes from your `q.select` aliases used in the mutation payload
+- Cosmetic AND structural code edits both update the Action automatically -- you do NOT need to re-prompt the AI assistant after editing code
+- There is no manual delete control; to remove an Action, remove the mutation hook from the code
+
+The `enabled` boolean on a mutation hook reflects whether the Action was successfully derived. If `enabled` is false, the most likely causes are:
+
+- The hook is declared after a conditional `return`, so it doesn't run on every render
+- `q.select` is built dynamically rather than from string-literal mappings
+- The block hasn't been connected to a data source yet
+
+Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
 
 ## Record Mutations
 
@@ -126,6 +148,43 @@ createRecord.mutate({
 parentAccount: "RECORD_ID_1"           // Won't work
 teamMembers: ["MEMBER_1"]              // Won't work
 ```
+
+## Writing to Field Types
+
+Different Softr field types accept different value shapes in mutation payloads. The shape returned when you READ a field is often different from the shape you must SEND when you WRITE.
+
+### Dropdown / Single Select (Softr Database)
+
+Write the option's UUID as a **plain string**, not an object:
+
+```jsx
+// CORRECT -- plain string UUID
+createRecord.mutate({
+  status: "822b8d69-3af4-47b4-90eb-3a80c5d1b85c",
+});
+
+// WRONG -- object form (returned on read, but rejected on write)
+createRecord.mutate({
+  status: { id: "822b8d69-3af4-47b4-90eb-3a80c5d1b85c", label: "Active" },
+});
+
+// WRONG -- display label
+createRecord.mutate({
+  status: "Active",
+});
+```
+
+Option UUIDs are stable. Hardcode them in `<SelectItem value="...">` (Softr's AI assistant in Studio does this automatically when scaffolding a form) or learn them at runtime from already-loaded records.
+
+Verified by direct experiment (April 2026) for `useRecordCreate`. The same pattern is expected to apply to `useRecordUpdate` but has not been independently verified.
+
+### Linked Record
+
+Array of `{ id }` objects. See "Linked Record Format for Mutations" above.
+
+### Text / Email / URL / Phone
+
+Plain string. To clear a value, prefer empty string `""`. Whether `null` is also accepted depends on the specific field type and has not been verified across all of them.
 
 ## Cross-Table Operations
 
