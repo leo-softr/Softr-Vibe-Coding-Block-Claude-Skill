@@ -109,9 +109,17 @@ export default function Block() {
 
 **For Softr Database, find field IDs via:**
 
-1. **Studio's Data tab** -- click into the table, click any column header. The field ID is shown in the column metadata panel. Fastest method, no code needed.
+1. **Inline in Studio (one field at a time)** -- in the Data tab, click a field's name to open its edit drawer. The field ID appears next to the "Field name" label (e.g. `ID: 37fts`). Fastest for spot-checking a single field.
 
-2. **Softr Database REST API with `fieldNames=true`** -- for runtime inspection (internal-portal blocks only, since this exposes a PAT in client code):
+2. **Network inspector (full schema in one shot)** -- in Studio's Data tab with browser DevTools open, filter Network requests by `tablespace-with-tables`. The Response JSON contains every table's complete schema, including:
+   - Each field's `id`, `name`, `type`, and `options`
+   - For dropdown / SELECT fields: the full `choices` array with every option's `id` (UUID), `label`, and `color`
+
+   Use this when scaffolding a block that needs many field IDs at once, or to look up dropdown option UUIDs needed for write payloads.
+
+   **Recommended for AI-assisted workflows:** when collaborating with an AI assistant (Claude, Cursor, ChatGPT, etc.) to write a Vibe Coding block, paste this JSON response into the chat. It is the most reliable way to share accurate field IDs and dropdown UUIDs -- it eliminates transcription errors and gives the AI everything it needs in one shot (field IDs, types, options, dropdown choices). Always prefer this over verbally describing fields or naming them by display label.
+
+3. **Softr Database REST API with `fieldNames=true`** -- runtime inspection from inside a Vibe Coding block (internal-portal blocks only, since this exposes a PAT in client code):
 
 ```jsx
 import { useEffect, useState } from "react";

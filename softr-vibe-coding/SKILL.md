@@ -52,7 +52,9 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
 When the user describes their block, figure out which of these areas apply and ask about anything you're missing:
 
 - **Data source type**: Is it Airtable, Softr Database, REST API, or another source? This determines the data fetching approach. **Load the relevant data source guide** from the [datasources/](datasources/) directory before writing code.
-- **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs, suggest the Field Inspector block.
+- **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs:
+  - For **Softr Database**, ask the user to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab). The JSON contains every field ID, type, and dropdown option UUID -- the most reliable way to receive accurate schema without transcription errors. See [datasources/fields.md](datasources/fields.md#field-inspector-block).
+  - For **Airtable** and other sources where empty `q.select({})` works, suggest the Field Inspector block.
 - **Brand colors**: Ask for hex values. If none provided, default to **Softr's brand palette**:
 
   | Color | Hex | Name | Use |

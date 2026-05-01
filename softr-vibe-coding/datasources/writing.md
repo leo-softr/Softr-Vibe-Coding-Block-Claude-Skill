@@ -176,7 +176,11 @@ createRecord.mutate({
 });
 ```
 
-Option UUIDs are stable. Hardcode them in `<SelectItem value="...">` (Softr's AI assistant in Studio does this automatically when scaffolding a form) or learn them at runtime from already-loaded records.
+Option UUIDs are stable. Three ways to retrieve them:
+
+- **AI scaffolding** -- Softr's AI assistant in Studio inlines them automatically into `<SelectItem value="...">` when generating a form
+- **Network inspector** -- DevTools -> Network -> filter `tablespace-with-tables` returns the full `choices` array for any SELECT field (see [fields.md](fields.md#field-inspector-block) for the full technique). Pasting this JSON into an AI assistant chat is the most reliable way to share UUIDs without transcription errors.
+- **Runtime scan** -- learn them at runtime from already-loaded records (useful when the block must work in environments where UUIDs are not known at code time)
 
 Verified by direct experiment (April 2026) for `useRecordCreate`. The same pattern is expected to apply to `useRecordUpdate` but has not been independently verified.
 

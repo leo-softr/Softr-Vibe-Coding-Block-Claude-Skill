@@ -17,7 +17,7 @@ q.select({ name: "xgETy" })
 q.select({ name: "First Name" })
 ```
 
-Find field IDs in Studio's Data tab (click into the table, click any column header — the field ID is shown in the column metadata panel). The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database; see [fields.md](fields.md#field-inspector-block) for Softr-DB-specific alternatives.
+Find field IDs by clicking a field's name in the Data tab (the ID is shown in the field-edit drawer), or via the network inspector technique (DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs). The network inspector method is recommended when working with an AI assistant -- pasting that JSON into the chat eliminates transcription errors. See [fields.md](fields.md#field-inspector-block) for both approaches plus a runtime REST API method. The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database.
 
 ## Supported Fields
 
