@@ -31,6 +31,8 @@ The `enabled` boolean on a mutation hook reflects whether the Action was success
 
 Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
 
+Because the parser only inspects your hooks and `q.select` mappings (not the JSX tree), inputs rendered conditionally inside `<Dialog>`, `<Sheet>`, or any subtree gated by state are still bound to the Action correctly. Verified by direct experiment, May 2026.
+
 ## Record Mutations
 
 All mutation hooks expose an `enabled` boolean. You must check it before rendering any mutation UI or calling the mutate function.
@@ -184,7 +186,7 @@ Array of `{ id }` objects. See "Linked Record Format for Mutations" above.
 
 ### Text / Email / URL / Phone
 
-Plain string. To clear a value, prefer empty string `""`. Whether `null` is also accepted depends on the specific field type and has not been verified across all of them.
+Plain string. To clear a value, both `null` and `""` work for Softr Database text fields (verified by direct experiment, May 2026, for `useRecordUpdate`). Behavior on other data sources has not been independently verified.
 
 ## Cross-Table Operations
 
