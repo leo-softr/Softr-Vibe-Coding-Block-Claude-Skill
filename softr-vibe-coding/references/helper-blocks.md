@@ -11,6 +11,7 @@ Cross-block communication via `window` globals, the invisible helper block patte
 - [Publisher Template](#publisher-template)
 - [Consumer Pattern](#consumer-pattern)
 - [useWindowData Custom Hook](#usewindowdata-custom-hook)
+- [Triggering Actions in Other Blocks (Bi-Directional Events)](#triggering-actions-in-other-blocks-bi-directional-events)
 - [Advanced Patterns](#advanced-patterns)
 - [Anti-Patterns](#anti-patterns)
 
@@ -233,6 +234,48 @@ function useWindowData() {
 ```
 
 The `tick` state forces re-renders on every event/poll, so consumers naturally pick up new data without managing local state of the globals.
+
+## Triggering Actions in Other Blocks (Bi-Directional Events)
+
+The publisher / consumer pattern above describes one direction of cross-block communication: a helper block fetches data and consumers read it. The same `window.dispatchEvent` + `addEventListener` mechanism also supports the reverse -- any block triggering UI behavior in any other block on the same page.
+
+Use this when one block needs to open an editor, refresh a sibling, or otherwise control state in a different block. Example: a list block dispatches an event when the user clicks "Edit", and a separate editor block listens and opens with the right record loaded.
+
+### Block A -- dispatch the event
+
+```jsx
+function handleEditClick(participantId) {
+  window.dispatchEvent(new CustomEvent("myapp_participant_open", {
+    detail: { id: participantId },
+  }));
+}
+```
+
+### Block B -- listen and react
+
+```jsx
+var [editingId, setEditingId] = useState(null);
+
+useEffect(function() {
+  function onOpen(e) {
+    setEditingId(e.detail.id);
+  }
+  window.addEventListener("myapp_participant_open", onOpen);
+  return function() {
+    window.removeEventListener("myapp_participant_open", onOpen);
+  };
+}, []);
+```
+
+### Naming convention
+
+`<app>_<entity>_<verb>` -- e.g. `myapp_participant_open`, `myapp_invoice_refresh`, `myapp_filter_reset`. The `detail` payload should include only what the listener needs (typically a record ID).
+
+### Constraints (same as helper blocks)
+
+- Both blocks must live on the **same Softr page** -- `window` events do not cross pages.
+- The dispatcher block must be mounted before the listener is invoked, or the listener simply doesn't hear early dispatches. If the dispatch could happen on initial page load, the listener should also check `window` for a "last value" published by the dispatcher (similar to how the consumer pattern reads from a global) so it can recover state on mount.
+- This pattern is for triggering UI actions, not for shared data. For shared data across blocks, use the helper block publisher / consumer pattern above.
 
 ## Advanced Patterns
 
