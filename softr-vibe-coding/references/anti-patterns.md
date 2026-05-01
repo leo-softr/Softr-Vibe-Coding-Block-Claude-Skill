@@ -14,6 +14,7 @@ Run through this catalog before delivering any block. Every row is a violation o
 | `useRecords` with REST API source | Use `useProxyFetch` + `useQuery` |
 | `q.select()` for REST API fields | Access raw API response directly |
 | Hardcoding API keys for connected API | Use `useProxyFetch` -- key stays server-side |
+| Using `q.select({})` to dump all fields on Softr Database | Returns record IDs with empty `fields: {}`. Look up field IDs in Studio's Data tab, or use the Softr DB REST API with `fieldNames=true` |
 
 ## Mutations
 

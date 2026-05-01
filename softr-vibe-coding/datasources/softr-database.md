@@ -17,7 +17,7 @@ q.select({ name: "xgETy" })
 q.select({ name: "First Name" })
 ```
 
-Use the Field Inspector block to determine the exact field IDs for your Softr Database tables.
+Find field IDs in Studio's Data tab (click into the table, click any column header — the field ID is shown in the column metadata panel). The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database; see [fields.md](fields.md#field-inspector-block) for Softr-DB-specific alternatives.
 
 ## Supported Fields
 

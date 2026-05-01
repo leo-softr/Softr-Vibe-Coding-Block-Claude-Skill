@@ -82,7 +82,11 @@ Two throwaway diagnostic blocks you can drop into a page to diagnose data proble
 
 ### Field Inspector Block
 
-Use when records load but all fields come back empty, or when you're not sure which Field IDs exist on a Softr Database table. Dumps the first 2 raw records as JSON so you can see exactly what the datasource is returning and build the real `q.select()` mapping with confidence.
+Use when records load but fields come back empty, or when you're not sure which Field IDs exist on a table.
+
+**Important caveat for Softr Database:** `q.select({})` returns record IDs with empty `fields: {}` -- it does NOT dump all fields. Verified by direct experiment, April 2026. Use one of the alternatives below for Softr DB. The empty-select pattern still works for Airtable and other sources where field IDs come back automatically.
+
+For Airtable and other non-Softr-DB sources:
 
 ```jsx
 import { useRecords, q } from "@/lib/datasource";
@@ -102,6 +106,37 @@ export default function Block() {
   );
 }
 ```
+
+**For Softr Database, find field IDs via:**
+
+1. **Studio's Data tab** -- click into the table, click any column header. The field ID is shown in the column metadata panel. Fastest method, no code needed.
+
+2. **Softr Database REST API with `fieldNames=true`** -- for runtime inspection (internal-portal blocks only, since this exposes a PAT in client code):
+
+```jsx
+import { useEffect, useState } from "react";
+export default function Block() {
+  var [data, setData] = useState(null);
+  useEffect(function() {
+    var url = "https://tables-api.softr.io/api/v1/databases/<DB_ID>/tables/<TABLE_ID>/records?limit=3&fieldNames=true";
+    fetch(url, { headers: { "Softr-Api-Key": "<PAT>" } })
+      .then(function(res) { return res.json(); })
+      .then(function(json) { setData(json); });
+  }, []);
+  if (!data) return <div className="container py-6"><div className="content"><p>Loading...</p></div></div>;
+  return (
+    <div className="container py-6">
+      <div className="content">
+        <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+```
+
+This calls the Softr Database REST API with `?fieldNames=true`, which returns records keyed by human-readable field names so you can map them back to IDs. See [writing.md Cross-Table Operations](writing.md#cross-table-operations) for more on this REST API.
 
 ### API Response Inspector Block
 
