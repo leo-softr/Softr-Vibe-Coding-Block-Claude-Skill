@@ -209,3 +209,5 @@ Notes:
 - When updating linked records or multi-selects, read existing values first, merge, then write
 - Use `fieldNames=true` on GET for human-readable field names
 - Rate limits: Reads 40 req/s, Writes 30 req/s
+
+Verified by direct experiment (May 2026): POST to this endpoint with field IDs as keys writes successfully, returning HTTP 200 and the full record JSON. The endpoint uses the same field-ID format and the same value shapes as `useRecordCreate` -- plain string UUID for dropdown writes; the response returns the dropdown value as a `{id, label}` object (matching the read shape).
