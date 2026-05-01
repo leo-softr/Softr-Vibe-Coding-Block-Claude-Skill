@@ -57,6 +57,12 @@ Run through this catalog before delivering any block. Every row is a violation o
 |---|---|
 | `currentUser.role` for tiers | `window.__softr_current_user.userGroups` |
 
+## Editable Settings
+
+| Anti-Pattern | Correct Approach |
+|---|---|
+| `useNavigationSetting` with `openIn: "SAME_TAB"` / `"NEW_TAB"` / any other string | `openIn` must be exactly `"SELF"`, `"TAB"`, or `"MODAL"` -- Softr's setting validator rejects unknown values at save time with: *"The 'initialValue.openIn' property in the 'navigation' setting must be \"SELF\", \"TAB\", or \"MODAL\" if provided"* |
+
 ## Helper Blocks
 
 | Anti-Pattern | Correct Approach |

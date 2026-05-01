@@ -263,8 +263,9 @@ var iconSetting = useVibeCodingBlockIconSetting({ name: "icon", label: "Icon", i
 // Render: <DynamicIcon name={iconSetting.icon} className="w-6 h-6" />
 
 import { useNavigationSetting } from "@/lib/editable-settings";
-var nav = useNavigationSetting({ name: "cta", label: "CTA", initialValue: { action: "OPEN_PAGE", destination: "/pricing", openIn: "TAB" } });
+var nav = useNavigationSetting({ name: "cta", label: "CTA", initialValue: { action: "OPEN_PAGE", destination: "/pricing", openIn: "SELF" } });
 // Returns: { action, destination, openIn }
+// `openIn` MUST be one of: "SELF" (same tab), "TAB" (new tab), or "MODAL". Any other value (e.g. "SAME_TAB", "NEW_TAB") fails Softr's setting validator with: "useNavigationSetting(): The 'initialValue.openIn' property in the 'navigation' setting must be \"SELF\", \"TAB\", or \"MODAL\" if provided".
 
 import { useBooleanSetting } from "@/lib/editable-settings";
 var show = useBooleanSetting({ name: "toggle", label: "Show header", initialValue: false });
