@@ -22,18 +22,44 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
 
 ## Your Workflow
 
-1. **Understand what the user wants to build.** They will describe it in plain language. Only ask about things you genuinely cannot infer: **data source type** and **field IDs**. For everything else, make sensible defaults and flag your assumptions.
+1. **Detect the brand source (always run first, before any block work).** Check if a `./DESIGN.md` file exists in the project folder you're about to work in.
 
-2. **Apply defaults, don't ask.** Infer these from context instead of asking:
+   - **If `./DESIGN.md` is found:** Read its frontmatter and confirm with the user:
+
+     > "I found a DESIGN.md in this project (brand: `<name>`, source: `<source>`, extracted: `<date>`). Use its brand tokens for this block?
+     > 1. Yes — use this DESIGN.md
+     > 2. No — use the default Softr style instead
+     > 3. No — I'll paste a different brand override"
+
+     If (1), load every relevant section: `colors`, `typography`, `rounded`, `elevation`, `components`, and especially the `Application Patterns` scaffold. Apply those tokens throughout the block. Honour the `tech_stack` block — it may pin specific shadcn variants or note bundler quirks.
+
+     If (2), proceed with the default Softr style (see Step 3).
+
+     If (3), accept the override and apply it.
+
+   - **If `./DESIGN.md` is NOT found:** Tell the user:
+
+     > "No DESIGN.md found in this project. Three options:
+     > A. **Set up a brand foundation first** — run `building-design-md` to extract brand tokens from the client's website or a brand guide, then come back here. (Recommended for client work.)
+     > B. **Quick brand override** — paste the brand's primary color, accent color, and font name now. I'll apply just those.
+     > C. **Use the default Softr style** — primary `#386AF5`, accent `#FCB500`, Inter font."
+
+     Wait for their pick. If (A), end the skill — the user will run `building-design-md` and then re-invoke this skill. If (B) or (C), record their choice for Step 3 and continue.
+
+   Do not silently default to Softr's brand. The user must opt in to defaults explicitly.
+
+2. **Understand what the user wants to build.** They will describe it in plain language. Only ask about things you genuinely cannot infer: **data source type** and **field IDs**. For everything else, make sensible defaults and flag your assumptions.
+
+3. **Apply defaults for the rest, don't ask.** Infer these from context instead of asking:
    - **Project folder**: Derive from the block description (e.g., "partner-portal", "client-dashboard"). If the user has already specified a folder in this session, reuse it.
-   - **Brand colors**: Apply the default premium theme — primary `#386AF5`, accent `#FCB500` — unless the user provides alternatives. Mention you're using defaults.
+   - **Brand colors**: Use whatever was chosen in Step 1 — DESIGN.md tokens, the user's override, or the default Softr palette (primary `#386AF5`, accent `#FCB500`). Never silently fall back to defaults.
    - **Filename**: Derive from the block purpose (e.g., `partner-invite.jsx`, `team-directory.jsx`). The user can rename later.
 
-3. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type.
+4. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type.
 
-4. **Write the complete `.jsx` file** to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
+5. **Write the complete `.jsx` file** to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
 
-5. **Self-validate before delivering.** Before presenting the code as complete, verify:
+6. **Self-validate before delivering.** Before presenting the code as complete, verify:
    - No optional chaining (`?.`) or nullish coalescing (`??`)
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
@@ -55,17 +81,20 @@ When the user describes their block, figure out which of these areas apply and a
 - **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs:
   - For **Softr Database**, ask the user to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab). The JSON contains every field ID, type, and dropdown option UUID -- the most reliable way to receive accurate schema without transcription errors. See [datasources/fields.md](datasources/fields.md#field-inspector-block).
   - For **Airtable** and other sources where empty `q.select({})` works, suggest the Field Inspector block.
-- **Brand colors**: Ask for hex values. If none provided, default to **Softr's brand palette**:
+- **Brand colors**: Already resolved in Step 1 (Detect the brand source). Don't re-ask. The brand source is one of:
+  - **Project's `./DESIGN.md`** (recommended for client work — produced by the `building-design-md` skill)
+  - **User's quick override** (paste of primary + accent + font)
+  - **Default Softr palette** (only when the user explicitly opted in — never as a silent fallback):
 
-  | Color | Hex | Name | Use |
-  |---|---|---|---|
-  | Primary | `#386AF5` | Mariner (blue) | CTAs, links, active states |
-  | Accent | `#FCB500` | Yellow Sea | Highlights, badges, sparkle accents |
-  | Destructive | `#F53878` | Cabaret (pink) | Errors, destructive actions, required markers |
-  | Text | `#030712` | Revolver (near-black) | Body text, headings |
-  | Background | `#FFFFFF` | White | Page and card backgrounds |
+    | Color | Hex | Name | Use |
+    |---|---|---|---|
+    | Primary | `#386AF5` | Mariner (blue) | CTAs, links, active states |
+    | Accent | `#FCB500` | Yellow Sea | Highlights, badges, sparkle accents |
+    | Destructive | `#F53878` | Cabaret (pink) | Errors, destructive actions, required markers |
+    | Text | `#030712` | Revolver (near-black) | Body text, headings |
+    | Background | `#FFFFFF` | White | Page and card backgrounds |
 
-  Softr logo assets (for blocks that need branding):
+  Softr logo assets (for blocks that need Softr branding):
   - Icon + wordmark (SVG): `https://cdn.brandfetch.io/idytCFzVcY/theme/dark/logo.svg`
   - Icon only (PNG): `https://cdn.brandfetch.io/idytCFzVcY/w/1024/h/1024/theme/dark/icon.png`
 - **Layout and style**: Cards vs. table vs. list? How many columns? Apply the Premium Visual Baseline regardless.
