@@ -27,34 +27,25 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 
 ## Installation
 
-### Option 1: Clone and copy (recommended)
+### Option 1: Clone directly into your Claude skills directory (recommended)
 
 ```bash
-# Clone the repo
-git clone https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill.git
-
-# Copy the skill to your Claude skills directory
-cp -r Softr-Vibe-Coding-Block-Claude-Skill/softr-vibe-coding ~/.claude/skills/softr-vibe-coding
+git clone https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill.git ~/.claude/skills/softr-vibe-coding
 ```
 
-### Option 2: Download just the skill folder
+### Option 2: Download the latest release as a tarball
 
 ```bash
-# Create the skill directory
 mkdir -p ~/.claude/skills/softr-vibe-coding
-
-# Download the skill files
 curl -L https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill/archive/refs/heads/main.tar.gz | \
-  tar -xz --strip-components=1 -C /tmp/softr-skill && \
-  cp -r /tmp/softr-skill/softr-vibe-coding/* ~/.claude/skills/softr-vibe-coding/ && \
-  rm -rf /tmp/softr-skill
+  tar -xz --strip-components=1 -C ~/.claude/skills/softr-vibe-coding
 ```
 
 ### Option 3: Manual download
 
 1. Download this repository as a ZIP from the green **Code** button above
 2. Extract the ZIP
-3. Copy the `softr-vibe-coding/` folder to `~/.claude/skills/`
+3. Rename the extracted folder to `softr-vibe-coding` and place it in `~/.claude/skills/`
 
 ### Verify installation
 
@@ -77,13 +68,12 @@ Build me a Softr Vibe Coding block that shows a team directory with cards
 To update the skill to the latest version:
 
 ```bash
-# If you cloned the repo
-cd Softr-Vibe-Coding-Block-Claude-Skill
+# If you used Option 1 (cloned into the skills directory)
+cd ~/.claude/skills/softr-vibe-coding
 git pull origin main
-cp -r softr-vibe-coding/* ~/.claude/skills/softr-vibe-coding/
 ```
 
-Or re-run any of the installation options above — they overwrite the existing files.
+Or re-run Option 2 — the tarball extraction overwrites the existing files.
 
 ---
 
