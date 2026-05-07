@@ -63,7 +63,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - No optional chaining (`?.`) or nullish coalescing (`??`)
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
-   - Container + content wrappers present (`<div className="container py-6"><div className="content">`)
+   - Container + content wrappers present (`<div className="container py-0"><div className="content">`)
+   - `// BLOCK PLACEMENT:` comment present at top of file with wrapper classes matching the placement (see "Block Placement & Page Spacing")
    - Loading, error, and empty states all handled
    - Mutation calls gated behind `enabled` check (if using mutations)
    - Field access uses `record.fields.alias` (not `record.alias`)
@@ -161,9 +162,11 @@ import { ... } from "@/lib/datasource";
 export default function Block() {
   // hooks, state, logic
   return (
-    <div className="container py-6">
+    <div className="container py-0">
       <div className="content">
-        {/* block content */}
+        <div className="py-3 px-8">
+          {/* block content — wrapper padding depends on placement; see "Block Placement & Page Spacing" */}
+        </div>
       </div>
     </div>
   );
@@ -173,6 +176,53 @@ export default function Block() {
 Always wrap the outermost layout in `container` and `content` divs — these constrain width to match the Softr app's max width settings.
 
 **Exception:** Blocks inside Softr column containers — omit wrappers so Softr controls layout.
+
+## Block Placement & Page Spacing
+
+Blocks rarely live alone — most Softr pages stack 2–4 blocks vertically, often between a header and a footer. Spacing must be set per-block based on **where the block sits on the page**, so adjacent blocks don't double up padding or leave inconsistent gaps.
+
+**General rule:** the inner wrapper (the `<div>` directly inside `<div className="content">`) owns all vertical spacing. The outer `container` is always `py-0`. Top and bottom padding on the wrapper change based on what's above and below the block (another block, a header, a footer, or nothing).
+
+**When generating a new block, if the placement is not clear from the user's description, ASK before writing code:**
+- Where will this block sit on the page? (top / middle / bottom / standalone)
+- Is there a Softr header immediately above this block?
+- Is there a Softr footer immediately below this block?
+- Is there a Back button at the top of this block?
+
+**Persist the answer as a grep-able comment at the top of the generated file** so future edits know the spacing assumptions and can be updated consistently:
+
+```jsx
+// BLOCK PLACEMENT: <position on page>, <header/footer adjacency>, <back button y/n>
+// Spacing: <wrapper classes; back-button container if present>
+```
+
+Example:
+
+```jsx
+// BLOCK PLACEMENT: first block on page, header-adjacent, has Back button
+// Spacing: wrapper py-3 px-8; back-button container mt-6 mb-4
+```
+
+The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped and updated when the block's surroundings change.
+
+### Spacing values (defaults)
+
+**Container** (always): `<div className="container py-0">`
+
+**Inner wrapper** classes by block position:
+
+| Position on page | Wrapper classes | Rationale |
+|---|---|---|
+| First block (header-adjacent) | `py-3 px-8` | 12px top + 12px bottom; lets the Softr header own its own spacing |
+| Middle block | `py-3 px-8` | 12px + Softr separator + 12px ≈ 24px between blocks |
+| Last block (footer-adjacent) | `pt-3 pb-12 px-8` | 12px top + 48px bottom for footer breathing room |
+| Standalone (only block on page) | `pt-3 pb-12 px-8` | Treat like a last block |
+
+**Back button** (when present at the top of a block — typically on detail pages): wrap in `<div className="mt-6 mb-4">`. The `mt-6` (24px) adds breathing room above the button independent of wrapper padding; `mb-4` (16px) sits between the button and the first card. Apply this regardless of whether the block is first or mid-page.
+
+**Within-block stacked cards**: each card uses `mb-6` (24px). **Do NOT add `mb-6` to the last card** in a block — the wrapper's bottom padding already handles that buffer. Doubling them produces 32–40px gaps that look bigger than the within-block rhythm.
+
+**Net page rhythm**: between-block gaps (12 + 12 = 24px) match within-block card gaps (`mb-6` = 24px), so the page reads as one consistent vertical rhythm.
 
 ## Premium Visual Baseline
 
@@ -328,7 +378,7 @@ Non-negotiable rules enforced by the Softr platform:
 6. **Array setting icon placement** — Never put `vibeCodingBlockIcon` as first field.
 7. **No nested arrays in settings** — Use text with separator, split in code.
 8. **Default export required** — `export default function Block()`.
-9. **Container wrapping** — Always wrap in `<div className="container py-6"><div className="content">`.
+9. **Container wrapping** — Always wrap in `<div className="container py-0"><div className="content">`. Vertical padding lives on the inner wrapper and depends on block placement (see "Block Placement & Page Spacing").
 10. **No optional chaining or nullish coalescing** — Softr's bundler fails on `?.` and `??`. Use:
     - `(user && user.email) || ""` instead of `user?.email ?? ""`
     - `(data && data.pages) ? data.pages.flatMap(function(p) { return p.items; }) : []`
