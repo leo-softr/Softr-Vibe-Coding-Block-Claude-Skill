@@ -54,6 +54,7 @@ Run through this catalog before delivering any block. Every row is a violation o
 | Hardcoded domain in navigation | Relative paths: `/task-details?recordId=...` |
 | Emojis in UI | lucide-react icons only |
 | `[&_svg]:opacity-0` on SelectTrigger | `<style>` + `data-fix-chevron` attribute (Softr bundler limitation) |
+| Relying on `custom-code-header.html` (Softr → Settings → Custom Code → Code inside header) to apply brand fonts/colors INSIDE a Vibe Coding block | Vibe Coding blocks render inside a shadow DOM. CSS custom properties (`--brand-*`) pierce that boundary, but `html, body { font-family: ... !important }` rules **do not** — `<html>` and `<body>` don't exist inside the shadow root. Apply brand fonts/colors at the block's **own outermost wrapper** via inline style: `style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: BRAND_INK }}` on the outer `<div>` so every descendant inherits brand defaults. Override per-element with explicit inline `fontFamily` (e.g., `"'Fraunces', Georgia, serif"` on h1/h2). Google `<link>` tags in the page head DO load `@font-face` globally — the fonts are available inside shadow DOM, they just need to be applied. |
 
 ## Permissions
 

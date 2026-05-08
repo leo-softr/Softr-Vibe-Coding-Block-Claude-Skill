@@ -71,6 +71,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - Every field rendered in JSX wrapped in `getFieldValue()` -- prevents React error #31
    - All hooks declared before any conditional `return` -- prevents React error #310
    - Sub-components (FieldLabel, TextInput, ChipButton, SectionCard, etc.) defined at **module scope**, NOT inside `Block()` -- prevents inputs losing focus after one keystroke (each render creates a new component identity, React unmounts/remounts the `<input>`)
+   - When a custom DESIGN.md is in use, brand `fontFamily` (and any non-inherited brand defaults) set as an **inline style on the block's outermost wrapper** `<div>`, not relied on from `custom-code-header.html` -- Vibe Coding blocks render inside a shadow DOM and `html, body` rules don't cross that boundary. Per-element overrides (e.g. Fraunces serif on h1) still set inline at the element.
    - `fetchNextPage` only inside `useEffect`, never in render body
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
    - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
