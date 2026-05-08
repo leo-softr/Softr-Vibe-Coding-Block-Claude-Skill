@@ -45,6 +45,7 @@ Run through this catalog before delivering any block. Every row is a violation o
 | Hook declared after conditional `return` | All hooks at top before any conditional `return` -- React error #310 |
 | `fetchNextPage()` in render body | Inside `useEffect` only -- in render = infinite loop |
 | `useRef` for IDs used in `useMemo` | `useState` -- ref mutations don't trigger recomputation |
+| Defining a sub-component INSIDE the `Block()` function body | Define ALL sub-components at MODULE scope (above `export default function Block()`). Sub-components defined inside `Block()` get a brand-new function reference on every render, which makes React unmount/remount their entire DOM subtree every time `Block` re-renders. The user-visible symptom: **inputs lose focus after typing one character** (because each keystroke triggers a `setState` -> re-render -> the `<input>` is destroyed and recreated). Move `function FieldLabel`, `function TextInput`, `function ChipButton`, `function SectionCard`, etc. above `export default function Block()` so React sees stable component identity across renders. Closure-captured `Block`-internal state must be passed as props, not closed over. |
 
 ## Layout & Styling
 

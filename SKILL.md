@@ -70,6 +70,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - Field access uses `record.fields.alias` (not `record.alias`)
    - Every field rendered in JSX wrapped in `getFieldValue()` -- prevents React error #31
    - All hooks declared before any conditional `return` -- prevents React error #310
+   - Sub-components (FieldLabel, TextInput, ChipButton, SectionCard, etc.) defined at **module scope**, NOT inside `Block()` -- prevents inputs losing focus after one keystroke (each render creates a new component identity, React unmounts/remounts the `<input>`)
    - `fetchNextPage` only inside `useEffect`, never in render body
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
    - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
