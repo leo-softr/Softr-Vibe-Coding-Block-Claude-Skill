@@ -68,12 +68,33 @@ var updateRecord = useRecordUpdate({
   onError: function(error) { toast.error(error.message); },
 });
 
-// Usage -- MUST use recordId, NOT id:
+// Usage -- MUST use recordId, NOT id, AND fields MUST be nested:
 updateRecord.mutate({
   recordId: "RECORD_ID",
   fields: { status: "active" },
 });
 ```
+
+#### CRITICAL: Payload must be `{ recordId, fields: {...} }` — not flat
+
+The mutate payload **must** wrap the field values inside a `fields: {...}` object. The flat form (`mutate({ recordId, status: "active" })`) can succeed at runtime for some sources, but Softr's **Action parser** only recognizes the nested shape. With a flat payload:
+
+- The Actions tab shows "No actions used in this block yet"
+- `updateRecord.enabled` stays `false` forever
+- The Save button / status chip / whatever-you-gated-on-`enabled` never lights up
+- No error, no warning — just a silently disabled mutation
+
+Symptoms in the field: a worker clicks Save, nothing happens, console shows `enabled: false, error: null, status: "idle"`. Every mutate call in the block must use the nested form, even when only writing a single field:
+
+```jsx
+// CORRECT
+updateRecord.mutate({ recordId: id, fields: { status: optionId } });
+
+// WRONG — Action parser ignores this, hook stays disabled
+updateRecord.mutate({ recordId: id, status: optionId });
+```
+
+Verified by direct experiment (May 2026): Softr's Studio AI assistant emits the nested form, and that's the only form that produces a derived Update Action.
 
 ### useRecordDelete
 

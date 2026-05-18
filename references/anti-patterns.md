@@ -21,6 +21,7 @@ Run through this catalog before delivering any block. Every row is a violation o
 | Anti-Pattern | Correct Approach |
 |---|---|
 | `.mutate({ id: ... })` | `.mutate({ recordId: ... })` -- `id` causes 404 |
+| `updateRecord.mutate({ recordId, status: "..." })` — flat payload | `updateRecord.mutate({ recordId, fields: { status: "..." } })` — fields **must** be nested. The flat form can run at runtime but Softr's Action parser doesn't see field references inside it, so the derived Update Action never gets created. The hook's `enabled` stays `false`, the Save button never lights up, the Actions tab in Studio shows "No actions used in this block yet" — all with no error, no warning. The symptom is a button that does nothing and a console log showing `enabled: false, error: null, status: "idle"`. Use the nested form for EVERY mutate call, even single-field updates. See [datasources/writing.md](../datasources/writing.md#critical-payload-must-be--recordid-fields------not-flat) |
 | `deleteRecord.mutate({ id: r.id })` | `deleteRecord.mutate(r.id)` -- just the string |
 | `var { mutateAsync } = useRecordUpdate({...})` | `var updateRecord = useRecordUpdate({...})` -- keep full object for `.enabled`, `.status`, `.reset()` |
 | Not calling `refetch()` after mutations | Always `refetch()` in `onSuccess` |
