@@ -116,6 +116,44 @@ for (let r of records) {
 
 The same 50-record cap applies to `createRecordsAsync`. `selectRecordsAsync` has no batch cap but loads the whole table — keep that in mind for large tables.
 
+### `updateRecordsAsync` rejects duplicate record IDs in a single batch
+
+If the same record ID appears twice in the array passed to `updateRecordsAsync`, Airtable rejects the ENTIRE call with:
+
+```
+Error: Record "recXXXXXXXXXXXXX" was specified twice in this request.
+```
+
+No records get updated — it's all-or-nothing per batch. The duplicate doesn't have to be in the same chunk of 50; any duplicate across the full payload triggers it.
+
+This is the typical failure mode of a **many-to-one migration** — e.g. consolidating two source tables when multiple source rows map to the same destination row (Customer A and Customer B both match Client X by email, so each one pushes an update for Client X). The fix is to dedupe by destination ID using a Map instead of an Array:
+
+```js
+// WRONG — duplicate Client IDs across the Array trigger the rejection
+const updates = [];
+for (const src of sources) {
+  const dest = findDestinationFor(src);
+  updates.push({ id: dest.id, fields: { /* merge from src */ } });
+}
+await table.updateRecordsAsync(updates);  // throws when two `src` map to same `dest`
+
+// CORRECT — Map keyed by destination ID, last-write-wins (or merge in-place)
+const updatesById = new Map();
+for (const src of sources) {
+  const dest = findDestinationFor(src);
+  let entry = updatesById.get(dest.id);
+  if (!entry) {
+    entry = { id: dest.id, fields: {} };
+    updatesById.set(dest.id, entry);
+  }
+  Object.assign(entry.fields, mergeFrom(src, entry.fields));
+}
+const updates = Array.from(updatesById.values());
+// ... batch-write as usual
+```
+
+For "fill if empty"-style merges, read the empty check off the **original destination record** (loaded once at the start), not off the in-progress merge entry — otherwise the first source row's value blocks subsequent ones from filling other empty fields.
+
 ### Linked records — array of `{ id }` objects
 
 ```js
@@ -218,6 +256,7 @@ For Automation Scripts, your ONLY user-visible surfaces are `console.log()` (run
 - Don't try to write to computed fields (formula, rollup, lookup, createdTime, lastModifiedTime). Airtable will reject the write.
 - Don't use `input.config({...})` with arguments in an Automation Script.
 - Don't call `output.markdown` / `output.table` / `input.buttonsAsync` in an Automation Script.
+- Don't push duplicate record IDs into a single `updateRecordsAsync` call. Airtable rejects the WHOLE batch with `Error: Record "X" was specified twice in this request.` Dedupe by destination ID with a Map before flushing — see the many-to-one migration pattern in "Batch updates" above.
 
 ## Airtable Formulas
 
