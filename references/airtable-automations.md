@@ -17,15 +17,19 @@ If a Softr block needs to write across multiple tables in response to a user cli
 
 ## Two scripting environments — pick the right one
 
-### 1. Automation Script (the "Run a script" action inside an automation)
+**Default to Automation Script unless the user explicitly says Scripting Extension.** The Automations panel is most Airtable users' default entry point for scripting — Scripting Extension requires installing an extension first and isn't part of the base UI. Most "write me an Airtable script" requests are about Automation Scripts.
 
-Background-only. No UI. Receives input from the automation trigger; can output values for downstream automation steps.
+### 1. Automation Script (the "Run a script" action inside an automation) — DEFAULT
+
+Background-only. No UI. Receives input from the automation trigger; can output values for downstream automation steps. Reachable in Airtable's left sidebar → **Automations** → add a step → **Run a script**.
 
 - Read trigger inputs via `input.config()` — call it WITHOUT arguments. Input variables are configured in the automation's left panel, not in code.
 - Output to downstream steps via `output.set(key, value)`.
-- `console.log()` appears in the automation's run log (NOT the browser console).
-- No `input.buttonsAsync`, no `output.markdown`, no `output.table` — those are Scripting-Extension-only and will throw.
+- `console.log()` appears in the automation's run log (NOT the browser console). This is your ONLY progress / debug surface.
+- **NO `output.markdown`, NO `output.text`, NO `output.table`, NO `output.inspect`** — those throw `TypeError: output.<x> is not a function` here. They're Scripting-Extension-only.
+- **NO `input.buttonsAsync` / `input.textAsync`** — interactive UI is not available in the background runner.
 - Execution cap: 120 seconds (recently raised from 30s).
+- Can be triggered manually via the "Test" button on the automation, useful for one-shot scripts you don't want to set up a real trigger for.
 
 ```js
 // Inputs are wired in the automation UI's left panel:
@@ -49,9 +53,9 @@ async function main() {
 await main();
 ```
 
-### 2. Scripting Extension (run-in-the-UI scripts)
+### 2. Scripting Extension (run-in-the-UI scripts) — only when explicitly asked
 
-Foreground, interactive. Used for one-off transforms, bulk fixes, building admin dashboards. Has a richer API.
+Foreground, interactive. Used for one-off transforms, bulk fixes, building admin dashboards. Has a richer API. Requires installing the "Scripting" extension in the base — most bases don't have it by default.
 
 - Configure interactive inputs via `input.config({ title, items: [...] })` — note: takes an OBJECT here, unlike Automation Scripts.
 - Show prompts with `await input.buttonsAsync(prompt, options)`, `input.textAsync(...)`, etc.
@@ -82,13 +86,14 @@ await main();
 
 ### Pick by question
 
-- Does the script run because Airtable's automation runner fires it? → **Automation Script**
-- Does the script run because a user clicks "Run script" in the Scripting Extension? → **Scripting Extension**
+- Default: **Automation Script** (the user is in the Automations panel).
+- **Scripting Extension** only when the user says "Scripting Extension" or describes installing/using the Scripting extension specifically.
 
 The two are NOT interchangeable. Mixing patterns breaks things:
 
 - `input.config({...})` with arguments in an Automation Script → TypeError
-- `output.markdown(...)` in an Automation Script → TypeError
+- `output.markdown(...)` in an Automation Script → TypeError (verified — common mistake when porting a Scripting Extension script)
+- `output.table(...)` / `output.text(...)` / `output.inspect(...)` in an Automation Script → TypeError
 - `await input.buttonsAsync(...)` in an Automation Script → TypeError
 
 ## Common patterns (both environments)
@@ -191,13 +196,21 @@ try {
 - Use option *ids* (not names) for select-field writes — survives renames.
 - Verify field types with `table.getField(...).type` before writing exotic shapes.
 
-**`output` API — exhaustive list (Scripting Extension only):**
-- `output.markdown(string)` — render markdown
-- `output.text(string)` — render plain text
-- `output.table(array | object)` — render tabular data
-- `output.inspect(value)` — render an inspectable view of any value
+**`output` API by environment** — this is the most common mistake when porting scripts:
 
-There is **no `output.clear()`**. Output is append-only within a run; there's no way to wipe it programmatically. Some older third-party reference docs list `output.clear()` as a valid call — they're wrong, and calling it throws `TypeError: output.clear is not a function`. If you need clean output across phases, write to a markdown buffer string and call `output.markdown(buffer)` once at the end.
+| Method | Automation Script | Scripting Extension |
+|---|---|---|
+| `output.set(key, value)` | ✅ — pass values to downstream automation steps | ❌ — not available |
+| `output.markdown(string)` | ❌ — `TypeError` | ✅ — rendered markdown |
+| `output.text(string)` | ❌ — `TypeError` | ✅ — plain text |
+| `output.table(array | object)` | ❌ — `TypeError` | ✅ — tabular view |
+| `output.inspect(value)` | ❌ — `TypeError` | ✅ — inspectable view |
+| `output.clear()` | ❌ — **doesn't exist anywhere** | ❌ — **doesn't exist anywhere** |
+| `console.log(...)` | ✅ — appears in the automation's run log | ✅ — appears in browser devtools |
+
+For Automation Scripts, your ONLY user-visible surfaces are `console.log()` (run log) and `output.set()` (step output panel). If you need to report a list of results, log them line-by-line with `console.log` or `output.set("resultsJson", JSON.stringify(results))` so the JSON shows up in the step output inspector.
+
+`output.clear()` is sometimes listed in older third-party reference docs as a valid Scripting Extension method — it isn't. Calling it throws `TypeError: output.clear is not a function` in both environments.
 
 **DON'T:**
 - Don't hardcode table/field strings deep inside business logic — pull them to the top as constants so renames are one-place fixes.
