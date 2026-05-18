@@ -24,6 +24,7 @@ If a Softr block needs to write across multiple tables in response to a user cli
 Background-only. No UI. Receives input from the automation trigger; can output values for downstream automation steps. Reachable in Airtable's left sidebar → **Automations** → add a step → **Run a script**.
 
 - Read trigger inputs via `input.config()` — call it WITHOUT arguments. Input variables are configured in the automation's left panel, not in code.
+- Read workspace-level secrets via `input.secret('SECRET_NAME')`. **Critical:** the secret has to be granted to each step that uses it. Each automation **step** that calls `input.secret()` must ALSO declare a matching input variable in its left panel that references the workspace secret — having the secret defined at the workspace level is NOT enough. Calling `input.secret('FOO')` without granting that step access returns falsy, NOT throws. So `if (!token) throw` is the standard guard. When chaining multiple "Run a script" steps in one automation, configure the secret access on EVERY step that needs it — they don't inherit from each other.
 - Output to downstream steps via `output.set(key, value)`.
 - `console.log()` appears in the automation's run log (NOT the browser console). This is your ONLY progress / debug surface.
 - **NO `output.markdown`, NO `output.text`, NO `output.table`, NO `output.inspect`** — those throw `TypeError: output.<x> is not a function` here. They're Scripting-Extension-only.
