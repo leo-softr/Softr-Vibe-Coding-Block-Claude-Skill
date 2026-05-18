@@ -153,6 +153,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Debugging a broken block, checking patterns before delivery, full violation catalog | [references/anti-patterns.md](references/anti-patterns.md) |
 | Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
+| Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 
 ## Code Structure
 
