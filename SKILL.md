@@ -324,6 +324,45 @@ import { DynamicIcon } from "@/components/dynamic-icon";
 
 **Softr's `<NavigationAction>`** is a built-in component for triggering Softr-native navigation actions from inside a Vibe Coding block. Accepts a `recordId` prop for dynamic record-specific URLs and supports action types `OPEN_URL`, `OPEN_PAGE`, `OPEN_CHAT`, `TRIGGER_CUSTOM_WORKFLOW`. Prefer this over bare `<a href>` when you want Softr's user-group visibility checks and slide-out / modal navigation styles to apply. Bare `<a href>` is still fine for simple in-app links where you don't need that behavior.
 
+The canonical pattern pairs a shadcn `<Button asChild>` with `<NavigationAction navigation={...}>` so the button's styling stays on-brand while the navigation behavior is handled by Softr's component:
+
+```jsx
+import { Button } from "@/components/ui/button";
+import { NavigationAction } from "@/components/navigation-action";
+import { useNavigationSetting } from "@/lib/editable-settings";
+import { MessageSquare } from "lucide-react";
+
+var askAi = useNavigationSetting({
+  name: "ask-ai-action",
+  label: "Ask AI Action",
+  initialValue: { action: "OPEN_CHAT" },   // OPEN_CHAT needs no destination
+});
+
+<Button asChild size="lg" className="gap-2">
+  <NavigationAction navigation={askAi}>
+    <MessageSquare className="h-5 w-5" />
+    Ask AI about this
+  </NavigationAction>
+</Button>
+```
+
+**Action types — what each one needs in `initialValue`:**
+
+- `OPEN_CHAT` — opens Softr's AI chat. **No `destination` or `openIn` needed** — it's the cheapest "Ask AI" button to wire up.
+- `OPEN_URL` — opens an external URL. Needs `destination` (the URL) + `openIn` (`"SELF"` | `"TAB"`).
+- `OPEN_PAGE` — navigates to a Softr page in-app. Needs `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`).
+- `TRIGGER_CUSTOM_WORKFLOW` — runs a Softr workflow. Needs the workflow id in `destination`.
+
+When the action navigates to a record-specific page, pass the runtime record id via the `recordId` prop on `<NavigationAction>` (not on the setting) so Softr can resolve dynamic URLs:
+
+```jsx
+<NavigationAction navigation={openWigDetails} recordId={wig.id}>
+  View wig
+</NavigationAction>
+```
+
+For on-brand custom styling (matching DESIGN.md inline-style conventions instead of shadcn Button), wrap the same pattern with a styled `<button>` — `<NavigationAction>` will render its children into the button's slot. The `asChild` attribute on Button is what enables this slot composition; without it shadcn renders its own native button and ignores `<NavigationAction>`.
+
 **Any public npm package** auto-installs on import: `import { format } from "date-fns";`
 
 ### React Hooks — Critical Import Rule
