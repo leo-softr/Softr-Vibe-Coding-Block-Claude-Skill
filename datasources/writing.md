@@ -33,7 +33,11 @@ The `enabled` boolean on a mutation hook is a combined signal — it's `true` on
 
 2. **The currently logged-in (or previewed-as) user has permission to perform the action on the data source** (permissions side). Per the official Softr docs, "`enabled` reflects user permissions." So even with a perfectly-derived Action, `enabled` will be `false` if the previewed user's group lacks write access to the connected table.
 
-**Critical debugging implication:** when `enabled` stays `false` and Studio's Actions tab DOES show the action listed (parser succeeded), the cause is permissions — not code. Common triggers: previewing the page as a non-admin user, or a data-source connection that was granted with read-only PAT scope. Fix at the Studio data-source permissions level, not in the block.
+**Critical debugging implication:** when `enabled` stays `false` and Studio's Actions tab DOES show the action listed (parser succeeded), the cause is permissions — not code. Three places to check, in order:
+
+- **Block's Visibility tab** (right panel) — confirm the previewed user's group is allowed to see / interact with this block.
+- **Studio → Users → Data Restrictions → Global data restrictions** — an app-wide layer that limits what data users can interact with across the whole app, applied on top of block-level settings. Easy to miss because it's under Users (not on the block). If a Global restriction exists on the target table for the user's group, every mutation against that table in every block silently fails — no error, just `enabled: false`. Open this tab and either confirm there are no restrictions or that the worker / target group has the access they need.
+- **Data-source connection PAT scope** — if the PAT was granted with read-only scope, every write fails regardless of UI permissions. Reconnect with write scope if needed.
 
 Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
 
