@@ -96,6 +96,57 @@ The two are NOT interchangeable. Mixing patterns breaks things:
 - `output.table(...)` / `output.text(...)` / `output.inspect(...)` in an Automation Script → TypeError
 - `await input.buttonsAsync(...)` in an Automation Script → TypeError
 
+## Default to table IDs and field IDs, NOT names
+
+For any non-throwaway Airtable script (automations, recurring scripts, anything that lives past one run), reference tables and fields by their **stable IDs** — not their user-facing names. Names are renamed and pluralized constantly during a base's lifecycle; IDs never change once assigned.
+
+```js
+// CORRECT — IDs with names in comments. Renames don't break anything.
+const T_CLIENTS = 'tbllPOXe15SMC81QS';         // Clients
+const F_NAME = 'fldNFd931LGhkIWpE';            // Clients.Name (singleLineText)
+const F_SQUARE_ID = 'fldMDtw2hQCQcDbuX';       // Clients.Square Customer ID
+
+const clientsTable = base.getTable(T_CLIENTS);
+const record = await clientsTable.selectRecordAsync(recId, {
+  fields: [F_NAME, F_SQUARE_ID],
+});
+const name = record.getCellValueAsString(F_NAME);
+await clientsTable.updateRecordAsync(recId, {
+  [F_SQUARE_ID]: 'cust_abc',
+});
+
+// WRONG — names break silently when someone renames a field. Two failure
+// modes seen today: (1) Airtable pluralizes reciprocal linked-record fields
+// without warning ("Client" → "Clients"), (2) string-replace refactors of
+// constant names can clobber neighbouring identifiers ("APPT_CLIENT" is a
+// substring of the new "APPT_CLIENTS").
+const F_NAME = 'Name';
+const F_SQUARE_ID = 'Square Customer ID';
+```
+
+**Where this works:** every API that accepts a field reference also accepts the field ID — `getCellValue()`, `getCellValueAsString()`, `selectRecordsAsync({ fields: [...] })`, `selectRecordAsync(id, { fields: [...] })`, the `fields` keys in `createRecordsAsync` / `updateRecordsAsync`, `table.getField(...)`. Same for `base.getTable(...)`.
+
+**The one exception — Airtable formulas.** Formula fields reference other fields with `{Field Name}` curly-brace syntax; there is no `{fld...}` ID form. Inside a formula, you're stuck with names.
+
+**Practical setup:** declare a constants block at the top of every script with all the IDs you'll use, each with the user-facing name as a trailing comment. When the base schema is exported, IDs are right there in the JSON next to the names — easy to copy in.
+
+```js
+// Tables
+const T_CLIENTS = 'tbllPOXe15SMC81QS';              // Clients
+const T_APPOINTMENTS = 'tbleTXCyKb3v7IOPY';         // Appointments
+
+// Clients fields
+const F_CL_NAME = 'fldNFd931LGhkIWpE';              // Name
+const F_CL_EMAIL = 'fld1BHkfMAd6McaHx';             // Email
+const F_CL_SQUARE_ID = 'fldMDtw2hQCQcDbuX';         // Square Customer ID
+
+// Appointments fields
+const F_AP_CUSTOMER = 'fldNw09E911YV2S8X';          // Customer (linked → Customers)
+const F_AP_CLIENTS = 'fldcCUrXf8AUtZRgr';           // Clients (linked → Clients)
+```
+
+Reads like noise the first time, but renames stop being a class of bugs.
+
 ## Common patterns (both environments)
 
 ### Batch updates — Airtable caps at 50 records per call
@@ -211,27 +262,33 @@ try {
 
 ## Cheat sheet
 
+All examples use field-ID style (the recommended default). Field IDs come from the schema export (`base-schema-*.json`) or from Studio's Data tab → "Customize field type" panel.
+
 | Operation | Pattern |
 |---|---|
+| Get table by ID | `base.getTable('tblXXX')` |
+| Get field on a table | `table.getField('fldXXX')` |
 | Batch update | `table.updateRecordsAsync(updates.slice(0, 50))` |
 | Batch create | `table.createRecordsAsync(records.slice(0, 50))` |
-| Single fetch | `await table.selectRecordAsync(recordId, { fields: ['Name'] })` |
-| All records | `await table.selectRecordsAsync({ fields: ['Name'] })` — loads whole table |
+| Single fetch | `await table.selectRecordAsync(recordId, { fields: ['fldNAME', 'fldEMAIL'] })` |
+| All records | `await table.selectRecordsAsync({ fields: ['fldNAME'] })` — loads whole table |
+| Read field | `record.getCellValue('fldXXX')` or `getCellValueAsString('fldXXX')` |
 | Lookup by id (in-memory) | `query.getRecord(recordId)` after a `selectRecordsAsync` |
-| Write linked | `{ 'Field': [{ id: 'recXXX' }] }` |
-| Write select | `{ 'Field': { id: 'selXXX' } }` |
-| Write attachment | `{ 'Field': [{ url: '...', filename: '...' }] }` |
+| Write linked | `{ 'fldLINK': [{ id: 'recXXX' }] }` |
+| Write select | `{ 'fldSEL': { id: 'selXXX' } }` |
+| Write attachment | `{ 'fldATT': [{ url: '...', filename: '...' }] }` |
 | Today's date (ISO) | `new Date().toISOString()` |
-| Field type guard | `table.getField('X').type === 'singleSelect'` |
+| Field type guard | `table.getField('fldXXX').type === 'singleSelect'` |
 
 ## DOs and DON'Ts
 
 **DO:**
+- **Reference tables and fields by ID, not by name.** See "Default to table IDs and field IDs" above. Pulls renames out of the failure-mode set entirely.
 - Use `getCellValueAsString()` for text comparisons across field types.
 - Cache `base.getTable(...)` results in variables — don't re-call inside loops.
 - Batch updates/creates in 50s.
 - Re-throw caught errors in Automation Scripts so Airtable flags failed runs.
-- Use option *ids* (not names) for select-field writes — survives renames.
+- Use option *ids* (not names) for select-field writes — survives renames (same principle as field IDs above).
 - Verify field types with `table.getField(...).type` before writing exotic shapes.
 
 **`output` API by environment** — this is the most common mistake when porting scripts:
