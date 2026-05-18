@@ -88,8 +88,23 @@ var updateRecord = useRecordUpdate({
   onSuccess: function(updatedRecord) { refetch(); },
   onError: function(err) { toast.error(err.message); },
 });
-updateRecord.mutate({ recordId: record.id, fields: { name: "New" } });
+
+// Call .mutate() — NOT .mutateAsync() — and use the nested {recordId, fields:{}} shape.
+// Per-call onSuccess/onError go in the second argument.
+updateRecord.mutate(
+  { recordId: record.id, fields: { name: "New" } },
+  {
+    onSuccess: function() { toast.success("Saved"); },
+    onError: function(err) { toast.error(err.message); },
+  }
+);
 ```
+
+**Two parser requirements both must hold or `enabled` stays `false`:**
+1. `.mutate(...)` — NOT `.mutateAsync(...).then(...)` (parser ignores `mutateAsync`)
+2. Payload is `{ recordId, fields: {...} }` — NOT flat `{ recordId, status: "..." }`
+
+See [datasources/writing.md](../datasources/writing.md#critical-two-parser-requirements-for-userecordupdate) for the full debugging path.
 
 ## Delete
 
@@ -103,6 +118,8 @@ deleteRecord.mutate(record.id);  // Just the ID string
 ## Mutation Hook Properties (all hooks)
 
 `.enabled`, `.status`, `.error`, `.mutate()`, `.mutateAsync()`, `.reset()`
+
+⚠ `.mutateAsync()` exists at runtime but is **invisible to Softr's Action parser** — using it on `useRecordUpdate` leaves `enabled` permanently `false`. Always call `.mutate(payload, { onSuccess, onError })` for updates.
 
 ## Linked Records Picker
 

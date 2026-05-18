@@ -74,6 +74,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - When a custom DESIGN.md is in use, brand `fontFamily` (and any non-inherited brand defaults) set as an **inline style on the block's outermost wrapper** `<div>`, not relied on from `custom-code-header.html` -- Vibe Coding blocks render inside a shadow DOM and `html, body` rules don't cross that boundary. Per-element overrides (e.g. Fraunces serif on h1) still set inline at the element.
    - `fetchNextPage` only inside `useEffect`, never in render body
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
+   - `useRecordUpdate` calls use `.mutate(payload, { onSuccess, onError })` — **NOT** `.mutateAsync(...).then(...).catch(...)`. Softr's Action parser only recognizes the `.mutate(` token; `.mutateAsync(` is invisible to it and the Action never gets derived (`enabled` stays `false`, Actions tab shows "No actions used in this block yet")
+   - `useRecordUpdate` payload is `{ recordId, fields: { ... } }` — nested, not flat. Field references inside flat payloads are invisible to the parser, same silent-failure mode as the `.mutateAsync` issue
    - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
 
 ## What to Clarify
