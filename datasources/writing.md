@@ -85,26 +85,38 @@ updateRecord.mutate({
 });
 ```
 
-#### CRITICAL: Payload must be `{ recordId, fields: {...} }` — not flat
+#### CRITICAL: Two parser requirements for `useRecordUpdate`
 
-The mutate payload **must** wrap the field values inside a `fields: {...}` object. The flat form (`mutate({ recordId, status: "active" })`) can succeed at runtime for some sources, but Softr's **Action parser** only recognizes the nested shape. With a flat payload:
+Softr's Action parser is strict about both the **method name** and the **payload shape**. Get either wrong and the Action is never derived, `enabled` stays `false`, and any UI gated on it silently does nothing — no error, no warning, console just shows `enabled: false, error: null, status: "idle"`.
 
-- The Actions tab shows "No actions used in this block yet"
-- `updateRecord.enabled` stays `false` forever
-- The Save button / status chip / whatever-you-gated-on-`enabled` never lights up
-- No error, no warning — just a silently disabled mutation
+**Requirement 1 — Call `.mutate()`, NOT `.mutateAsync()`.** The parser scans for the literal `.mutate(` token to detect mutation call sites. `.mutateAsync()` runs fine at runtime (it's just a Promise wrapper), but the parser ignores it and no Update Action gets created. Pass per-call success/error handlers as the second argument (react-query convention):
 
-Symptoms in the field: a worker clicks Save, nothing happens, console shows `enabled: false, error: null, status: "idle"`. Every mutate call in the block must use the nested form, even when only writing a single field:
+```jsx
+// CORRECT — parser sees `.mutate(`, derives the Action
+updateRecord.mutate(
+  { recordId: id, fields: { status: optionId } },
+  {
+    onSuccess: function() { toast.success("Saved"); },
+    onError: function(err) { toast.error(err.message); },
+  }
+);
+
+// WRONG — parser ignores `.mutateAsync(`, Action never created
+updateRecord.mutateAsync({ recordId: id, fields: { status: optionId } })
+  .then(function() { toast.success("Saved"); });
+```
+
+**Requirement 2 — Payload must be `{ recordId, fields: {...} }` — not flat.** Field values must be nested inside a `fields: {...}` object. The flat form (`mutate({ recordId, status: "active" })`) can succeed at runtime, but the parser doesn't see field references inside it, so no Action is derived:
 
 ```jsx
 // CORRECT
-updateRecord.mutate({ recordId: id, fields: { status: optionId } });
+updateRecord.mutate({ recordId: id, fields: { status: optionId } }, { onSuccess, onError });
 
 // WRONG — Action parser ignores this, hook stays disabled
-updateRecord.mutate({ recordId: id, status: optionId });
+updateRecord.mutate({ recordId: id, status: optionId }, { onSuccess, onError });
 ```
 
-Verified by direct experiment (May 2026): Softr's Studio AI assistant emits the nested form, and that's the only form that produces a derived Update Action.
+Verified by direct experiment (May 2026): Softr's Studio AI assistant emits both `.mutate()` AND the nested payload shape — and that combination is what produces a derived Update Action. Switching either back to its alternative form (`.mutateAsync()` or flat payload) disables the hook.
 
 ### useRecordDelete
 
