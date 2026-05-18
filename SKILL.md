@@ -348,7 +348,7 @@ var askAi = useNavigationSetting({
 
 **Action types — what each one needs in `initialValue`:**
 
-- `OPEN_CHAT` — opens Softr's AI chat. **No `destination` or `openIn` needed** — it's the cheapest "Ask AI" button to wire up.
+- `OPEN_CHAT` — opens Softr's AI chat. **No `destination` or `openIn` needed** — it's the cheapest "Ask AI" button to wire up. **GOTCHA:** Softr's AI pulls context from the block that triggered the chat, NOT from the page. If the block has no data source connected, `chat/prepare` returns HTTP 500 ("Failed to prepare AI assistant") even though the chat panel opens. Fix: in Softr Studio, connect the block to whatever data source the AI should read from — even if the block doesn't read or write any records itself, the connection is what gives the AI context. Verified by direct experiment, May 2026: a button-only helper block with no data source caused this exact failure; connecting it to the same table as the main block fixed it without any code change.
 - `OPEN_URL` — opens an external URL. Needs `destination` (the URL) + `openIn` (`"SELF"` | `"TAB"`).
 - `OPEN_PAGE` — navigates to a Softr page in-app. Needs `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`).
 - `TRIGGER_CUSTOM_WORKFLOW` — runs a Softr workflow. Needs the workflow id in `destination`.
