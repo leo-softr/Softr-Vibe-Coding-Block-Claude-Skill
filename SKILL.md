@@ -191,6 +191,11 @@ Blocks rarely live alone — most Softr pages stack 2–4 blocks vertically, oft
 - Is there a Softr footer immediately below this block?
 - Is there a Back button at the top of this block?
 
+**Detail pages — always ask about the back button AND its fallback URL.** A "detail page" is any block that reads a single record by URL recordId (i.e. it calls `useCurrentRecordId()` / `useRecord()`, or the user describes it as the target of a `/page?recordId=...` link). Users almost always want a back button there but rarely think to mention it, and shipping the page without one is the most common UX gap on these screens. So even if every other placement detail is clear, ask both:
+
+1. **"Should the detail page have a back button?"** — if yes, always wire one. Use the back-navigation pattern in [references/helper-blocks.md](references/helper-blocks.md#breadcrumb--back-navigation): `window.history.back()` for users with history, plus a fallback URL for users who arrived via shared link.
+2. **"What page should the back button fall back to when there's no history?"** — this is a separate question, easy to skip but important. Don't default silently; ask. If the user doesn't have a listing page yet, default to `/` and leave a `// TODO: update fallback when /jobs (or similar) exists` comment so it can be updated later.
+
 **Persist the answer as a grep-able comment at the top of the generated file** so future edits know the spacing assumptions and can be updated consistently:
 
 ```jsx
