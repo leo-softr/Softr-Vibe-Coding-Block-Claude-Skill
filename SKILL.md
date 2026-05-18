@@ -313,6 +313,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 **Lucide Icons:** `import { TrendingUp, User, Settings } from "lucide-react";`
 
+**Dynamic icons by name string:** `<DynamicIcon>` from `@/components/dynamic-icon` renders a Lucide icon when you only know its name at runtime (e.g. from an editable setting, a window global, or a `useRecords` row). Pass the kebab-case Lucide name as `name`. Use this — not a manual lookup table — whenever the icon is data-driven.
+
+```jsx
+import { DynamicIcon } from "@/components/dynamic-icon";
+<DynamicIcon name="trending-up" className="h-5 w-5" />
+```
+
+**Softr's `<NavigationAction>`** is a built-in component for triggering Softr-native navigation actions from inside a Vibe Coding block. Accepts a `recordId` prop for dynamic record-specific URLs and supports action types `OPEN_URL`, `OPEN_PAGE`, `OPEN_CHAT`, `TRIGGER_CUSTOM_WORKFLOW`. Prefer this over bare `<a href>` when you want Softr's user-group visibility checks and slide-out / modal navigation styles to apply. Bare `<a href>` is still fine for simple in-app links where you don't need that behavior.
+
 **Any public npm package** auto-installs on import: `import { format } from "date-fns";`
 
 ### React Hooks — Critical Import Rule

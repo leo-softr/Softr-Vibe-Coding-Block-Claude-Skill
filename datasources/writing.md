@@ -23,11 +23,17 @@ Each Action's "FIELDS USED" list mirrors the aliases in your `q.select()` mappin
 - Cosmetic AND structural code edits both update the Action automatically -- you do NOT need to re-prompt the AI assistant after editing code
 - There is no manual delete control; to remove an Action, remove the mutation hook from the code
 
-The `enabled` boolean on a mutation hook reflects whether the Action was successfully derived. If `enabled` is false, the most likely causes are:
+The `enabled` boolean on a mutation hook is a combined signal — it's `true` only when BOTH conditions are met:
 
-- The hook is declared after a conditional `return`, so it doesn't run on every render
-- `q.select` is built dynamically rather than from string-literal mappings
-- The block hasn't been connected to a data source yet
+1. **The Action was successfully derived from the code** (parser side). Causes of failure here:
+   - The hook is declared after a conditional `return`, so it doesn't run on every render
+   - `q.select` is built dynamically rather than from string-literal mappings
+   - The block hasn't been connected to a data source yet
+   - `useRecordUpdate.mutate()` is called with a flat payload (`{ recordId, status: ... }`) instead of the nested shape (`{ recordId, fields: { status: ... } }`) -- the parser ignores flat field references, so no Action gets created
+
+2. **The currently logged-in (or previewed-as) user has permission to perform the action on the data source** (permissions side). Per the official Softr docs, "`enabled` reflects user permissions." So even with a perfectly-derived Action, `enabled` will be `false` if the previewed user's group lacks write access to the connected table.
+
+**Critical debugging implication:** when `enabled` stays `false` and Studio's Actions tab DOES show the action listed (parser succeeded), the cause is permissions — not code. Common triggers: previewing the page as a non-admin user, or a data-source connection that was granted with read-only PAT scope. Fix at the Studio data-source permissions level, not in the block.
 
 Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
 

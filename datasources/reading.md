@@ -8,6 +8,7 @@ Fetching, filtering, sorting, pagination, metrics, charts, and current user.
 - [useRecords -- Fetch a Paginated List](#userecords----fetch-a-paginated-list)
 - [useRecord -- Fetch a Single Record](#userecord----fetch-a-single-record)
 - [useLinkedRecords -- Fetch Linked/Related Options](#uselinkedrecords----fetch-linkedrelated-options)
+- [useFieldOptions -- Fetch Single/Multi-Select Choices](#usefieldoptions----fetch-singlemulti-select-choices)
 - [Filtering](#filtering)
 - [Sorting](#sorting)
 - [Current User](#current-user)
@@ -101,6 +102,29 @@ var options = (result.data && result.data.pages) ? result.data.pages.flatMap(fun
 ```
 
 **CRITICAL:** The `field` prop takes the ALIAS from `q.select()`, NOT the raw field ID. Items are shaped as `{ id, title }` -- use `opt.title` (NOT `opt.label`).
+
+## useFieldOptions -- Fetch Single/Multi-Select Choices
+
+Returns the current option list for any `singleSelect` / `multipleSelects` field — without hardcoding option IDs in your block. Useful when the schema's option list changes (renames, additions, reorders) and you don't want to redeploy the block every time.
+
+```jsx
+import { useFieldOptions, q } from "@/lib/datasource";
+
+var statusOptions = useFieldOptions({
+  select: q.select({ status: "Status" }),
+  field: "status",   // the ALIAS from q.select(), NOT the raw field ID
+});
+
+// statusOptions.options → [{ id: "sel...", label: "Active" }, { id: "sel...", label: "Inactive" }]
+// Each item has `id` (the option's UUID, used in mutate payloads) and `label` (display string).
+```
+
+**When to use this vs. hardcoding:**
+
+- **Use `useFieldOptions`** when option IDs / labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying.
+- **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the IDs live in source and rename-safety is enforced by greppable constants.
+
+`useFieldOptions` is the read-side equivalent of using `useLinkedRecords` for foreign records — it abstracts away the field's option store. Items are shaped `{ id, label }` (note: `label`, not `title` like `useLinkedRecords`).
 
 ## Filtering
 
