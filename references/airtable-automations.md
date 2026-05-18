@@ -191,6 +191,14 @@ try {
 - Use option *ids* (not names) for select-field writes — survives renames.
 - Verify field types with `table.getField(...).type` before writing exotic shapes.
 
+**`output` API — exhaustive list (Scripting Extension only):**
+- `output.markdown(string)` — render markdown
+- `output.text(string)` — render plain text
+- `output.table(array | object)` — render tabular data
+- `output.inspect(value)` — render an inspectable view of any value
+
+There is **no `output.clear()`**. Output is append-only within a run; there's no way to wipe it programmatically. Some older third-party reference docs list `output.clear()` as a valid call — they're wrong, and calling it throws `TypeError: output.clear is not a function`. If you need clean output across phases, write to a markdown buffer string and call `output.markdown(buffer)` once at the end.
+
 **DON'T:**
 - Don't hardcode table/field strings deep inside business logic — pull them to the top as constants so renames are one-place fixes.
 - Don't await inside synchronous loops the wrong way: `for (let r of records) await table.updateRecordAsync(...)` is correct syntactically but creates a 1-by-1 round-trip storm. Use batched `updateRecordsAsync` instead.
