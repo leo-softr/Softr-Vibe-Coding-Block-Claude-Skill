@@ -27,13 +27,29 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 
 ## Installation
 
-### Option 1: Clone directly into your Claude skills directory (recommended)
+### Recommended: One-line install with auto-updates
+
+```bash
+npx softr-vibe-coding@latest init
+```
+
+This installs the skill into `~/.claude/skills/softr-vibe-coding/` and adds a `SessionStart` hook to `~/.claude/settings.json` so the skill auto-updates to the latest published version on every Claude Code session. No manual `git pull` needed.
+
+Requires Node.js 18+.
+
+### Manual alternatives
+
+<details>
+<summary>Clone the repo directly into your Claude skills directory</summary>
 
 ```bash
 git clone https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill.git ~/.claude/skills/softr-vibe-coding
 ```
 
-### Option 2: Download the latest release as a tarball
+</details>
+
+<details>
+<summary>Download the latest tarball</summary>
 
 ```bash
 mkdir -p ~/.claude/skills/softr-vibe-coding
@@ -41,11 +57,16 @@ curl -L https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill/archiv
   tar -xz --strip-components=1 -C ~/.claude/skills/softr-vibe-coding
 ```
 
-### Option 3: Manual download
+</details>
+
+<details>
+<summary>Manual download (ZIP)</summary>
 
 1. Download this repository as a ZIP from the green **Code** button above
 2. Extract the ZIP
 3. Rename the extracted folder to `softr-vibe-coding` and place it in `~/.claude/skills/`
+
+</details>
 
 ### Verify installation
 
@@ -65,15 +86,16 @@ Build me a Softr Vibe Coding block that shows a team directory with cards
 
 ## Updating
 
-To update the skill to the latest version:
+**If you used the recommended `npx ... init` install**, updates are automatic — the SessionStart hook pulls the latest published version on every Claude Code session, so you're always at most one session behind the latest release.
+
+**Manual installs** (git clone / tarball / ZIP):
 
 ```bash
-# If you used Option 1 (cloned into the skills directory)
 cd ~/.claude/skills/softr-vibe-coding
 git pull origin main
 ```
 
-Or re-run Option 2 — the tarball extraction overwrites the existing files.
+Or re-run the tarball install — the extraction overwrites the existing files.
 
 ---
 

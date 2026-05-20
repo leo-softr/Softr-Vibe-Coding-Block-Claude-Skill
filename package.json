@@ -1,0 +1,40 @@
+{
+  "name": "softr-vibe-coding",
+  "version": "1.1.0",
+  "description": "Claude Code skill for generating production-ready Softr Vibe Coding blocks (JSX). Installs into ~/.claude/skills/ and auto-updates on each Claude Code session.",
+  "bin": {
+    "softr-vibe-coding": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "SKILL.md",
+    "ui-ux-guidelines.md",
+    "references/",
+    "datasources/",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "claude-skill",
+    "softr",
+    "vibe-coding",
+    "no-code",
+    "jsx",
+    "react"
+  ],
+  "homepage": "https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill/issues"
+  },
+  "author": "leo-softr <leo@softr.io>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
