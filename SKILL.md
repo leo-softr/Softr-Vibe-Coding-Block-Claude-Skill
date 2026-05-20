@@ -40,7 +40,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - **If `./DESIGN.md` is NOT found:** Tell the user:
 
      > "No DESIGN.md found in this project. Three options:
-     > A. **Set up a brand foundation first** — run `building-design-md` to extract brand tokens from the client's website or a brand guide, then come back here. (Recommended for client work.)
+     > A. **Set up a brand foundation first** — use the `building-design-md` skill to extract brand tokens from the client's website or a brand guide, then come back here. (Recommended for client work. Not installed? Run `npx building-design-md@latest init` in your terminal.)
      > B. **Quick brand override** — paste the brand's primary color, accent color, and font name now. I'll apply just those.
      > C. **Use the default Softr style** — primary `#386AF5`, accent `#FCB500`, Inter font."
 

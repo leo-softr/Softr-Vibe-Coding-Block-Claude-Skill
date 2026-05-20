@@ -84,6 +84,27 @@ Build me a Softr Vibe Coding block that shows a team directory with cards
 
 ---
 
+## Companion skill — `building-design-md`
+
+This skill is **Step 2** of a two-skill brand-to-blocks pipeline:
+
+```
+New client → building-design-md (brand → DESIGN.md) → softr-vibe-coding (DESIGN.md → JSX blocks) → shipped Softr app
+```
+
+The upstream skill is [`building-design-md`](https://github.com/leo-softr/design-md-extractor-skill), which extracts a brand foundation (colors, typography, voice) from a website URL or brand guide into a portable `DESIGN.md` file. When that file exists in your project folder, this skill picks it up automatically and applies the brand tokens throughout every block it generates — no re-asking about colors or fonts.
+
+**Install both for the full workflow:**
+
+```bash
+npx building-design-md@latest init
+npx softr-vibe-coding@latest init
+```
+
+Both auto-update on every Claude Code session. Skip the first one if you only want default Softr styling.
+
+---
+
 ## Updating
 
 **If you used the recommended `npx ... init` install**, updates are automatic — the SessionStart hook pulls the latest published version on every Claude Code session, so you're always at most one session behind the latest release.
