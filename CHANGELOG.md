@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.3.1] - 2026-05-21
+- (no notable changes)
+
 ## [1.3.0] - 2026-05-21
 - Cross-link Airtable data source ↔ automation scripts (`datasources/airtable.md` and `datasources/writing.md` now point to `references/airtable-automations.md`)
 - Refresh README's "What's Included" tree: add `airtable-automations.md` and `common-patterns.md`, update stale line counts, fix version badge
