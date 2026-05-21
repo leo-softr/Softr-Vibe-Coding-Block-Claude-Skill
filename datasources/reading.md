@@ -212,7 +212,17 @@ var result = useChartData({
 });
 ```
 
-Grouping buckets: `metric.bucket.year`, `metric.bucket.month.iso`, `metric.bucket.month.long`, `metric.bucket.day.iso`, `metric.bucket.day.long`
+**Grouping buckets** — pick by what you want the x-axis to show:
+
+| Bucket constant | Sample output | Use for |
+|---|---|---|
+| `metric.bucket.year` | `"2025"` | Yearly trends |
+| `metric.bucket.month.iso` | `"2025-03"` | Monthly trends, sortable x-axis |
+| `metric.bucket.month.long` | `"March 2025"` | Monthly trends, human-readable labels |
+| `metric.bucket.day.iso` | `"2025-03-15"` | Daily trends, sortable x-axis |
+| `metric.bucket.day.long` | `"Mar 15, 2025"` | Daily trends, human-readable labels |
+
+Pair `.iso` variants with `orderBy: q.asc(...)` for correct chronological sorting; use `.long` variants when the bucket value is rendered directly as a label.
 
 Use **recharts** with shadcn's chart wrapper:
 

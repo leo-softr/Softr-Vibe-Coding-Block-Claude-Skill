@@ -180,6 +180,22 @@ upload.uploadAsync(file).then(function(results) {
 });
 ```
 
+### Async/await style
+
+The official Softr Vibe Coding docs use this form; it's more ergonomic when uploading inside a larger async flow:
+
+```jsx
+var [result] = await upload.uploadAsync(file);
+if (result.status === "completed") {
+  createRecord.mutate(
+    { fields: { attachment: { filename: result.file.name, url: result.url } } },
+    { onSuccess: function() { toast.success("Saved"); } }
+  );
+}
+```
+
+**Stick with `.mutate(...)` even inside async functions** — don't switch to `.mutateAsync(...)` just for the await ergonomics. Softr's Action parser only recognizes the `.mutate(` token, so any mutation written as `.mutateAsync(` produces no derived Action and `enabled` stays `false` (see "Two parser requirements for `useRecordUpdate`" below).
+
 ## Linked Record Format for Mutations
 
 ```jsx
@@ -230,6 +246,92 @@ Verified by direct experiment (April 2026) for `useRecordCreate`. The same patte
 ### Linked Record
 
 Array of `{ id }` objects. See "Linked Record Format for Mutations" above.
+
+### Multi-Select
+
+Array of option UUIDs as plain strings — mirrors Single Select but wrapped in an array:
+
+```jsx
+// CORRECT
+createRecord.mutate({ tags: ["uuid-1", "uuid-2"] });
+
+// WRONG -- {id, label} objects (returned on read, rejected on write)
+tags: [{ id: "uuid-1", label: "Urgent" }]
+
+// WRONG -- display labels
+tags: ["Urgent", "Internal"]
+```
+
+_Inferred from the read shape (see [fields.md](fields.md)); verify by experiment before production use._
+
+### Number
+
+Plain JS number, not string:
+
+```jsx
+createRecord.mutate({ price: 49.99, quantity: 3 });
+```
+
+To clear, `null` works on Softr Database (`""` is invalid for numeric fields). Other data sources not independently verified.
+
+### Checkbox
+
+Boolean `true` / `false`:
+
+```jsx
+createRecord.mutate({ isActive: true });
+```
+
+**Softr Database** also accepts the string forms `"true"` / `"false"` (mirrors the `string or boolean` read shape — see [fields.md](fields.md)). **Google Sheets** requires the string form, not native booleans — see [google-sheets.md](google-sheets.md). Other data sources expected to accept the boolean form but not independently verified.
+
+### Date
+
+ISO string. Date-only fields take `YYYY-MM-DD`; date-time fields take the full ISO form:
+
+```jsx
+// Date-only field
+createRecord.mutate({ dueDate: "2025-03-15" });
+
+// Date-time field — use new Date().toISOString() for current timestamp
+createRecord.mutate({ lastSeenAt: "2025-03-15T14:00:00Z" });
+```
+
+_Inferred from the read shape (see [fields.md](fields.md)); verify by experiment before production use._
+
+### Date Range
+
+Object with `from` and `to` ISO strings — mirrors the read shape (`{ from, to }` per [fields.md](fields.md)):
+
+```jsx
+createRecord.mutate({
+  bookingWindow: { from: "2025-03-15", to: "2025-03-20" },
+});
+```
+
+_Inferred from the read shape (see [fields.md](fields.md)); verify by experiment before production use._
+
+### Attachment
+
+`{ filename, url }` for a single attachment, or an array of those objects for multi-attachment fields:
+
+```jsx
+// Single attachment
+createRecord.mutate({
+  document: { filename: "report.pdf", url: "https://..." },
+});
+
+// Multiple attachments
+createRecord.mutate({
+  gallery: [
+    { filename: "photo1.jpg", url: "https://..." },
+    { filename: "photo2.jpg", url: "https://..." },
+  ],
+});
+```
+
+To upload a file before writing it to a record, see [File Uploads](#file-uploads) above for the full `useUpload` flow.
+
+_Shape matches the example shown in [File Uploads](#file-uploads). Not yet independently verified across all data sources._
 
 ### Text / Email / URL / Phone
 
