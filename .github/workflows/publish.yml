@@ -51,16 +51,24 @@ jobs:
           const current = process.env.CURRENT_VERSION;
           const today = new Date().toISOString().slice(0, 10);
 
-          // Find the most recent commit whose diff against package.json set the version to `published`.
+          // Find the most recent commit reachable from HEAD where package.json *contained*
+          // `"version": "${published}"`. We can't use `git log -S` for this — it matches both
+          // additions AND removals of the string, so it would also match the bump commit
+          // (which removes the published string while adding the current one), and we'd end up
+          // with HEAD as the anchor and an empty range.
           let prevCommit = '';
           try {
-            const out = execSync(
-              `git log -S '"version": "${published}"' --pretty=%H -- package.json`,
-              { encoding: 'utf8' }
-            );
-            prevCommit = out.split('\n').filter(Boolean)[0] || '';
+            const commits = execSync('git rev-list HEAD -- package.json', { encoding: 'utf8' })
+              .split('\n').filter(Boolean);
+            for (const commit of commits) {
+              const content = execSync(`git show ${commit}:package.json`, { encoding: 'utf8' });
+              if (content.includes(`"version": "${published}"`)) {
+                prevCommit = commit;
+                break;
+              }
+            }
           } catch (e) {
-            console.log('git log -S failed:', e.message);
+            console.log('Anchor commit lookup failed:', e.message);
           }
 
           const range = prevCommit ? `${prevCommit}..HEAD` : 'HEAD';

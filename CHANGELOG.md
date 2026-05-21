@@ -5,7 +5,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
 ## [1.3.1] - 2026-05-21
-- (no notable changes)
+- Add CHANGELOG.md with auto-generation on publish (workflow now prepends a new entry from commit subjects between version bumps and commits the updated CHANGELOG.md back to main with `[skip ci]`)
+- Backfill CHANGELOG.md entries for 1.0.0 → 1.3.0 from existing git history
+- Add CHANGELOG.md to the npm tarball via package.json `files`
 
 ## [1.3.0] - 2026-05-21
 - Cross-link Airtable data source ↔ automation scripts (`datasources/airtable.md` and `datasources/writing.md` now point to `references/airtable-automations.md`)
