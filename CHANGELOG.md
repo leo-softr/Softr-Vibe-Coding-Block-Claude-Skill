@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.3.3] - 2026-05-21
+- Document field-type write shapes (Date, Date Range, Multi-Select, Checkbox, Attachment, Number); add async uploadAsync example; show useChartData bucket sample outputs; bump to 1.3.3
+
 ## [1.3.2] - 2026-05-21
 - Fix CHANGELOG anchor detection in publish workflow; bump to 1.3.2
 
