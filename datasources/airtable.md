@@ -31,7 +31,16 @@ Column names are case-sensitive and must match the Airtable header exactly.
 
 ### Maintainability gotcha
 
-Renaming a column in Airtable breaks the block **silently**. The alias just stops resolving -- no error, no warning, the field becomes `undefined`. Three mitigations, in order of effort:
+Renaming a column in Airtable breaks the block **silently**. The failure mode depends on whether the alias is used for reads or writes:
+
+- **Read side** (`useRecords` / `useRecord` / `useLinkedRecords`): the alias stops resolving — no error, the field becomes `undefined`. Other fields in the same `q.select()` still load fine. Partial behaviour.
+- **Write side** (`useRecordCreate` / `useRecordUpdate` `q.select`): the parser silently rejects the **entire** Action. Studio's Actions tab shows "No actions used in this block yet", `createRecord.enabled` / `updateRecord.enabled` stays `false`, and `.mutate()` calls fail with "not yet ready" / "create action is not yet ready". Every field in that `q.select()` is lost, even the valid ones. All-or-nothing.
+
+The asymmetry matters because reads silently degrade while writes silently disable. A renamed column on a list view shows blank cells; the same rename on a create helper bricks the whole submit flow with no console error.
+
+**Diagnosing a disabled write Action** (the "No actions used" symptom): bisect the `q.select()`. Strip it down to a known-good minimal set (4–6 fields that you're sure exist), confirm the Action shows up in Studio's Actions tab, then add fields back in halves until the Action drops out. The culprit is in the last half added. Once narrowed to a single field, grep that field name against the freshest schema export — almost always a rename, a trailing space, or a case mismatch.
+
+**Three mitigations, in order of effort:**
 
 1. **Document the field ID alongside the name** in `q.select()` comments. A grep for the field ID then finds every block affected by a rename:
 
