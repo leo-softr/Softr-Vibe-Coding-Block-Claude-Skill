@@ -237,7 +237,10 @@ Plain string. To clear a value, both `null` and `""` work for Softr Database tex
 
 ## Cross-Table Operations
 
-`useRecordCreate`, `useRecordUpdate`, and `useRecordDelete` only work with the block's configured datasource. To write to a different table, use the **Softr Database REST API** via `fetch()`:
+`useRecordCreate`, `useRecordUpdate`, and `useRecordDelete` only work with the block's configured datasource. Two paths to write across tables:
+
+- **For Airtable backends** — usually cleanest to write to the block's own table and let an Airtable automation script handle the cascade. See [../references/airtable-automations.md](../references/airtable-automations.md). Keeps the block simple, avoids exposing an API key in the browser, and lets cross-table logic live next to the data.
+- **Softr Database REST API via `fetch()`** — the only option for non-Airtable sources, and the right choice when an automation cycle would be too slow. Details below.
 
 **Base URL:** `https://tables-api.softr.io/api/v1/databases/{databaseId}/tables/{tableId}/records`
 

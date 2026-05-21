@@ -3,7 +3,7 @@
 > Turn Claude into a Softr Vibe Coding expert — generate production-ready JSX blocks with polished UI, correct data fetching, and all 14 Softr data sources supported out of the box.
 
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue)
-![Version](https://img.shields.io/badge/version-1.1.0-green)
+![Version](https://img.shields.io/badge/version-1.3.0-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 > **UNOFFICIAL** — This is a community-maintained Claude skill. It is not affiliated with, endorsed by, or officially supported by Softr. Use as-is.
@@ -168,16 +168,24 @@ softr-vibe-coding/
 │                                     # spacing, motion, accessibility, AI slop checklist
 │
 ├── references/                       # Advanced patterns (loaded on demand)
-│   ├── helper-blocks.md              # Cross-block communication (327 lines)
+│   ├── helper-blocks.md              # Cross-block communication (370 lines)
 │   │                                 # Invisible helper blocks, window globals,
 │   │                                 # CustomEvent, useWindowData hook, breadcrumbs,
 │   │                                 # saved views, companion field helpers
+│   ├── airtable-automations.md       # Airtable automation scripting (350 lines)
+│   │                                 # "Run a script" automation action vs.
+│   │                                 # Scripting Extension, cross-table cascades,
+│   │                                 # batch update gotchas, field-ID discipline,
+│   │                                 # Airtable formulas
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
-│   ├── anti-patterns.md              # Categorized violation catalog (69 lines)
+│   ├── anti-patterns.md              # Categorized violation catalog (86 lines)
 │   │                                 # Data access, mutations, hooks, layout,
 │   │                                 # permissions, helper blocks
-│   └── quick-reference.md            # Syntax cheat sheet (156 lines)
+│   ├── common-patterns.md            # Small reusable patterns (102 lines)
+│   │                                 # localStorage cross-page state,
+│   │                                 # clipboard copy button
+│   └── quick-reference.md            # Syntax cheat sheet (207 lines)
 │                                     # Imports, hook signatures, mutation shapes,
 │                                     # field mapping, component skeleton
 │

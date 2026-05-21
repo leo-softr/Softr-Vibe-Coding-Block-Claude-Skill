@@ -1,5 +1,7 @@
 # Airtable
 
+> **Looking for Airtable Automation Scripts, Scripting Extension, or Airtable formulas?** This page covers the **Softr data source** integration (read/write from a Vibe Coding block). For Airtable-side scripts and formula fields — including cross-table cascades triggered by record changes — see [../references/airtable-automations.md](../references/airtable-automations.md).
+
 ## Overview
 Popular spreadsheet-database hybrid used as a data source for Softr. Requires a Basic plan or higher in Softr.
 
