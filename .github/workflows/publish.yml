@@ -8,8 +8,12 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -23,6 +27,8 @@ jobs:
           CURRENT=$(node -p "require('./package.json').version")
           echo "Published version: $PUBLISHED"
           echo "Current version:   $CURRENT"
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           if [ "$PUBLISHED" = "$CURRENT" ]; then
             echo "Version unchanged — skipping publish."
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -31,8 +37,84 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish
+      - name: Generate CHANGELOG.md entry
+        if: steps.check.outputs.skip == 'false'
+        env:
+          PUBLISHED_VERSION: ${{ steps.check.outputs.published }}
+          CURRENT_VERSION: ${{ steps.check.outputs.current }}
+        run: |
+          node <<'NODE_EOF'
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+
+          const published = process.env.PUBLISHED_VERSION;
+          const current = process.env.CURRENT_VERSION;
+          const today = new Date().toISOString().slice(0, 10);
+
+          // Find the most recent commit whose diff against package.json set the version to `published`.
+          let prevCommit = '';
+          try {
+            const out = execSync(
+              `git log -S '"version": "${published}"' --pretty=%H -- package.json`,
+              { encoding: 'utf8' }
+            );
+            prevCommit = out.split('\n').filter(Boolean)[0] || '';
+          } catch (e) {
+            console.log('git log -S failed:', e.message);
+          }
+
+          const range = prevCommit ? `${prevCommit}..HEAD` : 'HEAD';
+          console.log('Commit range for new entry:', range);
+
+          // Collect commit subjects, excluding workflow-authored CHANGELOG-only commits.
+          const raw = execSync(
+            `git log --pretty=%s ${range} -- . ':!CHANGELOG.md'`,
+            { encoding: 'utf8' }
+          );
+          const subjects = raw.split('\n').filter(s => s && !s.includes('[skip ci]'));
+
+          const entries = subjects.length
+            ? subjects.map(s => `- ${s}`).join('\n')
+            : '- (no notable changes)';
+          const newEntry = `## [${current}] - ${today}\n${entries}\n`;
+
+          let content = '';
+          try { content = fs.readFileSync('CHANGELOG.md', 'utf8'); } catch (e) {}
+
+          if (!content) {
+            content = `# Changelog\n\n${newEntry}`;
+          } else {
+            const lines = content.split('\n');
+            const firstH2 = lines.findIndex(l => l.startsWith('## '));
+            if (firstH2 === -1) {
+              content = content.replace(/\n*$/, '\n\n') + newEntry;
+            } else {
+              const before = lines.slice(0, firstH2).join('\n').replace(/\n*$/, '');
+              const after = lines.slice(firstH2).join('\n');
+              content = `${before}\n\n${newEntry}\n${after}`;
+            }
+          }
+
+          fs.writeFileSync('CHANGELOG.md', content);
+          console.log('--- new CHANGELOG.md head ---');
+          console.log(content.split('\n').slice(0, 30).join('\n'));
+          NODE_EOF
+
+      - name: Publish to npm
         if: steps.check.outputs.skip == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit updated CHANGELOG.md
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md unchanged; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG.md for v${{ steps.check.outputs.current }} [skip ci]"
+          git push origin HEAD:${GITHUB_REF#refs/heads/}
