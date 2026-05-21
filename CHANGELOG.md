@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.5.1] - 2026-05-21
+- Expand the "formulas in create/update" anti-pattern to cover every read-only field type (rollup / aiText / lookup / createdTime / lastModifiedTime / autoNumber, not just formulas), document the silent all-or-nothing parser failure (Actions tab empty, enabled stays false, every other writable field in the same q.select is lost), cite the verified 2026-05-22 wig-details-page.jsx case (Wig Tag ID formula + Total client/worker rollups + Instrucciones aiText all shared with useRecordUpdate), and point at the bisection diagnostic; bump to 1.5.1
+
 ## [1.5.0] - 2026-05-21
 - Document write-side Action-disabled failure when a q.select alias references a renamed/missing Airtable column — extend datasources/airtable.md "Maintainability gotcha" with read-vs-write asymmetry (reads silently degrade, writes silently disable the entire Action), add the bisection diagnostic procedure for the "No actions used in this block yet" symptom, and add an anti-patterns Mutations-table row citing the verified 2026-05-21 Photos→Before Photos case; bump to 1.5.0
 
