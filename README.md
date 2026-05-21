@@ -22,6 +22,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **Self-validation** — Claude checks for Softr bundler compatibility (no optional chaining, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
 - **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
+- **Softr Database MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp-server) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly — no more pasting `tablespace-with-tables` JSON. See `references/softr-database-mcp.md`.
 
 ---
 
@@ -177,6 +178,10 @@ softr-vibe-coding/
 │   │                                 # Scripting Extension, cross-table cascades,
 │   │                                 # batch update gotchas, field-ID discipline,
 │   │                                 # Airtable formulas
+│   ├── softr-database-mcp.md         # Softr Database MCP server (sibling to
+│   │                                 # datasources/softr-database.md; AI-assisted
+│   │                                 # schema discovery, field-ID lookup, OAuth
+│   │                                 # install, scope limitations)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── anti-patterns.md              # Categorized violation catalog (86 lines)

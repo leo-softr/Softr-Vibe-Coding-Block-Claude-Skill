@@ -6,6 +6,10 @@ Softr's native built-in database. No external account or integration required. A
 ## Connection Setup
 No setup needed. Softr Database is available by default in every Softr app. Create tables directly from the Softr admin dashboard under the "Data" section. Import data via CSV, one-click migration from Airtable, or AI-assisted table generation.
 
+## AI-Assisted Workflows
+
+Softr publishes an official MCP server (`https://mcp.softr.io/mcp`) that lets the AI read Softr DB schema and field IDs directly — eliminating the manual "paste `tablespace-with-tables` JSON" step. For setup, scopes, the 20 tools, and the limitation that this only covers Softr DB (not external sources), see [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
+
 ## Vibe Coding Field IDs
 Field IDs are short alphanumeric codes (e.g., `"xgETy"`, `"TLhWF"`). These codes are NOT human-readable names.
 
@@ -17,7 +21,13 @@ q.select({ name: "xgETy" })
 q.select({ name: "First Name" })
 ```
 
-Find field IDs by clicking a field's name in the Data tab (the ID is shown in the field-edit drawer), or via the network inspector technique (DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs). The network inspector method is recommended when working with an AI assistant -- pasting that JSON into the chat eliminates transcription errors. See [fields.md](fields.md#field-inspector-block) for both approaches plus a runtime REST API method. The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database.
+Find field IDs in this order of preference:
+
+1. **Softr Database MCP** (recommended when working with an AI assistant) — the AI calls schema/list-fields tools directly. See [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
+2. **Network inspector** — DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs. Paste the JSON into chat to share with an AI when the MCP isn't installed.
+3. **Inline in Studio** — click a field's name in the Data tab; the ID appears in the field-edit drawer.
+
+The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database — see [fields.md](fields.md#field-inspector-block).
 
 ## Supported Fields
 

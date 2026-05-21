@@ -84,7 +84,7 @@ When the user describes their block, figure out which of these areas apply and a
 
 - **Data source type**: Is it Airtable, Softr Database, REST API, or another source? This determines the data fetching approach. **Load the relevant data source guide** from the [datasources/](datasources/) directory before writing code.
 - **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs:
-  - For **Softr Database**, ask the user to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab). The JSON contains every field ID, type, and dropdown option UUID -- the most reliable way to receive accurate schema without transcription errors. See [datasources/fields.md](datasources/fields.md#field-inspector-block).
+  - For **Softr Database**, the cleanest path is the **Softr Database MCP server** — ask whether they have it installed (`claude mcp list` shows it as `softr` or similar). If yes, query schema directly with the MCP tools instead of asking for paste-ins. If no, fall back to asking them to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab) — the JSON contains every field ID, type, and dropdown option UUID. Optionally tell them they can install the MCP once with `claude mcp add --transport http softr https://mcp.softr.io/mcp` for future sessions. Full MCP details in [references/softr-database-mcp.md](references/softr-database-mcp.md); fallback paste-in workflows in [datasources/fields.md](datasources/fields.md#field-inspector-block).
   - For **Airtable** and other sources where empty `q.select({})` works, suggest the Field Inspector block.
 - **Brand colors**: Already resolved in Step 1 (Detect the brand source). Don't re-ask. The brand source is one of:
   - **Project's `./DESIGN.md`** (recommended for client work — produced by the `building-design-md` skill)
@@ -154,6 +154,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
+| AI-assisted Softr DB schema discovery / field-ID lookup / record reads via the official Softr MCP server (sibling to the in-block `useRecords` workflow) | [references/softr-database-mcp.md](references/softr-database-mcp.md) |
 
 ## Code Structure
 
