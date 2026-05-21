@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.3.2] - 2026-05-21
+- Fix CHANGELOG anchor detection in publish workflow; bump to 1.3.2
+
 ## [1.3.1] - 2026-05-21
 - Add CHANGELOG.md with auto-generation on publish (workflow now prepends a new entry from commit subjects between version bumps and commits the updated CHANGELOG.md back to main with `[skip ci]`)
 - Backfill CHANGELOG.md entries for 1.0.0 → 1.3.0 from existing git history
