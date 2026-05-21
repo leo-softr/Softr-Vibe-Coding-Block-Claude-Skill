@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.4.0] - 2026-05-21
+- Document Softr Database MCP server — add references/softr-database-mcp.md (sibling to references/airtable-automations.md) covering connection, OAuth + PAT auth, Claude Code install, three permission scopes, 20 tools, why-it-matters for Vibe Coding, and the Softr-DB-only scope limitation; leave a short pointer in datasources/softr-database.md; promote MCP to option 1 for Softr DB field-ID discovery in datasources/fields.md; update SKILL.md Reference Guides table; add README TL;DR bullet, "What's Included" tree entry, and overview.md Key Concepts note; bump to 1.4.0
+
 ## [1.3.4] - 2026-05-21
 - Use dynamic shields.io npm badge for version; bump to 1.3.4
 
