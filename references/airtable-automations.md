@@ -321,21 +321,30 @@ For Automation Scripts, your ONLY user-visible surfaces are `console.log()` (run
 For formula fields inside Airtable itself (NOT scripts). Quick rules:
 
 - **NEVER add comments inside Airtable formulas.** Airtable's formula engine doesn't have a comment syntax — anything that looks like a comment will fail to compile.
+- **Guard against blank inputs by default.** Airtable surfaces `#ERROR!` (or `#NaN!` for divide-by-blank) when arithmetic, date, or many string operations touch a blank field — `{A} * {B}` errors when either is blank, `{A} / {B}` errors when `{B}` is blank, `DATEADD({Start At}, 20, 'minutes')` errors when `{Start At}` is blank, and one upstream `#ERROR!` propagates through every downstream formula that references it. Wrap any formula whose inputs could be empty with an `IF()` guard returning `BLANK()` in the empty branch. Prefer explicit `IF()` / `AND()` guards over a catch-all `IFERROR(<expr>, BLANK())` — explicit guards keep intent readable and don't mask unrelated bugs (a typo'd field name silently returns blank instead of failing loudly). Reach for `IFERROR()` only when inputs come from genuinely uncontrolled sources.
+
+  ```
+  IF({Start At}, DATEADD({Start At}, 20, 'minutes'), BLANK())
+  IF(AND({Quantity}, {Price}), {Quantity} * {Price}, BLANK())
+  IF({Divisor}, {Numerator} / {Divisor}, BLANK())
+  ```
 - Reference fields by name with curly braces: `{Field Name}` (single field) or `{Other Table}` is not valid — formulas are scoped to the current table only.
 - Functions are case-insensitive (`IF` = `if`) but field names ARE case-sensitive.
 - Use `&` for concatenation, NOT `+` (the latter is numeric).
 - For conditional logic, prefer `IF()` nested or `SWITCH()` for many branches.
 
-Common patterns:
+Common patterns (blank-guards applied where inputs could be empty):
 
 ```
 IF({Status} = "Paid", "✓", "")
 
 CONCATENATE({First Name}, " ", {Last Name})
 
-DATETIME_FORMAT({Created}, 'YYYY-MM-DD')
+IF({Created}, DATETIME_FORMAT({Created}, 'YYYY-MM-DD'), BLANK())
 
 IF(AND({Amount} > 100, {Paid} = TRUE()), "VIP", "Standard")
+
+IF({Start At}, DATEADD({Start At}, 20, 'minutes'), BLANK())
 
 SWITCH({Tier},
   "gold", "Premium",
