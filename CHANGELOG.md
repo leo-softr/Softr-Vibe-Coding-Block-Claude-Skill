@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.5.2] - 2026-05-27
+- Document BLANK-guard convention for Airtable formulas — Airtable surfaces #ERROR! / #NaN! when arithmetic, date, or string operations touch a blank field and propagates the error through every downstream formula; add a quick-rule bullet calling out the failure modes (multiply/divide-by-blank, DATEADD on blank date), show the IF({field}, <expr>, BLANK()) and AND()-guarded shapes, note why explicit guards beat catch-all IFERROR (don't mask typos), and re-render the common-patterns block with guards applied to the date examples; bump to 1.5.2
+
 ## [1.5.1] - 2026-05-21
 - Expand the "formulas in create/update" anti-pattern to cover every read-only field type (rollup / aiText / lookup / createdTime / lastModifiedTime / autoNumber, not just formulas), document the silent all-or-nothing parser failure (Actions tab empty, enabled stays false, every other writable field in the same q.select is lost), cite the verified 2026-05-22 wig-details-page.jsx case (Wig Tag ID formula + Total client/worker rollups + Instrucciones aiText all shared with useRecordUpdate), and point at the bisection diagnostic; bump to 1.5.1
 
