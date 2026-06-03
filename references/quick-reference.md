@@ -18,6 +18,9 @@ import { useTextSetting, useImageSetting, useVideoSetting, useArraySetting,
          useVibeCodingBlockIconSetting, useNavigationSetting,
          useBooleanSetting } from "@/lib/editable-settings";
 
+// NAVIGATION GUARD (form unsaved-changes warning that also works on Softr's SPA nav)
+import { useNavigationBlocker } from "@/lib/use-navigation-blocker";
+
 // REACT
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
@@ -184,6 +187,18 @@ useEffect(function() {
   }
 }, [result.hasNextPage, result.isFetchingNextPage, result.status, result.fetchNextPage]);
 ```
+
+## Navigation Blocker (unsaved-changes warning)
+
+```jsx
+// Boolean form: simplest case
+useNavigationBlocker(isDirty);
+
+// Callback form: reads from a ref without re-running on every render
+useNavigationBlocker(function() { return dirtyRef.current; });
+```
+
+Catches BOTH Softr's in-app SPA navigation (nav bar, sidebar, `<NavigationAction>`) AND browser unload (tab close, refresh, external links). A plain `window.addEventListener("beforeunload", ...)` does NOT catch Softr's in-app nav. See [common-patterns.md](common-patterns.md#navigation-blocker-for-unsaved-changes).
 
 ## Component Skeleton
 
