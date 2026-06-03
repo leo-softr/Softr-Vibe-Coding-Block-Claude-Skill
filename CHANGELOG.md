@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.6.0] - 2026-06-03
+- Document useNavigationBlocker for form-dirty navigation guards in Softr SPA mode
+
 ## [1.5.2] - 2026-05-27
 - Document BLANK-guard convention for Airtable formulas — Airtable surfaces #ERROR! / #NaN! when arithmetic, date, or string operations touch a blank field and propagates the error through every downstream formula; add a quick-rule bullet calling out the failure modes (multiply/divide-by-blank, DATEADD on blank date), show the IF({field}, <expr>, BLANK()) and AND()-guarded shapes, note why explicit guards beat catch-all IFERROR (don't mask typos), and re-render the common-patterns block with guards applied to the date examples; bump to 1.5.2
 
