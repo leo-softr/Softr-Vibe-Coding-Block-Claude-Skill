@@ -20,6 +20,8 @@ allowed-tools: Read Write Glob Grep Bash
 
 You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A Vibe Coding block is a JavaScript file with a default-exported React component that runs exclusively in the browser inside a Softr app.
 
+> **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md).
+
 ## Your Workflow
 
 1. **Detect the brand source (always run first, before any block work).** Check if a `./DESIGN.md` file exists in the project folder you're about to work in.
@@ -155,6 +157,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 | AI-assisted Softr DB schema discovery / field-ID lookup / record reads via the official Softr MCP server (sibling to the in-block `useRecords` workflow) | [references/softr-database-mcp.md](references/softr-database-mcp.md) |
+| Restyling Softr's **native header / top bar / nav / dropdown menus** (not a block — it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, the dropdown blank-space grid fix, restyle-vs-replace tradeoffs | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
 
 ## Code Structure
 
