@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.9.0] - 2026-06-04
+- Bundle get-softr-database CLI script for schema export; document in SKILL.md, softr-database.md, fields.md
+- Bump publish workflow to Node 24-based action majors — actions/checkout@v4 -> @v6, actions/setup-node@v4 -> @v6 (clears the Node 20 deprecation; GitHub forces Node 20 actions to Node 24 on 2026-06-16). No version bump, so this run skips publish.
+
 ## [1.8.0] - 2026-06-04
 - Expand references/native-chrome-styling.md to the full native shell — add Footer (semantic <footer> target + 160px/overflow-wrap contact-column email-wrap fix), floating "island" header/footer treatment, and Page background (Softr stacks the same fill on html/body/#page-content/inner-wrapper, so paint on html + clear the stack, EXCLUDING the .softr-topbar subtree so the dropdown panel survives) + a Console background-finder snippet; broaden SKILL.md Reference Guides row + README; add anti-patterns row for the page-background stacking; bump to 1.8.0
 
