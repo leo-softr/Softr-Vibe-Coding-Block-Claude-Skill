@@ -107,6 +107,8 @@ export default function Block() {
 }
 ```
 
+**For Airtable specifically, the bundled `get-airtable-base` script is a more comprehensive alternative** — it exports the full base schema (every table, every field with `fld...` IDs and column names, relationships, webhooks, interfaces) to a Desktop folder via the Airtable Web API. Run with `bash ~/.claude/skills/softr-vibe-coding/tools/get-airtable-base` (requires `jq` — `brew install jq` on macOS). Best when you want a portable schema snapshot, are documenting field IDs alongside column names per the [airtable.md maintainability mitigation](airtable.md#maintainability-gotcha), or need to audit lookup/rollup/sync relationships. Full usage in [airtable.md](airtable.md#bundled-cli-script-get-airtable-base).
+
 **For Softr Database, find field IDs via:**
 
 1. **Softr Database MCP server (recommended for AI-assisted workflows)** -- if you're collaborating with an AI assistant (Claude Code, Claude Desktop, Cursor, ChatGPT, Mistral) to write Vibe Coding blocks, the official Softr MCP server is the cleanest path. The AI calls schema/list-fields tools directly against your workspace and reads back every field's `id`, `name`, `type`, and dropdown option UUIDs -- no copy-paste, no transcription errors. Full setup, scopes, and scope limitations (Softr DB only -- does NOT cover Airtable / external sources) in [../references/softr-database-mcp.md](../references/softr-database-mcp.md).

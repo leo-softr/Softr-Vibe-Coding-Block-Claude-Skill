@@ -1,0 +1,303 @@
+#!/bin/bash
+#
+# get-airtable-base
+# Pulls all available metadata for a single Airtable base via the Web API
+# and saves it to a timestamped folder on the Desktop.
+#
+
+set -euo pipefail
+
+# ---------- Colors ----------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ---------- Pre-flight ----------
+if ! command -v jq &>/dev/null; then
+  echo -e "${RED}Error: jq is not installed.${NC}"
+  echo "Install it with: brew install jq"
+  exit 1
+fi
+
+if ! command -v curl &>/dev/null; then
+  echo -e "${RED}Error: curl is not installed.${NC}"
+  exit 1
+fi
+
+# ---------- Banner ----------
+echo ""
+echo -e "${BOLD}${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}${BLUE}║     Airtable Base Metadata Fetcher     ║${NC}"
+echo -e "${BOLD}${BLUE}╚════════════════════════════════════════╝${NC}"
+echo ""
+
+# ---------- Prompts ----------
+read -r -p "$(echo -e "${BOLD}Base ID${NC} (e.g. appXXXXXXXXXXXXXX): ")" BASE_ID
+if [[ -z "$BASE_ID" ]]; then
+  echo -e "${RED}Error: Base ID is required.${NC}"
+  exit 1
+fi
+if [[ ! "$BASE_ID" =~ ^app[a-zA-Z0-9]{14}$ ]]; then
+  echo -e "${YELLOW}Warning: '$BASE_ID' doesn't look like a standard Base ID (app + 14 chars). Continuing anyway...${NC}"
+fi
+
+read -r -s -p "$(echo -e "${BOLD}Personal Access Token${NC} (input hidden): ")" TOKEN
+echo ""
+if [[ -z "$TOKEN" ]]; then
+  echo -e "${RED}Error: PAT is required.${NC}"
+  exit 1
+fi
+
+# ---------- Output folder ----------
+TIMESTAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+OUTPUT_DIR="$HOME/Desktop/airtable-base-$BASE_ID-$TIMESTAMP"
+mkdir -p "$OUTPUT_DIR"
+
+echo ""
+echo -e "${GRAY}Output: $OUTPUT_DIR${NC}"
+echo ""
+
+AUTH=(-H "Authorization: Bearer $TOKEN")
+API="https://api.airtable.com/v0"
+
+# ---------- Helper ----------
+# fetch URL OUTFILE LABEL [optional]
+# Writes response to OUTFILE (jq-pretty). Returns 0 on HTTP 2xx, 1 otherwise.
+fetch() {
+  local url="$1"
+  local outfile="$2"
+  local label="$3"
+  local optional="${4:-false}"
+
+  local tmp http_code body
+  tmp=$(mktemp)
+  http_code=$(curl -s -o "$tmp" -w "%{http_code}" "${AUTH[@]}" "$url" || echo "000")
+
+  if [[ "$http_code" =~ ^2 ]]; then
+    if jq '.' "$tmp" >"$outfile" 2>/dev/null; then
+      local size
+      size=$(wc -c <"$outfile" | tr -d ' ')
+      echo -e "  ${GREEN}✓${NC} $label ${GRAY}(${size} bytes)${NC}"
+      rm -f "$tmp"
+      return 0
+    else
+      echo -e "  ${RED}✗${NC} $label ${GRAY}(invalid JSON response)${NC}"
+      mv "$tmp" "$outfile.raw"
+      return 1
+    fi
+  else
+    body=$(cat "$tmp")
+    rm -f "$tmp"
+    if [[ "$optional" == "true" ]]; then
+      echo -e "  ${YELLOW}-${NC} $label ${GRAY}(HTTP $http_code — skipped)${NC}"
+    else
+      echo -e "  ${RED}✗${NC} $label ${GRAY}(HTTP $http_code)${NC}"
+      echo -e "${GRAY}    $body${NC}" | head -c 300
+      echo ""
+    fi
+    return 1
+  fi
+}
+
+# ---------- Phase 1: Identity & access ----------
+echo -e "${BOLD}Phase 1: Validating token...${NC}"
+
+fetch "$API/meta/whoami" \
+  "$OUTPUT_DIR/05-whoami.json" \
+  "Token identity (whoami)" || {
+    echo -e "${RED}Cannot continue — token is invalid or revoked.${NC}"
+    exit 1
+  }
+
+if [[ -f "$OUTPUT_DIR/05-whoami.json" ]]; then
+  scopes=$(jq -r '.scopes // [] | join(", ")' "$OUTPUT_DIR/05-whoami.json" 2>/dev/null || echo "(unknown)")
+  user_id=$(jq -r '.id // "(unknown)"' "$OUTPUT_DIR/05-whoami.json" 2>/dev/null || echo "(unknown)")
+  echo -e "${GRAY}    User: $user_id${NC}"
+  echo -e "${GRAY}    Scopes: $scopes${NC}"
+fi
+
+# ---------- Phase 2: Base schema + metadata ----------
+echo ""
+echo -e "${BOLD}Phase 2: Fetching base metadata...${NC}"
+
+fetch "$API/meta/bases/$BASE_ID?include=collaborators&include=interfaces&include=inviteLinks" \
+  "$OUTPUT_DIR/01-base-info.json" \
+  "Base info (collaborators, interfaces, invite links)" \
+  true || true
+
+fetch "$API/meta/bases/$BASE_ID/tables?include[]=visibleFieldIds" \
+  "$OUTPUT_DIR/02-schema.json" \
+  "Schema (tables, fields, views with visibleFieldIds)" || {
+    echo -e "${RED}Cannot continue without schema. Exiting.${NC}"
+    exit 1
+  }
+
+fetch "$API/meta/bases/$BASE_ID/shares" \
+  "$OUTPUT_DIR/03-shares.json" \
+  "Shares (Enterprise-only)" \
+  true || true
+
+fetch "$API/bases/$BASE_ID/webhooks" \
+  "$OUTPUT_DIR/04-webhooks.json" \
+  "Webhooks" \
+  true || true
+
+# ---------- Phase 3: Schema-derived relationships & sync detection ----------
+echo ""
+echo -e "${BOLD}Phase 3: Analyzing schema for relationships & sync...${NC}"
+
+if [[ -f "$OUTPUT_DIR/02-schema.json" ]]; then
+  jq '
+    {
+      sync_destinations: [
+        .tables[] | select([.fields[].type] | any(. == "externalSyncSource")) | {
+          tableId: .id,
+          tableName: .name,
+          syncedFields: [.fields[] | select(.type == "externalSyncSource") | {id, name}]
+        }
+      ],
+      cross_table_links: [
+        .tables[] as $t |
+        $t.fields[] | select(.type == "multipleRecordLinks") | {
+          fromTableId: $t.id,
+          fromTableName: $t.name,
+          fromFieldId: .id,
+          fromFieldName: .name,
+          toTableId: (.options.linkedTableId // null),
+          inverseFieldId: (.options.inverseLinkFieldId // null),
+          isReversed: (.options.isReversed // null),
+          prefersSingleRecordLink: (.options.prefersSingleRecordLink // null)
+        }
+      ],
+      lookup_fields: [
+        .tables[] as $t |
+        $t.fields[] | select(.type == "multipleLookupValues") | {
+          tableId: $t.id,
+          tableName: $t.name,
+          fieldId: .id,
+          fieldName: .name,
+          viaLinkFieldId: (.options.recordLinkFieldId // null),
+          targetFieldId: (.options.fieldIdInLinkedTable // null)
+        }
+      ],
+      rollup_fields: [
+        .tables[] as $t |
+        $t.fields[] | select(.type == "rollup") | {
+          tableId: $t.id,
+          tableName: $t.name,
+          fieldId: .id,
+          fieldName: .name,
+          viaLinkFieldId: (.options.recordLinkFieldId // null),
+          sourceFieldId: (.options.fieldIdInLinkedTable // null),
+          formula: (.options.reductionConditional // null)
+        }
+      ],
+      count_fields: [
+        .tables[] as $t |
+        $t.fields[] | select(.type == "count") | {
+          tableId: $t.id,
+          tableName: $t.name,
+          fieldId: .id,
+          fieldName: .name,
+          viaLinkFieldId: (.options.recordLinkFieldId // null)
+        }
+      ],
+      formula_fields: [
+        .tables[] as $t |
+        $t.fields[] | select(.type == "formula") | {
+          tableId: $t.id,
+          tableName: $t.name,
+          fieldId: .id,
+          fieldName: .name,
+          formula: (.options.formula // null),
+          referencedFieldIds: (.options.referencedFieldIds // [])
+        }
+      ]
+    }
+  ' "$OUTPUT_DIR/02-schema.json" > "$OUTPUT_DIR/06-relationships.json" 2>/dev/null
+
+  if [[ -f "$OUTPUT_DIR/06-relationships.json" ]]; then
+    sync_count=$(jq '.sync_destinations | length' "$OUTPUT_DIR/06-relationships.json")
+    link_count=$(jq '.cross_table_links | length' "$OUTPUT_DIR/06-relationships.json")
+    lookup_count=$(jq '.lookup_fields | length' "$OUTPUT_DIR/06-relationships.json")
+    rollup_count=$(jq '.rollup_fields | length' "$OUTPUT_DIR/06-relationships.json")
+    count_count=$(jq '.count_fields | length' "$OUTPUT_DIR/06-relationships.json")
+    formula_count=$(jq '.formula_fields | length' "$OUTPUT_DIR/06-relationships.json")
+    echo -e "  ${GREEN}✓${NC} Sync destinations: ${BOLD}$sync_count${NC}"
+    echo -e "  ${GREEN}✓${NC} Cross-table links: ${BOLD}$link_count${NC}"
+    echo -e "  ${GREEN}✓${NC} Lookup fields:     ${BOLD}$lookup_count${NC}"
+    echo -e "  ${GREEN}✓${NC} Rollup fields:     ${BOLD}$rollup_count${NC}"
+    echo -e "  ${GREEN}✓${NC} Count fields:      ${BOLD}$count_count${NC}"
+    echo -e "  ${GREEN}✓${NC} Formula fields:    ${BOLD}$formula_count${NC}"
+  fi
+fi
+
+# ---------- Phase 4: Combined bundle ----------
+echo ""
+echo -e "${BOLD}Phase 4: Building combined bundle...${NC}"
+
+# Ensure jq --slurpfile has something to read for endpoints that were skipped/failed.
+for f in 01-base-info.json 02-schema.json 03-shares.json 04-webhooks.json 05-whoami.json 06-relationships.json; do
+  [[ -f "$OUTPUT_DIR/$f" ]] || echo 'null' > "$OUTPUT_DIR/$f"
+done
+
+jq -n \
+  --slurpfile whoami "$OUTPUT_DIR/05-whoami.json" \
+  --slurpfile base "$OUTPUT_DIR/01-base-info.json" \
+  --slurpfile schema "$OUTPUT_DIR/02-schema.json" \
+  --slurpfile shares "$OUTPUT_DIR/03-shares.json" \
+  --slurpfile webhooks "$OUTPUT_DIR/04-webhooks.json" \
+  --slurpfile rels "$OUTPUT_DIR/06-relationships.json" \
+  '{
+     whoami: ($whoami[0] // null),
+     base_info: ($base[0] // null),
+     schema: ($schema[0] // null),
+     shares: ($shares[0] // null),
+     webhooks: ($webhooks[0] // null),
+     relationships: ($rels[0] // null)
+   }' > "$OUTPUT_DIR/00-bundle.json" 2>/dev/null || {
+     echo -e "  ${YELLOW}Could not build full bundle.${NC}"
+   }
+
+if [[ -f "$OUTPUT_DIR/00-bundle.json" ]]; then
+  size=$(wc -c <"$OUTPUT_DIR/00-bundle.json" | tr -d ' ')
+  echo -e "  ${GREEN}✓${NC} 00-bundle.json ${GRAY}(${size} bytes)${NC}"
+fi
+
+# ---------- Summary ----------
+echo ""
+echo -e "${BOLD}${GREEN}Done.${NC}"
+echo ""
+echo -e "${BOLD}Summary:${NC}"
+
+if [[ -f "$OUTPUT_DIR/02-schema.json" ]]; then
+  TABLE_COUNT=$(jq '.tables | length' "$OUTPUT_DIR/02-schema.json")
+  FIELD_COUNT=$(jq '[.tables[].fields | length] | add' "$OUTPUT_DIR/02-schema.json")
+  VIEW_COUNT=$(jq '[.tables[].views | length] | add' "$OUTPUT_DIR/02-schema.json")
+  echo -e "  Tables:     ${BOLD}$TABLE_COUNT${NC}"
+  echo -e "  Fields:     ${BOLD}$FIELD_COUNT${NC}"
+  echo -e "  Views:      ${BOLD}$VIEW_COUNT${NC}"
+fi
+
+if [[ -f "$OUTPUT_DIR/01-base-info.json" ]]; then
+  INT_COUNT=$(jq '.interfaces // {} | keys | length' "$OUTPUT_DIR/01-base-info.json" 2>/dev/null || echo 0)
+  [[ "$INT_COUNT" -gt 0 ]] && echo -e "  Interfaces: ${BOLD}$INT_COUNT${NC}"
+fi
+
+if [[ -f "$OUTPUT_DIR/04-webhooks.json" ]]; then
+  WH_COUNT=$(jq '.webhooks // [] | length' "$OUTPUT_DIR/04-webhooks.json" 2>/dev/null || echo 0)
+  [[ "$WH_COUNT" -gt 0 ]] && echo -e "  Webhooks:   ${BOLD}$WH_COUNT${NC}"
+fi
+
+echo ""
+echo -e "${GRAY}Folder: $OUTPUT_DIR${NC}"
+echo ""
+
+# Open in Finder
+if command -v open &>/dev/null; then
+  open "$OUTPUT_DIR"
+fi

@@ -55,6 +55,62 @@ The asymmetry matters because reads silently degrade while writes silently disab
 
 3. **Avoid renaming columns mid-project** -- use Airtable's Description field for clarification instead.
 
+## Bundled CLI script: `get-airtable-base`
+
+A Bash CLI bundled with this skill that exports an Airtable base's full metadata to a timestamped folder on your Desktop. Pulls schema, relationships, sync detection, webhooks, interfaces, and shares — everything the Airtable Web API exposes for a single base.
+
+**Script location after `npx softr-vibe-coding@latest init`:**
+
+```
+~/.claude/skills/softr-vibe-coding/tools/get-airtable-base
+```
+
+**Requirements:** `jq` (`brew install jq` on macOS), `curl` (preinstalled on macOS/Linux), Bash.
+
+**Run it:**
+
+```bash
+bash ~/.claude/skills/softr-vibe-coding/tools/get-airtable-base
+```
+
+The script prompts interactively for:
+
+- **Base ID** (e.g. `appXXXXXXXXXXXXXX` — find it in the Airtable URL or the API docs page for the base).
+- **Personal Access Token** (input hidden — needs `schema.bases:read` scope minimum, plus `webhook:manage` for webhooks, and optionally `enterpriseAccount:read` for shares).
+
+**Output folder:** `~/Desktop/airtable-base-<BASE_ID>-<UTC-timestamp>/` containing:
+
+| File | Contents |
+|---|---|
+| `00-bundle.json` | Combined bundle of all the below for easy sharing in one paste |
+| `01-base-info.json` | Collaborators, interfaces, invite links |
+| `02-schema.json` | Full schema: every table, every field (with both `fld...` IDs and column names), every view, `visibleFieldIds` per view |
+| `03-shares.json` | Enterprise-only shares — skipped on non-Enterprise plans |
+| `04-webhooks.json` | Registered webhooks |
+| `05-whoami.json` | Token identity and scopes — confirms which user/PAT was used and what it can access |
+| `06-relationships.json` | Derived from `02-schema.json`: sync destinations, cross-table links, lookup/rollup/count/formula field maps |
+
+After completion, the script opens the folder in Finder (macOS).
+
+**Optional alias** for a shorter command. Add to your `~/.zshrc` or `~/.bashrc`:
+
+```bash
+alias get-airtable-base='bash ~/.claude/skills/softr-vibe-coding/tools/get-airtable-base'
+```
+
+After `source ~/.zshrc`, run `get-airtable-base` from anywhere.
+
+**Getting a PAT:** https://airtable.com/create/tokens → Create token → grant `schema.bases:read` (add `data.records:read` only if you want to also read records via the Web API outside Softr). Scope to the specific base(s) the script should access.
+
+**When to use this:**
+
+- **Documenting field IDs alongside column names** in `q.select()` — the mitigation in [Maintainability gotcha](#maintainability-gotcha) above. Grep the `02-schema.json` for an `fld...` ID to find every block affected by a column rename.
+- **Bisecting a broken Action** when a column rename has silently disabled it — the freshest `02-schema.json` is the source of truth to grep against.
+- **Auditing relationships** (lookups, rollups, formulas, cross-table links, sync sources) — `06-relationships.json` summarizes everything the schema reveals about derived/referenced fields.
+- **Sharing schema with an AI assistant** — paste `00-bundle.json` (or just `02-schema.json` if smaller) into chat to give the assistant accurate, current schema context.
+
+This script reads only **metadata**, never records. To inspect record contents inside a Vibe Coding block, use the Field Inspector pattern in [fields.md](fields.md#field-inspector-block).
+
 ## Supported Fields
 
 | Field Type           | Writable  | Notes |
