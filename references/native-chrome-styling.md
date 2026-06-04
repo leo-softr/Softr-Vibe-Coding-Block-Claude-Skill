@@ -1,6 +1,8 @@
-# Styling Softr's Native Chrome (Header / Top Bar / Nav / Dropdowns)
+# Styling Softr's Native Shell (Header · Footer · Page Background) via Custom Code
 
-**This is NOT about Vibe Coding blocks.** Softr's top bar, navigation, and its dropdown menus are *native chrome* — configured in Softr Studio and rendered in the **main document**, not inside a block's shadow DOM. You **cannot** build or replace the global header as a Vibe Coding block. To re-skin it, add **CSS to Settings → Custom Code → Code inside header** (the same place brand fonts/tokens live, i.e. the `custom-code-header.html` produced by `building-design-md`). Pure CSS — no markup, no JS — and the native bar stays in place, so Softr's auth-aware nav (account menu, sign-out, user-group gating) keeps working.
+**This is NOT about Vibe Coding blocks.** Softr's top bar, navigation, dropdown menus, footer, and the page background are part of the *native app shell* — configured in Softr Studio and rendered in the **main document**, not inside a block's shadow DOM. You **cannot** build or replace them as a Vibe Coding block. To re-skin them, add **CSS to Settings → Custom Code → Code inside header** (the same place brand fonts/tokens live, i.e. the `custom-code-header.html` produced by `building-design-md`). Pure CSS — no markup, no JS — and the native chrome stays in place, so Softr's auth-aware nav (account menu, sign-out, user-group gating) keeps working.
+
+This doc covers the **header / nav / dropdowns**, the **footer**, the **floating "island" treatment** for both, and the **page background** — which is trickier than it looks, because Softr stacks the same fill on several layers.
 
 > **Mirror of the block rule.** Global `custom-code-header.html` CSS reaches native chrome (main document) but **not** blocks (shadow DOM). Inside a block you apply brand styles inline; for native chrome you apply them with this global CSS. (See [anti-patterns.md](anti-patterns.md) for the block side.)
 
@@ -100,9 +102,115 @@ Center each item's text and drop the empty description slot Softr reserves:
 .softr-topbar [role="menu"] [role="menuitem"] div:empty { display: none !important; }
 ```
 
+## Floating "island" header
+
+To turn a full-bleed bar into a floating, rounded "island" (inset from the edges): make the sticky root + Softr's Studio wrappers transparent so only the bar paints, then constrain + round + shadow the bar itself.
+
+```css
+/* The sticky root and its Studio wrappers paint full-width — clear them so only the
+   bar shows, floating over the page. */
+#topbar-root,
+#topbar-root > div,
+#topbar-root > div > div { background: transparent !important; }
+
+#topbar-root { padding: 24px 16px 0 !important; }   /* gap above + at the sides */
+
+.softr-topbar {
+  max-width: 1200px !important;
+  margin: 0 auto !important;          /* center the island */
+  border-radius: 22px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Optional: group the nav cluster toward the right-of-center */
+.softr-topbar [role="menubar"] { justify-content: flex-end !important; }
+```
+
+## Footer
+
+**The native footer has NO `softr-*` class — only `f8f11e5_*` hashes.** Target the semantic **`<footer>`** element instead. Safe: Vibe Coding blocks are shadow-DOM isolated, so `footer { … }` reaches only Softr's native footer, never a block.
+
+```css
+footer {
+  max-width: 1200px !important;
+  margin: 24px auto !important;            /* inset → elevated "island" card */
+  border-radius: 22px !important;
+  background-color: #02006C !important;    /* e.g. navy, to match a navy header island */
+  color: #FFFFFF !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18) !important;
+}
+footer * { color: inherit !important; }    /* recolor all footer text/links white in one shot */
+```
+
+**Footer contact column wraps the email mid-word.** Softr pins that column to a fixed `width: 160px` with `overflow-wrap: break-word`, so a long email splits across lines. Fix by no-wrapping the links (target by their stable `tel:` / `mailto:` href) and letting the column grow to content:
+
+```css
+footer a[href^="tel:"],
+footer a[href^="mailto:"] { white-space: nowrap !important; }
+footer [role="list"],
+footer [role="list"] > div,
+footer [role="list"] > div > div {
+  width: auto !important;
+  min-width: max-content !important;
+  max-width: none !important;
+}
+```
+
+## Page background
+
+**The trickiest one — Softr paints the SAME fill on FOUR stacked layers:** `html`, `body`, `#page-content` (stable id; classes `content spr-content-root`), AND a deeper **class-less wrapper div** nested a few levels inside `#page-content`. Style any one layer and the ones above cover it — this is why setting `body` alone appears to "do nothing."
+
+**Pattern: paint the backdrop on the bottom layer (`html`), then clear the duplicate fills off everything stacked above it.**
+
+```css
+/* 1. Paint the backdrop on the bottom layer. A layered "combo" reads premium:
+      soft glow + faint dot-grid + base gradient. background-image order = top→bottom. */
+html {
+  background-color: #F0F3FC !important;   /* fallback base */
+  background-image:
+    radial-gradient(75rem 42rem at 50% -12%, rgba(155, 35, 208, 0.08), transparent 60%),  /* glow */
+    radial-gradient(rgba(2, 0, 108, 0.045) 1px, transparent 1.6px),                        /* dot-grid */
+    linear-gradient(180deg, #E7EAFB 0%, #F2F4FD 45%, #FAFBFF 100%) !important;             /* gradient */
+  background-size: 100% 100%, 24px 24px, 100% 100% !important;
+  background-repeat: no-repeat, repeat, no-repeat !important;
+  background-attachment: fixed !important;   /* calm while content scrolls */
+}
+
+/* 2. Clear the duplicate fills stacked above <html> so the backdrop shows through —
+      but EXCLUDE the header subtree (see gotcha). The inner content wrapper is
+      class-less and nested deep, so clear ALL divs inside #page-content. */
+body,
+#page-content { background-color: transparent !important; background-image: none !important; }
+#page-content div:not(.softr-topbar):not(.softr-topbar *) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+```
+
+**Gotcha — don't clear the header into oblivion.** The header (`#topbar-root` → `.softr-topbar`, *including its dropdown panel*) renders **inside** `#page-content`, so a blanket `#page-content div { background: transparent }` flattens the dropdown's white panel too. And `#page-content`'s **id specificity (1,0,1) out-specifies** class/attr rules like `.softr-topbar [role="menu"]` (0,2,0) — so the clear wins silently and your earlier menu styling vanishes. Always exclude the header subtree: `:not(.softr-topbar):not(.softr-topbar *)`. (Cards are shadow-DOM blocks → their backgrounds are untouched; the footer is a `<footer>`, not a div → safe.)
+
 ## Finding the element to target
 
-DevTools can't right-click a menu that closes on blur. Freeze it: in the Console run `setTimeout(function () { debugger; }, 4000)`, open the menu within 4s, then — paused — element-pick the panel and read the **Computed** tab to see which element holds a fixed `height` / `grid-template-rows`. Resume with the ▶ button. ("Emulate a focused page" in the Elements `:hov` menu is a lighter alternative for blur-close menus.)
+**Transient menus** (close on blur) — DevTools can't right-click them. Freeze: in the Console run `setTimeout(function () { debugger; }, 4000)`, open the menu within 4s, then — paused — element-pick the panel and read the **Computed** tab. Resume with the ▶ button. ("Emulate a focused page" in the Elements `:hov` menu is a lighter alternative.)
+
+**Which element paints a background** — the element-picker keeps grabbing a *transparent* overlay sitting on top, so scan instead. Paste this in the Console; it lists `html`, `body`, and every large element with a real background color (tag / id / class / color / size), so you can spot the actual painter and its stable hook:
+
+```js
+(function () {
+  var hits = [];
+  var all = document.querySelectorAll('html, body, body *');
+  for (var i = 0; i < all.length; i++) {
+    var el = all[i], bg = getComputedStyle(el).backgroundColor, r = el.getBoundingClientRect();
+    if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' &&
+        (el === document.documentElement || el === document.body || (r.width > 1200 && r.height > 400))) {
+      hits.push({ tag: el.tagName.toLowerCase(), id: el.id || '',
+        cls: (typeof el.className === 'string' ? el.className : ''),
+        bg: bg, size: Math.round(r.width) + 'x' + Math.round(r.height) });
+    }
+  }
+  console.table(hits);
+})();
+```
 
 ## Restyle vs. replace
 

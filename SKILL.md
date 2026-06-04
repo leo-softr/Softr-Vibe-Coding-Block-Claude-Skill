@@ -157,7 +157,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 | AI-assisted Softr DB schema discovery / field-ID lookup / record reads via the official Softr MCP server (sibling to the in-block `useRecords` workflow) | [references/softr-database-mcp.md](references/softr-database-mcp.md) |
-| Restyling Softr's **native header / top bar / nav / dropdown menus** (not a block — it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, the dropdown blank-space grid fix, restyle-vs-replace tradeoffs | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
+| Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
 
 ## Code Structure
 

@@ -18,7 +18,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
 - **Helper blocks & cross-block patterns** — Invisible helper blocks for multi-table access via `window` globals + `CustomEvent`, `useWindowData` hook, breadcrumb navigation, saved views architecture
 - **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
-- **Native header styling** — re-skin Softr's native top bar, nav, and dropdown menus via global Custom Code CSS (stable selectors vs. hashed classes, the dropdown blank-space grid fix, restyle-vs-replace) — distinct from blocks
+- **Native shell styling** — re-skin Softr's native top bar, **footer**, nav, dropdowns, and **page background** via global Custom Code CSS (stable selectors vs. hashed classes, floating "island" header/footer, the dropdown grid fix, the multi-layer page-background stacking, restyle-vs-replace) — distinct from blocks
 - **UI/UX design guidelines** — 26 sections covering visual hierarchy, color, typography, spacing, motion design, accessibility, responsive patterns, and an AI slop anti-pattern checklist
 - **Self-validation** — Claude checks for Softr bundler compatibility (no optional chaining, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
@@ -185,9 +185,10 @@ softr-vibe-coding/
 │   │                                 # install, scope limitations)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
-│   ├── native-chrome-styling.md      # Restyle Softr's native header/nav/dropdowns
-│   │                                 # via global Custom Code CSS — stable selectors,
-│   │                                 # dropdown grid blank-space fix, restyle vs replace
+│   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
+│   │                                 # nav, dropdowns, page background) via global
+│   │                                 # Custom Code CSS — stable selectors, floating
+│   │                                 # islands, dropdown grid fix, multi-layer page-bg
 │   ├── anti-patterns.md              # Categorized violation catalog (86 lines)
 │   │                                 # Data access, mutations, hooks, layout,
 │   │                                 # permissions, helper blocks
