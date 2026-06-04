@@ -24,10 +24,61 @@ q.select({ name: "First Name" })
 Find field IDs in this order of preference:
 
 1. **Softr Database MCP** (recommended when working with an AI assistant) — the AI calls schema/list-fields tools directly. See [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
-2. **Network inspector** — DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs. Paste the JSON into chat to share with an AI when the MCP isn't installed.
-3. **Inline in Studio** — click a field's name in the Data tab; the ID appears in the field-edit drawer.
+2. **`get-softr-database` CLI script (bundled)** — a Python CLI bundled with this skill at `~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py`. Exports the full schema (every table, field, dropdown option UUID) to `~/Desktop/softr-database-<id>-<timestamp>.json`. Stdlib only, no `pip install`. See [Bundled CLI script](#bundled-cli-script-get-softr-database) below.
+3. **Network inspector** — DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs. Paste the JSON into chat to share with an AI when the MCP isn't installed.
+4. **Inline in Studio** — click a field's name in the Data tab; the ID appears in the field-edit drawer.
 
 The generic Field Inspector pattern with empty `q.select({})` does NOT work for Softr Database — see [fields.md](fields.md#field-inspector-block).
+
+## Bundled CLI script: `get-softr-database`
+
+A Python CLI bundled with this skill that exports a complete Softr Tables database schema (every table, every field, all dropdown option UUIDs) to a timestamped JSON file on your Desktop. Stdlib only — no `pip install` required.
+
+**Script location after `npx softr-vibe-coding@latest init`:**
+
+```
+~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py
+```
+
+**Run it directly:**
+
+```bash
+python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>
+```
+
+It prompts for your Softr API key (input hidden via `getpass`). To skip the prompt entirely, pass via env var:
+
+```bash
+SOFTR_API_KEY=xxx python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>
+```
+
+Run with no args to be prompted for both the database ID and API key.
+
+**Output:** `~/Desktop/softr-database-<databaseId>-<YYYYMMDD-HHMMSS>.json` containing:
+
+```json
+{
+  "exportedAt": "...",
+  "source": "https://tables-api.softr.io/api/v1",
+  "databaseId": "...",
+  "database": { /* full database metadata */ },
+  "tableCount": N,
+  "fieldCount": M,
+  "tables": [ /* every table with its full fields[] array */ ]
+}
+```
+
+**Optional alias** for a shorter command. Add to your `~/.zshrc` or `~/.bashrc`:
+
+```bash
+alias get-softr-database='python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py'
+```
+
+After `source ~/.zshrc`, just run `get-softr-database <database_id>` from anywhere.
+
+**Get your Softr API key:** Softr workspace settings → API keys → create a new key with read access to the target database.
+
+**When to use vs the MCP:** the MCP server is better for AI-assisted workflows (the assistant calls schema tools directly without any user action). This CLI script is better when you want a portable JSON file — for sharing in chat, archiving alongside your project, diffing across schema versions, or pasting a single big blob into Claude. The two approaches don't conflict; many projects use both.
 
 ## Supported Fields
 

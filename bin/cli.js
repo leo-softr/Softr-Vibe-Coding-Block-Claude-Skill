@@ -10,7 +10,7 @@ var SETTINGS_FILE = path.join(os.homedir(), '.claude', 'settings.json');
 var PACKAGE_ROOT = path.resolve(__dirname, '..');
 
 var SKILL_FILES = ['SKILL.md', 'ui-ux-guidelines.md', 'README.md', 'LICENSE'];
-var SKILL_DIRS = ['references', 'datasources'];
+var SKILL_DIRS = ['references', 'datasources', 'tools'];
 
 var HOOK_COMMAND = 'npx -y --prefer-online ' + SKILL_NAME + '@latest sync';
 

@@ -111,15 +111,17 @@ export default function Block() {
 
 1. **Softr Database MCP server (recommended for AI-assisted workflows)** -- if you're collaborating with an AI assistant (Claude Code, Claude Desktop, Cursor, ChatGPT, Mistral) to write Vibe Coding blocks, the official Softr MCP server is the cleanest path. The AI calls schema/list-fields tools directly against your workspace and reads back every field's `id`, `name`, `type`, and dropdown option UUIDs -- no copy-paste, no transcription errors. Full setup, scopes, and scope limitations (Softr DB only -- does NOT cover Airtable / external sources) in [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
 
-2. **Network inspector (full schema in one shot, no MCP needed)** -- in Studio's Data tab with browser DevTools open, filter Network requests by `tablespace-with-tables`. The Response JSON contains every table's complete schema, including:
+2. **`get-softr-database` CLI script (bundled, no MCP needed)** -- a Python CLI bundled with this skill at `~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py`. Exports the full schema (every table, every field, all dropdown option UUIDs) to `~/Desktop/softr-database-<id>-<timestamp>.json`. Run with `python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>` (prompts for API key) or set `SOFTR_API_KEY=xxx` env var to skip the prompt. Stdlib only, no `pip install`. Best when you want a portable JSON dump for sharing in chat, archiving, or diffing across schema versions. Full usage in [softr-database.md](softr-database.md#bundled-cli-script-get-softr-database).
+
+3. **Network inspector (full schema in one shot, no MCP needed)** -- in Studio's Data tab with browser DevTools open, filter Network requests by `tablespace-with-tables`. The Response JSON contains every table's complete schema, including:
    - Each field's `id`, `name`, `type`, and `options`
    - For dropdown / SELECT fields: the full `choices` array with every option's `id` (UUID), `label`, and `color`
 
    Use this when scaffolding a block that needs many field IDs at once, or to look up dropdown option UUIDs needed for write payloads. **When working with an AI assistant without the MCP installed**, paste this JSON response into the chat -- second-best way to share accurate field IDs and dropdown UUIDs in one shot.
 
-3. **Inline in Studio (one field at a time)** -- in the Data tab, click a field's name to open its edit drawer. The field ID appears next to the "Field name" label (e.g. `ID: 37fts`). Fastest for spot-checking a single field.
+4. **Inline in Studio (one field at a time)** -- in the Data tab, click a field's name to open its edit drawer. The field ID appears next to the "Field name" label (e.g. `ID: 37fts`). Fastest for spot-checking a single field.
 
-4. **Softr Database REST API with `fieldNames=true`** -- runtime inspection from inside a Vibe Coding block (internal-portal blocks only, since this exposes a PAT in client code):
+5. **Softr Database REST API with `fieldNames=true`** -- runtime inspection from inside a Vibe Coding block (internal-portal blocks only, since this exposes a PAT in client code):
 
 ```jsx
 import { useEffect, useState } from "react";
