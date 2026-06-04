@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.7.0] - 2026-06-04
+- Add references/native-chrome-styling.md — restyle Softr's native header/top bar/nav/dropdowns via global Custom Code CSS (target stable .softr-* / ARIA-Radix selectors instead of regenerated f8f11e5_* hashes, the dropdown column-grid blank-space fix, icon/label color-inherit, restyle-vs-replace tradeoffs); add SKILL.md scope note + Reference Guides row; add two anti-patterns rows; update README; bump to 1.7.0
+
 ## [1.6.0] - 2026-06-03
 - Document useNavigationBlocker for form-dirty navigation guards in Softr SPA mode
 
