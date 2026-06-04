@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.8.0] - 2026-06-04
+- Expand references/native-chrome-styling.md to the full native shell — add Footer (semantic <footer> target + 160px/overflow-wrap contact-column email-wrap fix), floating "island" header/footer treatment, and Page background (Softr stacks the same fill on html/body/#page-content/inner-wrapper, so paint on html + clear the stack, EXCLUDING the .softr-topbar subtree so the dropdown panel survives) + a Console background-finder snippet; broaden SKILL.md Reference Guides row + README; add anti-patterns row for the page-background stacking; bump to 1.8.0
+
 ## [1.7.0] - 2026-06-04
 - Add references/native-chrome-styling.md — restyle Softr's native header/top bar/nav/dropdowns via global Custom Code CSS (target stable .softr-* / ARIA-Radix selectors instead of regenerated f8f11e5_* hashes, the dropdown column-grid blank-space fix, icon/label color-inherit, restyle-vs-replace tradeoffs); add SKILL.md scope note + Reference Guides row; add two anti-patterns rows; update README; bump to 1.7.0
 
