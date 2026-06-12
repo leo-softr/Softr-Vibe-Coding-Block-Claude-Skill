@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.11.0] - 2026-06-12
+- Add references/native-block-filters.md — dynamic date / URL-param filters and custom filter controls on native Softr List/Grid blocks. Covers driving a native block's conditional filter from a Custom Code Static block via {URL_PARAM:…}, the empty-param 'match nothing' wide-range sentinel that otherwise empties the list on load, injecting the control into the block's filter row scoped by data-block-id (a page-wide text search wrongly matches the nav 'Clients' link), resolving the row by filter-label-text + lowest-common-ancestor instead of hashed chip classes, and the key gotcha that Softr re-renders its List/Grid block and discards injected nodes so the control must be re-homed on a short interval rather than relocated once. Includes a full worked date-range picker (wide-range sentinel + wait-for-both + Clear + relocation + re-render survival) and a DevTools how-to for finding data-block-id and the filter row. Wire into the SKILL.md reference table and README structure listing; bump to 1.11.0
+
 ## [1.10.2] - 2026-06-12
 - Document the autoNumber-formula blank-read gotcha — a formula that references an Airtable autoNumber field frequently reads back empty through Softr's data layer even though Airtable shows the value and a data re-sync doesn't fix it (sibling formulas without an autoNumber dependency read fine). Add to datasources/airtable.md Gotchas + the Formula row of the field table, with the JS rebuild-from-autoNumber fix and the plain-text-stamped-by-automation alternative; bump to 1.10.2
 
