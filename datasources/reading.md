@@ -108,23 +108,43 @@ var options = (result.data && result.data.pages) ? result.data.pages.flatMap(fun
 Returns the current option list for any `singleSelect` / `multipleSelects` field — without hardcoding option IDs in your block. Useful when the schema's option list changes (renames, additions, reorders) and you don't want to redeploy the block every time.
 
 ```jsx
-import { useFieldOptions, q } from "@/lib/datasource";
+import { useFieldOptions, useRecords, q } from "@/lib/datasource";
+
+var specSelect = q.select({ status: "Status" });
+
+// REQUIRED: a companion records query in the SAME block loads the table schema that
+// useFieldOptions reads from. Without it, useFieldOptions settles to `{ options: [] }`
+// (isLoading false, length 0) even though the field has choices. count: 1 is enough.
+useRecords({ select: specSelect, count: 1 });
 
 var statusOptions = useFieldOptions({
-  select: q.select({ status: "Status" }),
+  select: specSelect,
   field: "status",   // the ALIAS from q.select(), NOT the raw field ID
 });
 
-// statusOptions.options → [{ id: "sel...", label: "Active" }, { id: "sel...", label: "Inactive" }]
-// Each item has `id` (the option's UUID, used in mutate payloads) and `label` (display string).
+// statusOptions → { options: [...], isLoading: bool }
+// statusOptions.options → [{ id: "sel...", label: "Active", color: "greenLight1" }, ...]
+//   id    — the option's UUID, used in mutate payloads
+//   label — display string
+//   color — Airtable swatch color name (optional; handy for tinting chips)
 ```
+
+**⚠️ Gotcha — requires a companion `useRecords` (verified 2026-06-12).** `useFieldOptions`
+only populates once an active `useRecords` in the same block has loaded that table's schema.
+This bites hardest in **write-only / invisible helper blocks** (the natural home for an
+option-publishing helper) because they otherwise never query records — so `options` stays
+`[]` forever with `isLoading: false`, which looks like "the field has no choices." The fix is
+a throwaway `useRecords({ select, count: 1 })` alongside the `useFieldOptions` call(s); the
+same `select` object can be shared by both. Reuse one `select` for many fields and call
+`useFieldOptions` once per field (alias). Symptom to recognise: hook returns
+`{ options: [], isLoading: false }` while the block is correctly bound to the data source.
 
 **When to use this vs. hardcoding:**
 
-- **Use `useFieldOptions`** when option IDs / labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying.
-- **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the IDs live in source and rename-safety is enforced by greppable constants.
+- **Use `useFieldOptions`** when option IDs / labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying. Cross-table case: to render a select field from table B inside a block bound to table A (e.g. an intake form bound to Jobs that needs the Wigs `Color` options), put the `useRecords` + `useFieldOptions` in a hidden helper block bound to table B and publish the options to a `window` global (see [helper-blocks.md](../references/helper-blocks.md)).
+- **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the IDs live in source and rename-safety is enforced by greppable constants. A robust middle ground: prefer the live options, fall back to a hardcoded list per field so the UI still renders if the helper hasn't published yet.
 
-`useFieldOptions` is the read-side equivalent of using `useLinkedRecords` for foreign records — it abstracts away the field's option store. Items are shaped `{ id, label }` (note: `label`, not `title` like `useLinkedRecords`).
+`useFieldOptions` is the read-side equivalent of using `useLinkedRecords` for foreign records — it abstracts away the field's option store. Items are shaped `{ id, label, color }` (note: `label`, not `title` like `useLinkedRecords`).
 
 ## Filtering
 
