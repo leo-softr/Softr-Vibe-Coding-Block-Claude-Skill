@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.10.1] - 2026-06-12
+- Document useFieldOptions companion-useRecords requirement — the hook only populates once an active useRecords in the same block has loaded the table schema; without it options settles to [] with isLoading false (bites write-only/helper blocks hardest). Add the required companion query to the example, correct the return shape to { options, isLoading } with options { id, label, color }, note the cross-table helper-block pattern, and add a prefer-live-fall-back-to-hardcoded recommendation; bump to 1.10.1
+
 ## [1.10.0] - 2026-06-04
 - Bundle get-airtable-base CLI script for full base metadata export; document in SKILL.md, airtable.md, fields.md
 
