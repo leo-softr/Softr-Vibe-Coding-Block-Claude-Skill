@@ -172,6 +172,29 @@ setInterval(ensureHomed, 500); // and re-home after every Softr re-render
 
 `ensureHomed` is idempotent (it only re-appends when the control is *not* already in the row), so the interval is cheap and can't loop.
 
+### 4d. Tabbed pages — home into the VISIBLE tab's list ⚠️
+**Softr renders tabs with Radix, and the *inactive* tab's blocks stay in the DOM — just `display:none`, not unmounted.** So on a tabbed page (e.g. a worker "Pending / All" view) *both* tabs' list blocks match a `data-block-id` lookup. Grab the hidden one and your control gets injected into the invisible panel — it looks like it "vanished" the moment the user switches tabs.
+
+Two rules:
+1. **Require the matched block to be visible** — `el.offsetParent !== null` (it's `null` when the element or an ancestor tab panel is `display:none`). Skip hidden matches.
+2. **One control can serve every tab** — list all the tab-lists' block-ids and home into whichever is visible; the re-home interval then makes the control *follow the active tab*.
+
+```js
+// Both tab lists. Softr keeps the INACTIVE tab's list in the DOM (hidden), so an id-only
+// match could grab the wrong one — only the VISIBLE tab's block should win.
+var LIST_BLOCK_IDS = ["<pending-tab-list-id>", "<all-tab-list-id>"];
+
+function activeListBlock() {
+  for (var i = 0; i < LIST_BLOCK_IDS.length; i++) {
+    var el = document.querySelector('[data-block-id="' + LIST_BLOCK_IDS[i] + '"]');
+    if (el && el.offsetParent !== null) return el; // offsetParent === null → in a hidden tab
+  }
+  return null;
+}
+```
+
+Use `activeListBlock()` in place of the single-id lookup inside `findFilterRow()`. Each tab-list still needs its OWN copy of the conditional filter (the control only sets the URL params; every list reads them independently). A ~250ms interval feels snappier than 500ms when the user flips tabs.
+
 ---
 
 ## 5. Full worked example — date-range picker that joins the filter row
@@ -280,6 +303,7 @@ A complete Custom Code Static block: range picker with the wide-range sentinel, 
 
 - **Empty `{URL_PARAM}` = match NOTHING.** A blank/missing param empties a filtered list. Seed a wide sentinel range (and map it back to blank inputs) so "no selection" shows all. §2.
 - **Softr re-renders its list block and discards injected nodes.** One-shot relocation vanishes on the first interaction. Re-home on an interval/observer. §4c.
+- **Tabbed pages keep the inactive tab's list in the DOM (`display:none`).** A `data-block-id` match can grab the hidden tab's copy → the injected control "disappears" on tab switch. Require `offsetParent !== null` and home into the visible list; one control can follow all tabs. §4d.
 - **Page-wide DOM searches hit the native chrome.** Matching by text "Client" also matches a "Clients" nav link → control lands in the sidebar. Always scope to the block's `data-block-id`. §4a.
 - **Filter chips have only hashed classes** (`a0e85ef_…`) that change on deploys. Anchor on your **filter label text + lowest common ancestor**; keep the hash as a fallback only. §4b.
 - **`window.location.reload()` is how Softr re-reads the param.** `replaceState` alone updates the URL but won't re-run the conditional filter — you must reload.
