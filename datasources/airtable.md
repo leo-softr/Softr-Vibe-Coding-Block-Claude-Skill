@@ -128,7 +128,7 @@ This script reads only **metadata**, never records. To inspect record contents i
 | Phone                | Yes       | |
 | Linked Record        | Read/Write | Returns as `{ label, id }` objects |
 | Rollup               | Read-only | |
-| Formula              | Read-only | |
+| Formula              | Read-only | Reads fine for most formulas — BUT a formula that references an **autoNumber** field often comes back blank through Softr's data layer. See Gotchas → "Formulas depending on autoNumber". |
 | Lookup               | Read-only | |
 | Computed             | Read-only | |
 | Created Time         | Read-only | |
@@ -151,6 +151,21 @@ Mitigation: Use PAT authentication. Cache data where possible. Avoid unnecessary
 - **Linked records are objects** with `{ label, id }` structure, not plain text.
 - **View connections** apply Airtable-side filters and sorts before data reaches Softr. This is useful for pre-filtering but means the Softr block only sees the view's subset.
 - **Column names are case-sensitive.** `"First name"` and `"First Name"` are different.
+- **Formulas that depend on an `autoNumber` field can read back blank** (verified 2026-06-12). Softr serves most formulas fine — a `CONCATENATE` of text fields reads correctly — but a formula like `"WIG-" & RIGHT("0000" & {Autonumber}, 4)` frequently comes through as `""`, even though Airtable shows the value and a data re-sync doesn't fix it. The autoNumber dependency is the differentiator: a sibling formula on the same record (no autoNumber) reads fine.
+  - **Symptom:** one computed field is empty in `record.fields` while the rest populate; re-syncing the Softr data source doesn't help.
+  - **Fix:** don't read the formula — read the raw `autoNumber` field and rebuild the value in JS:
+    ```jsx
+    // q.select({ tag: "Wig Tag ID", auto: "Autonumber", ... })
+    function buildTag(f) {
+      var raw = getFieldValue(f.tag);
+      if (raw) return raw;                       // formula populated — use it
+      var n = f.auto;
+      if (n != null && typeof n === "object") n = (n.value != null) ? n.value : "";
+      var s = (n == null) ? "" : String(n).trim();
+      return s ? "WIG-" + ("0000" + s).slice(-4) : "";  // mirror the Airtable formula in JS
+    }
+    ```
+  - **Alternative (most robust):** add a plain single-line-text field and stamp the value into it with an Airtable automation on record create. Softr reads plain text 100% reliably, with no formula/autoNumber dependency.
 
 ## Best For
 - Teams already managing data in Airtable
