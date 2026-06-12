@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.10.2] - 2026-06-12
+- Document the autoNumber-formula blank-read gotcha — a formula that references an Airtable autoNumber field frequently reads back empty through Softr's data layer even though Airtable shows the value and a data re-sync doesn't fix it (sibling formulas without an autoNumber dependency read fine). Add to datasources/airtable.md Gotchas + the Formula row of the field table, with the JS rebuild-from-autoNumber fix and the plain-text-stamped-by-automation alternative; bump to 1.10.2
+
 ## [1.10.1] - 2026-06-12
 - Document useFieldOptions companion-useRecords requirement — the hook only populates once an active useRecords in the same block has loaded the table schema; without it options settles to [] with isLoading false (bites write-only/helper blocks hardest). Add the required companion query to the example, correct the return shape to { options, isLoading } with options { id, label, color }, note the cross-table helper-block pattern, and add a prefer-live-fall-back-to-hardcoded recommendation; bump to 1.10.1
 
