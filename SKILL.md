@@ -159,6 +159,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 | AI-assisted Softr DB schema discovery / field-ID lookup / record reads via the official Softr MCP server (sibling to the in-block `useRecords` workflow) | [references/softr-database-mcp.md](references/softr-database-mcp.md) |
 | Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
+| Adding a **dynamic date filter or custom filter control to a native List/Grid block** (via a Custom Code Static block, not a Vibe block): drive the block's conditional filter with `{URL_PARAM:…}`, the empty-param "match nothing" wide-range sentinel, inject the control into the filter row and keep it alive across Softr's re-renders | [references/native-block-filters.md](references/native-block-filters.md) |
 
 ## Code Structure
 

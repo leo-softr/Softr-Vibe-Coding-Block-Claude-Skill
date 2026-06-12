@@ -189,6 +189,9 @@ softr-vibe-coding/
 │   │                                 # nav, dropdowns, page background) via global
 │   │                                 # Custom Code CSS — stable selectors, floating
 │   │                                 # islands, dropdown grid fix, multi-layer page-bg
+│   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
+│   │                                 # controls on native List/Grid blocks — wide-range
+│   │                                 # sentinel, inject into filter row, survive re-renders
 │   ├── anti-patterns.md              # Categorized violation catalog (86 lines)
 │   │                                 # Data access, mutations, hooks, layout,
 │   │                                 # permissions, helper blocks
