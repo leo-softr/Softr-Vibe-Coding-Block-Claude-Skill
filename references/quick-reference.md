@@ -65,6 +65,8 @@ var recordId = useCurrentRecordId();
 var result = useRecord({ recordId: recordId, select: select });
 ```
 
+`recordId` may be omitted when the block's Studio data binding supplies the record context (verified by deployed block, July 2026) — see [reading.md](../datasources/reading.md#userecord----fetch-a-single-record).
+
 ## Current User
 
 ```jsx

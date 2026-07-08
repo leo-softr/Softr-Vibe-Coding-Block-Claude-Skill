@@ -84,6 +84,8 @@ var result = useRecord({
 });
 ```
 
+**`recordId` can be omitted when Softr Studio supplies the record context.** `useRecord({ select })` with no `recordId` loads the record the block is bound to via its data-source binding in Studio — verified by deployed block, July 2026 (an Airtable-backed stats block rendered live values this way). Keep `useCurrentRecordId()` + explicit `recordId` as the pattern for URL-driven detail pages (`/page?recordId=...`). When editing an existing **working** block that already omits `recordId`, leave the call shape as-is: adding an explicit `recordId` from `useCurrentRecordId()` can change behavior on pages whose URL carries no `recordId` param. Corollary for reviews: a recordId-less `useRecord` is NOT by itself a defect — check whether the block is deployed and loading data before flagging it.
+
 ## useLinkedRecords -- Fetch Linked/Related Options
 
 ```jsx
