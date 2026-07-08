@@ -28,7 +28,7 @@ Background-only. No UI. Receives input from the automation trigger; can output v
 - Output to downstream steps via `output.set(key, value)`.
 - `console.log()` appears in the automation's run log (NOT the browser console). This is your ONLY progress / debug surface.
 - **NO `output.markdown`, NO `output.text`, NO `output.table`, NO `output.inspect`** — those throw `TypeError: output.<x> is not a function` here. They're Scripting-Extension-only.
-- **NO `input.buttonsAsync` / `input.textAsync`** — interactive UI is not available in the background runner.
+- **NO interactive prompts** (`input.buttonsAsync` and friends) — interactive UI is not available in the background runner. (Note: `input.textAsync` is not a real method in *either* environment — see the Scripting Extension section.)
 - Execution cap: 120 seconds (recently raised from 30s).
 - Can be triggered manually via the "Test" button on the automation, useful for one-shot scripts you don't want to set up a real trigger for.
 
@@ -59,7 +59,7 @@ await main();
 Foreground, interactive. Used for one-off transforms, bulk fixes, building admin dashboards. Has a richer API. Requires installing the "Scripting" extension in the base — most bases don't have it by default.
 
 - Configure interactive inputs via `input.config({ title, items: [...] })` — note: takes an OBJECT here, unlike Automation Scripts.
-- Show prompts with `await input.buttonsAsync(prompt, options)`, `input.textAsync(...)`, etc.
+- Show prompts with `await input.buttonsAsync(prompt, options)` — this is the **only** interactive runtime prompt. **There is no `input.textAsync`**; calling it throws `TypeError: input.textAsync is not a function`. For a free-text value (e.g. an API key), declare it as an `input.config({...})` setting at the top, or hardcode a constant for a one-off script.
 - Render output with `output.markdown(...)`, `output.table(...)`.
 - `console.log()` shows in the browser devtools console.
 
