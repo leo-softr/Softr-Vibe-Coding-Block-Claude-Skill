@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [1.11.2] - 2026-07-08
+- Bump to 1.11.2 — publish recordId-less useRecord note and input.textAsync correction
+- Correct input.textAsync in airtable-automations.md — it is not a real method in EITHER Airtable scripting environment; calling it in the Scripting Extension throws TypeError: input.textAsync is not a function. buttonsAsync is the only interactive runtime prompt; free-text values (e.g. an API key) go through an input.config({...}) setting at the top or a hardcoded constant. Also generalize the Automation Scripts bullet to "no interactive prompts".
+- Document recordId-less useRecord via Studio data binding
+
 ## [1.11.1] - 2026-06-12
 - Document the tabbed-list visibility gotcha in native-block-filters.md — Softr renders tabs with Radix and keeps the INACTIVE tab's blocks in the DOM (display:none, not unmounted), so a data-block-id lookup on a tabbed page matches BOTH tabs' lists; injecting a custom control into the hidden one makes it 'disappear' on tab switch. Add §4d: require the matched block to be visible (offsetParent !== null) and home into whichever tab is active so one control follows all tabs (each tab-list keeps its own conditional filter; ~250ms interval for snappier flips), plus a Gotchas bullet. Bump to 1.11.1
 
