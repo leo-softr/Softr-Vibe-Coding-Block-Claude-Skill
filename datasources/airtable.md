@@ -120,6 +120,7 @@ This script reads only **metadata**, never records. To inspect record contents i
 | Number               | Yes       | |
 | Date                 | Yes       | |
 | Checkbox             | Yes       | |
+| Rating               | Yes       | Star field. **Writable** — send a plain integer `0`–`max`; `0` clears it (Airtable treats a cleared rating as empty, so `AVERAGE` formulas skip it). Reads back as a number. Verified by direct experiment, July 2026: a create Action with three `rating` fields derived cleanly and wrote all three. |
 | Single Select        | Yes       | Returns as `{ label, id }` object. Use `getFieldValue()` helper to extract the label. |
 | Multiple Select      | Yes       | Array of `{ label, id }` objects |
 | Attachment           | Yes       | Array of `{ filename, id, type, url }` objects |
