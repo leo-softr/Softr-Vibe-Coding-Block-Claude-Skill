@@ -5,6 +5,8 @@ Cross-block communication via `window` globals, the invisible helper block patte
 ## Table of Contents
 
 - [When You Need Helper Blocks](#when-you-need-helper-blocks)
+- [When you still need a helper block](#when-you-still-need-a-helper-block)
+- [The original rationale (historic)](#the-original-rationale-historic)
 - [Companion Field Helpers](#companion-field-helpers)
 - [Breadcrumb / Back Navigation](#breadcrumb--back-navigation)
 - [Multi-Table Access via Invisible Helper Blocks](#multi-table-access-via-invisible-helper-blocks)
@@ -17,11 +19,39 @@ Cross-block communication via `window` globals, the invisible helper block patte
 
 ## When You Need Helper Blocks
 
-A Vibe Coding block can only connect to **one source table**. When your main block needs data from a second table (e.g., a task detail block that also needs the Users table for a team picker), you cannot add another `useRecords` for a different table.
+> ⚠️ **Read this first — the main reason for helper blocks is gone.** A Vibe Coding block can now
+> connect to **multiple data sources** and read each one with its own `useRecords({ from: ds.x })`.
+> See [../datasources/multi-datasource.md](../datasources/multi-datasource.md). For a plain
+> "my block also needs data from a second table", **use a second datasource, not a helper block** —
+> it's one block instead of two, no `window` globals, no page-order dependency, no mount-timing races.
+>
+> Everything below still works, and the cross-block sections are still the right tool for the jobs
+> listed under "When you still need a helper block". Historic blocks built on this pattern don't
+> need rewriting.
 
-**Solution:** Drop an invisible helper block on the same Softr page, connected to the second table. It fetches records, publishes them to a `window` global, and dispatches a custom event. The main block reads the global and listens for updates. The helper returns `null` so it renders nothing in the published app.
+## When you still need a helper block
 
-`useLinkedRecords` always returns `{id, title}` only and silently ignores extra fields in `select`. This is the core reason the helper block pattern exists. If your task involves showing status, due dates, or any non-title field from a linked table, skip `useLinkedRecords` entirely and build a helper -- there is no other way to get those fields.
+Reach for one only when the job is genuinely cross-block, not merely cross-table:
+
+- **Cross-block communication** — one block triggering behaviour in another on the same page
+  (see [Triggering Actions in Other Blocks](#triggering-actions-in-other-blocks-bi-directional-events)).
+- **Publishing computed state** — an expensive derivation several consumer blocks share, computed once.
+- **Rich filter options** shared across multiple blocks on a page.
+
+`useLinkedRecords` still returns `{id, title}` only and silently ignores extra fields in `select`.
+That limitation is unchanged — but the fix is now a second datasource with its own `from:`, not a
+helper block.
+
+## The original rationale (historic)
+
+A Vibe Coding block used to connect to **one source table** only. When a block needed data from a
+second table (e.g., a task detail block that also needs the Users table for a team picker), you
+could not add another `useRecords` for a different table.
+
+**The workaround:** drop an invisible helper block on the same Softr page, connected to the second
+table. It fetches records, publishes them to a `window` global, and dispatches a custom event. The
+main block reads the global and listens for updates. The helper returns `null` so it renders nothing
+in the published app.
 
 Key rules:
 - The helper block must be on the **same Softr page** as the consumer -- `window` is page-scoped, globals don't cross pages.
@@ -367,4 +397,4 @@ For per-user saved filter views on a list page:
 | Refactoring helper shape without updating consumers | Version namespace OR update all consumers in same commit |
 | Helper B placed above A when B depends on A | A must be above B -- Softr renders top-to-bottom |
 | `useRef` for IDs consumed by `useMemo` | Use `useState` -- ref mutations don't trigger recomputation |
-| Using `useLinkedRecords` for rich foreign data | It only returns `{id, title}` -- use a helper block instead |
+| Using `useLinkedRecords` for rich foreign data | It only returns `{id, title}` and silently ignores extra `select` fields. Connect the foreign table as a **second datasource** and read it with its own `useRecords({ from: ds.x })` — see [multi-datasource.md](../datasources/multi-datasource.md). (A helper block also works and is what older blocks do, but it's now the heavier option.) |

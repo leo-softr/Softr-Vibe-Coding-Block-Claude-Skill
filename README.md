@@ -204,7 +204,9 @@ softr-vibe-coding/
 │
 └── datasources/                      # Data source guides (loaded on demand)
     ├── overview.md                   # Comparison matrix, selection guide
-    ├── shared-patterns.md            # Index → reading, writing, fields
+    ├── shared-patterns.md            # Index → multi-datasource, reading, writing, fields
+    ├── multi-datasource.md           # Several data sources in ONE block: datasource.define(),
+    │                                 #   the from: parameter, getting the datasource UUIDs
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user (198 lines)
     ├── writing.md                    # Mutations, uploads, linked record format,
@@ -263,7 +265,7 @@ The skill enforces these automatically, but good to know:
 - No arrow functions in JSX callback props — use `function() {}`
 - Must use `export default function Block()`
 - Must wrap layout in `<div className="container py-6"><div className="content">`
-- Only ONE `useRecords` call per block (use helper blocks for multi-table)
+- Only ONE `useRecords` call per **datasource** — but a block can connect to several sources; declare them with `datasource.define()` and pass `from:` on every hook
 - `fetchNextPage` only inside `useEffect` — in render body causes infinite loops
 - All hooks declared before any conditional `return` — React error #310
 - Every field value rendered in JSX must pass through `getFieldValue()`

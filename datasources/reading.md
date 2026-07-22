@@ -56,7 +56,9 @@ var isRefetching = result.isRefetching;
 var items = (data && data.pages) ? data.pages.flatMap(function(p) { return p.items; }) : [];
 ```
 
-**CRITICAL:** Only ONE `useRecords` call per block. Fetch all data in one call and filter client-side. Multiple `useMetric` calls ARE allowed.
+**CRITICAL:** Only ONE `useRecords` call **per datasource**. Fetch that table's data in one call and filter client-side. Multiple `useMetric` calls ARE allowed.
+
+A block can connect to **several data sources** and call `useRecords` once per source — declare them with `datasource.define()` and pass `from:` on every hook. See [multi-datasource.md](multi-datasource.md). (This replaces the old one-table-per-block limit; blocks no longer need an invisible helper block just to read a second table.)
 
 ### Loading All Records (Auto-Pagination)
 

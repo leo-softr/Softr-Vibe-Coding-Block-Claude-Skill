@@ -5,8 +5,8 @@ Fast lookup for imports, hook signatures, field mapping syntax, and common patte
 ## Imports
 
 ```jsx
-// DATASOURCE
-import { useRecords, useRecord, useRecordCreate, useRecordUpdate, useRecordDelete,
+// DATASOURCE  (add `datasource` when the block connects to more than one source)
+import { datasource, useRecords, useRecord, useRecordCreate, useRecordUpdate, useRecordDelete,
          useCurrentRecordId, useLinkedRecords, useUpload, useMetric, useChartData,
          q, metric } from "@/lib/datasource";
 
@@ -40,6 +40,20 @@ var select = q.select({ alias: "FIELD_ID" });
 var updateFields = q.select({ alias: "FIELD_ID" });  // writable only
 var createFields = q.select({ alias: "FIELD_ID" });  // writable only
 ```
+
+## Multiple datasources (static, outside component)
+
+```jsx
+var ds = datasource.define({           // values MUST be inline string literals
+  people: "74d2cbfd-f2cb-4f5c-82d9-0d3a0651e531",
+  shifts: "ec7a6311-f6c3-4c99-881d-aae308148716",
+});
+
+useRecords({ from: ds.people, select: select });   // `from:` required once >1 source
+```
+
+Ids are plain UUIDs. Get them by asking Studio's AI chat to **write code**, never to recite a
+value — it fabricates them in prose. Full detail: [../datasources/multi-datasource.md](../datasources/multi-datasource.md).
 
 ## Read
 
