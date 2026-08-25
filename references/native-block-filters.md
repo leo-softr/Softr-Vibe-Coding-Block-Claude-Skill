@@ -8,7 +8,7 @@ Softr's native **List / Grid** blocks support category chips and *static* filter
 
 > **Sibling to [native-chrome-styling.md](native-chrome-styling.md).** That doc restyles Softr's *shell* (header/footer/nav) with global CSS. This one *drives and augments native blocks* with custom-code JS. Both reach the **main document**, never a block's shadow DOM — so this is a **Custom Code Static block**, not a Vibe Coding (JSX) block.
 
-House code style still applies in the `<script>`: `var`, `function(){}`, **no** optional chaining (`?.`) or nullish coalescing (`??`).
+Modern JS is fine in the `<script>` — Custom Code blocks run unbundled in the browser, and the old `var`/`function(){}`/no-`?.` house style is retired everywhere (the Vibe Coding compiler accepts modern syntax too, verified 2026-08-25).
 
 ---
 

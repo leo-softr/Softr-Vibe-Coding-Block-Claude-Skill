@@ -80,8 +80,8 @@ block, plus one useRecords per source. Output code only.
 ```
 
 Code generation is bound to the block's real connections, so the ids come out correct — the
-same reason Softr's assistant reliably inlines select-option UUIDs when scaffolding a form but
-invents them when asked to recite one.
+same reason Softr's assistant reliably inlines real select options when scaffolding a form but
+invents values when asked to recite one.
 
 **Then verify by running it.** The scaffold renders a list per source; if real rows appear
 under each heading, every alias maps to the table you think it does. A wrong uuid fails safe

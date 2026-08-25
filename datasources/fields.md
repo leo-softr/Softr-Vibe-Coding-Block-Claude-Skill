@@ -119,7 +119,7 @@ export default function Block() {
    - Each field's `id`, `name`, `type`, and `options`
    - For dropdown / SELECT fields: the full `choices` array with every option's `id` (UUID), `label`, and `color`
 
-   Use this when scaffolding a block that needs many field IDs at once, or to look up dropdown option UUIDs needed for write payloads. **When working with an AI assistant without the MCP installed**, paste this JSON response into the chat -- second-best way to share accurate field IDs and dropdown UUIDs in one shot.
+   Use this when scaffolding a block that needs many field IDs at once, or to see a SELECT field's full choice list. (Write payloads take the option **label**, not the UUID — verified 2026-08-25, see [writing.md](writing.md#dropdown--single-select-softr-database) — but the exported labels are exactly what you need for a correct write vocabulary.) **When working with an AI assistant without the MCP installed**, paste this JSON response into the chat -- second-best way to share accurate field IDs and choice lists in one shot.
 
 4. **Inline in Studio (one field at a time)** -- in the Data tab, click a field's name to open its edit drawer. The field ID appears next to the "Field name" label (e.g. `ID: 37fts`). Fastest for spot-checking a single field.
 

@@ -58,6 +58,12 @@ var items = (data && data.pages) ? data.pages.flatMap(function(p) { return p.ite
 
 **CRITICAL:** Only ONE `useRecords` call **per datasource**. Fetch that table's data in one call and filter client-side. Multiple `useMetric` calls ARE allowed.
 
+**CRITICAL:** The options object must be an **inline literal** at the call site. Passing it
+through a variable or a wrapper function (`useRecords(buildOpts())`) **fails to compile** —
+verified live 2026-08-25, hit in a production block; the fix was changing the wrapper to take
+the hook's *result* instead. Share `q.select` mappings between hooks, never whole options
+objects.
+
 A block can connect to **several data sources** and call `useRecords` once per source — declare them with `datasource.define()` and pass `from:` on every hook. See [multi-datasource.md](multi-datasource.md). (This replaces the old one-table-per-block limit; blocks no longer need an invisible helper block just to read a second table.)
 
 ### Loading All Records (Auto-Pagination)
@@ -128,8 +134,9 @@ var statusOptions = useFieldOptions({
 
 // statusOptions → { options: [...], isLoading: bool }
 // statusOptions.options → [{ id: "sel...", label: "Active", color: "greenLight1" }, ...]
-//   id    — the option's UUID, used in mutate payloads
-//   label — display string
+//   id    — stable option id (use as a React key; NOT needed in mutate payloads — SELECT
+//           fields write by LABEL string on the current platform, verified 2026-08-25)
+//   label — display string AND the value to write in mutate payloads
 //   color — Airtable swatch color name (optional; handy for tinting chips)
 ```
 
@@ -145,8 +152,8 @@ same `select` object can be shared by both. Reuse one `select` for many fields a
 
 **When to use this vs. hardcoding:**
 
-- **Use `useFieldOptions`** when option IDs / labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying. Cross-table case: to render a select field from table B inside a block bound to table A (e.g. an intake form bound to Jobs that needs the Wigs `Color` options), put the `useRecords` + `useFieldOptions` in a hidden helper block bound to table B and publish the options to a `window` global (see [helper-blocks.md](../references/helper-blocks.md)).
-- **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the IDs live in source and rename-safety is enforced by greppable constants. A robust middle ground: prefer the live options, fall back to a hardcoded list per field so the UI still renders if the helper hasn't published yet.
+- **Use `useFieldOptions`** when option labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying. Since SELECT fields write by label (verified 2026-08-25), live options also keep write payloads rename-proof: render and write `option.label`. Hardcoded labels remain fine as a display-only loading fallback while the live options fetch. Cross-table case: to render a select field from table B inside a block bound to table A (e.g. an intake form bound to Jobs that needs the Wigs `Color` options), put the `useRecords` + `useFieldOptions` in a hidden helper block bound to table B and publish the options to a `window` global (see [helper-blocks.md](../references/helper-blocks.md)).
+- **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the label vocabulary lives in source and rename-safety is enforced by greppable constants. A robust middle ground: prefer the live options, fall back to a hardcoded list per field so the UI still renders if the helper hasn't published yet.
 
 `useFieldOptions` is the read-side equivalent of using `useLinkedRecords` for foreign records — it abstracts away the field's option store. Items are shaped `{ id, label, color }` (note: `label`, not `title` like `useLinkedRecords`).
 

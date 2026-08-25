@@ -86,11 +86,11 @@ After `source ~/.zshrc`, just run `get-softr-database <database_id>` from anywhe
 |----------------|----------|-------|
 | Text           | Yes      | |
 | Number         | Yes      | |
-| Date           | Yes      | |
+| Date           | Yes      | Date-semantics fields take `"yyyy-MM-dd"`; timestamp fields take `new Date().toISOString()` (verified 2026-08-25) |
 | File / Image   | Yes      | |
 | Checkbox       | Yes      | |
-| Dropdown       | Yes      | |
-| Relationship   | Yes      | Linked records to other Softr Database tables |
+| Dropdown       | Yes      | Write the option **LABEL string**, exactly matching a defined choice (verified 2026-08-25; supersedes the old option-UUID rule). See [writing.md](writing.md#dropdown--single-select-softr-database) |
+| Relationship   | Yes      | Linked records to other Softr Database tables. Write as an **array of record-id strings**, e.g. `[recordId]` (verified 2026-08-25) |
 | Formula        | Read-only | Booleans return as strings: use `=== "1"` for true, `=== "0"` for false |
 
 ## Rate Limits

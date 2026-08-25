@@ -2,12 +2,14 @@
 
 Fast lookup for imports, hook signatures, field mapping syntax, and common patterns. Use when you already know what you need and just want the shape.
 
+The current platform compiles TypeScript with modern syntax (`?.`, `??`, arrows, `const`, generics) — verified live 2026-08-25. Snippets below in `var` style predate that and remain valid; both styles compile.
+
 ## Imports
 
 ```jsx
 // DATASOURCE  (add `datasource` when the block connects to more than one source)
 import { datasource, useRecords, useRecord, useRecordCreate, useRecordUpdate, useRecordDelete,
-         useCurrentRecordId, useLinkedRecords, useUpload, useMetric, useChartData,
+         useCurrentRecordId, useLinkedRecords, useFieldOptions, useUpload, useMetric, useChartData,
          q, metric } from "@/lib/datasource";
 
 // USER
@@ -59,8 +61,12 @@ value — it fabricates them in prose. Full detail: [../datasources/multi-dataso
 
 ```jsx
 var result = useRecords({ select: select, count: 100 });
-var records = (result.data && result.data.pages) ? result.data.pages.flatMap(function(p) { return p.items; }) : [];
+var records = result.data?.pages.flatMap(p => p.items) ?? [];
 ```
+
+⚠ The options object MUST be an inline literal — `useRecords(opts)` with `opts` built in a
+variable or returned by a wrapper function **fails to compile** (verified live 2026-08-25).
+Share `q.select` mappings, not options objects.
 
 ## Filter + Sort
 
@@ -84,7 +90,7 @@ var result = useRecord({ recordId: recordId, select: select });
 ## Current User
 
 ```jsx
-var currentUser = useCurrentUser();          // { id, fullName, email, avatar }
+var currentUser = useCurrentUser();          // { id, fullName, firstName, lastName, email, avatar } | null
 var softrUser = window.__softr_current_user; // full object with userGroups
 ```
 
@@ -96,7 +102,7 @@ var createRecord = useRecordCreate({
   onSuccess: function(newRecord) { refetch(); },
   onError: function(err) { toast.error(err.message); },
 });
-createRecord.mutate({ name: "Jane", email: "jane@example.com" });
+createRecord.mutate({ name: "Jane", email: "jane@example.com" });   // FLAT — no { fields } wrapper
 ```
 
 ## Update (THE CORRECT PATTERN)
@@ -108,7 +114,7 @@ var updateRecord = useRecordUpdate({
   onError: function(err) { toast.error(err.message); },
 });
 
-// Call .mutate() — NOT .mutateAsync() — and use the nested {recordId, fields:{}} shape.
+// Payload is the nested {recordId, fields:{}} shape (create is flat — the asymmetry is by design).
 // Per-call onSuccess/onError go in the second argument.
 updateRecord.mutate(
   { recordId: record.id, fields: { name: "New" } },
@@ -119,11 +125,26 @@ updateRecord.mutate(
 );
 ```
 
-**Two parser requirements both must hold or `enabled` stays `false`:**
-1. `.mutate(...)` — NOT `.mutateAsync(...).then(...)` (parser ignores `mutateAsync`)
-2. Payload is `{ recordId, fields: {...} }` — NOT flat `{ recordId, status: "..." }`
+**Payload shapes or `enabled` stays `false`:**
+1. Update payload is `{ recordId, fields: {...} }` — NOT flat `{ recordId, status: "..." }`
+2. Create payload is FLAT — `{ name: "..." }`, no `fields` wrapper
 
-See [datasources/writing.md](../datasources/writing.md#critical-two-parser-requirements-for-userecordupdate) for the full debugging path.
+See [datasources/writing.md](../datasources/writing.md#critical-the-userecordupdate-payload-shape-and-the-retired-mutate-only-rule) for the full debugging path.
+
+## Sequential Multi-Row Saves (mutateAsync)
+
+`mutateAsync` is fully supported (verified live 2026-08-25 — the old ".mutate() only" parser
+rule is retired). It's the tool whenever writes must happen in order:
+
+```tsx
+const header = await createHeader.mutateAsync({ name, date });      // header first
+for (const line of lines) {
+  await createLine.mutateAsync({ header: [header.id], ...line });   // then lines, in order
+}
+```
+
+Stop on the first failure, render it with a Retry, never re-issue completed writes. Full queue
+pattern: [datasources/writing.md](../datasources/writing.md#sequential-multi-row-writes-mutateasync).
 
 ## Delete
 
@@ -138,7 +159,10 @@ deleteRecord.mutate(record.id);  // Just the ID string
 
 `.enabled`, `.status`, `.error`, `.mutate()`, `.mutateAsync()`, `.reset()`
 
-⚠ `.mutateAsync()` exists at runtime but is **invisible to Softr's Action parser** — using it on `useRecordUpdate` leaves `enabled` permanently `false`. Always call `.mutate(payload, { onSuccess, onError })` for updates.
+Both `.mutate(payload, { onSuccess, onError })` and `await .mutateAsync(payload)` derive
+Actions correctly on the current platform (verified 2026-08-25). Use `.mutate` for
+fire-and-forget single writes, `mutateAsync` for sequenced flows. (Pre-2026-08 platforms only
+recognized the literal `.mutate(` token — relevant only when maintaining old apps.)
 
 ## Linked Records Picker
 
@@ -152,8 +176,11 @@ var options = (result.data && result.data.pages) ? result.data.pages.flatMap(fun
 ## Linked Records in Mutations
 
 ```jsx
-teamMembers: [{ id: "MEMBER_ID" }]
+teamMembers: ["MEMBER_ID_1", "MEMBER_ID_2"]   // array of record-id STRINGS (verified Softr DB, 2026-08-25)
 ```
+
+Legacy/Airtable: the `[{ id: "..." }]` object shape was the verified form on Airtable-backed
+blocks (May 2026) — try it if a string-array write fails there.
 
 ## Formula Booleans
 

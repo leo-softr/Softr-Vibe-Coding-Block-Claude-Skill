@@ -1,6 +1,6 @@
 # Softr Vibe Coding Block — Claude Skill
 
-> Turn Claude into a Softr Vibe Coding expert — generate production-ready JSX blocks with polished UI, correct data fetching, and all 14 Softr data sources supported out of the box.
+> Turn Claude into a Softr Vibe Coding expert — generate production-ready React blocks (TSX/JSX) with polished UI, correct data fetching, and all 14 Softr data sources supported out of the box.
 
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue)
 ![Version](https://img.shields.io/npm/v/softr-vibe-coding?label=version&color=green)
@@ -12,7 +12,7 @@
 
 ## TL;DR
 
-This Claude skill teaches Claude Code how to generate complete, polished Softr Vibe Coding blocks as `.jsx` files. It includes:
+This Claude skill teaches Claude Code how to generate complete, polished Softr Vibe Coding blocks as `.tsx` / `.jsx` files (the current platform compiles TypeScript with modern syntax — verified live August 2026). It includes:
 
 - **Complete Vibe Coding API reference** — `useRecords`, `q.select()`, mutations, uploads, metrics, charts, editable settings, `useProxyFetch` for REST APIs
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
@@ -20,7 +20,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
 - **Native shell styling** — re-skin Softr's native top bar, **footer**, nav, dropdowns, and **page background** via global Custom Code CSS (stable selectors vs. hashed classes, floating "island" header/footer, the dropdown grid fix, the multi-layer page-background stacking, restyle-vs-replace) — distinct from blocks
 - **UI/UX design guidelines** — 26 sections covering visual hierarchy, color, typography, spacing, motion design, accessibility, responsive patterns, and an AI slop anti-pattern checklist
-- **Self-validation** — Claude checks for Softr bundler compatibility (no optional chaining, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
+- **Self-validation** — Claude checks for Softr platform compatibility (inline hook options, correct payload shapes, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
 - **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
 - **Softr Database MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp-server) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly — no more pasting `tablespace-with-tables` JSON. See `references/softr-database-mcp.md`.
@@ -91,7 +91,7 @@ Build me a Softr Vibe Coding block that shows a team directory with cards
 This skill is **Step 2** of a two-skill brand-to-blocks pipeline:
 
 ```
-New client → building-design-md (brand → DESIGN.md) → softr-vibe-coding (DESIGN.md → JSX blocks) → shipped Softr app
+New client → building-design-md (brand → DESIGN.md) → softr-vibe-coding (DESIGN.md → blocks) → shipped Softr app
 ```
 
 The upstream skill is [`building-design-md`](https://github.com/leo-softr/design-md-extractor-skill), which extracts a brand foundation (colors, typography, voice) from a website URL or brand guide into a portable `DESIGN.md` file. When that file exists in your project folder, this skill picks it up automatically and applies the brand tokens throughout every block it generates — no re-asking about colors or fonts.
@@ -152,8 +152,8 @@ Create a contact form that creates records in our Airtable Contacts table
 
 1. **Asks only what it needs** — data source type and field IDs. Everything else (folder, colors, filename) uses smart defaults.
 2. **Loads the relevant guides** — reads the specific data source guide (Airtable, REST API, etc.) and reference files (helper blocks, Shadow DOM) as needed.
-3. **Generates a complete `.jsx` file** — production-ready, visually polished, with loading/error/empty states. Never delivers code inline (prevents JSX character corruption).
-4. **Self-validates** — checks 13 items including Softr bundler compatibility, `getFieldValue()` wrapping, hooks ordering, and mutation patterns before delivering code.
+3. **Generates a complete block file** (`.tsx` preferred) — production-ready, visually polished, with loading/error/empty states. Never delivers code inline (prevents JSX character corruption).
+4. **Self-validates** — runs a platform-compatibility checklist (`getFieldValue()` wrapping, hooks ordering, payload shapes, inline hook options) before delivering code.
 
 ---
 
@@ -163,7 +163,7 @@ Create a contact form that creates records in our Airtable Contacts table
 softr-vibe-coding/
 ├── SKILL.md                          # Main skill (330 lines)
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 20 hard constraints
+│                                     # components, settings, 21 hard constraints
 │
 ├── ui-ux-guidelines.md               # Design reference (746 lines)
 │                                     # 26 sections: hierarchy, color, typography,
@@ -209,8 +209,8 @@ softr-vibe-coding/
     │                                 #   the from: parameter, getting the datasource UUIDs
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user (198 lines)
-    ├── writing.md                    # Mutations, uploads, linked record format,
-    │                                 # cross-table REST API writes (146 lines)
+    ├── writing.md                    # Mutations, sequential write queues, uploads,
+    │                                 # linked record format, cross-table writes
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities (160 lines)
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
@@ -256,15 +256,19 @@ Only `SKILL.md` loads into Claude's context when the skill triggers (~330 lines)
 
 ---
 
-## Key Softr Bundler Constraints
+## Key Softr Platform Constraints
 
-The skill enforces these automatically, but good to know:
+The skill enforces these automatically, but good to know (verified live against the platform, August 2026):
 
-- No optional chaining (`?.`) or nullish coalescing (`??`) — Softr's bundler fails on these
+- Modern TypeScript compiles — optional chaining, nullish coalescing, arrows, `const`, generics are all fine (the old `var`-only / no-`?.` rules are retired)
+- Data hook options must be **inline object literals** — `useRecords(opts)` with a variable or wrapper fails to compile
+- Create payloads are **flat**; update payloads are `{ recordId, fields: {...} }` — asymmetric by design
+- `mutateAsync` is fully supported — it's the tool for sequential multi-row saves
+- SELECT fields write by option **label string**; linked records write as arrays of record-id strings
+- Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
-- No arrow functions in JSX callback props — use `function() {}`
 - Must use `export default function Block()`
-- Must wrap layout in `<div className="container py-6"><div className="content">`
+- Must wrap layout in `<div className="container py-0"><div className="content">`
 - Only ONE `useRecords` call per **datasource** — but a block can connect to several sources; declare them with `datasource.define()` and pass `from:` on every hook
 - `fetchNextPage` only inside `useEffect` — in render body causes infinite loops
 - All hooks declared before any conditional `return` — React error #310

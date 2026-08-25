@@ -1,7 +1,7 @@
 ---
 name: softr-vibe-coding
 description: >
-  Generate custom Softr Vibe Coding blocks as complete JSX components. Use this skill whenever the user
+  Generate custom Softr Vibe Coding blocks as complete React components (TSX/JSX). Use this skill whenever the user
   mentions Softr, Vibe Coding, Softr blocks, or wants to build a custom UI component for a Softr app.
   Also trigger when the user asks to create cards, lists, forms, dashboards, charts, detail pages,
   or any interactive block intended for Softr — even if they don't say "Vibe Coding" explicitly.
@@ -18,7 +18,7 @@ allowed-tools: Read Write Glob Grep Bash
 
 # Softr Vibe Coding Block Generator
 
-You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A Vibe Coding block is a JavaScript file with a default-exported React component that runs exclusively in the browser inside a Softr app.
+You generate complete, production-ready Softr Vibe Coding blocks as TypeScript React files. A Vibe Coding block is a single file with a default-exported React component, compiled by Softr's server and run in the browser inside a Softr app. The current platform compiles TypeScript with modern syntax — optional chaining (`?.`), nullish coalescing (`??`), arrow functions, `const`, generics — plus shadcn/ui from `@/components/ui/*`, lucide-react, sonner, and date-fns (verified live against the builder MCP's `get_vibe_coding_docs` and a 15-block production deployment, 2026-08-25).
 
 > **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md).
 
@@ -55,14 +55,14 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
 3. **Apply defaults for the rest, don't ask.** Infer these from context instead of asking:
    - **Project folder**: Derive from the block description (e.g., "partner-portal", "client-dashboard"). If the user has already specified a folder in this session, reuse it.
    - **Brand colors**: Use whatever was chosen in Step 1 — DESIGN.md tokens, the user's override, or the default Softr palette (primary `#386AF5`, accent `#FCB500`). Never silently fall back to defaults.
-   - **Filename**: Derive from the block purpose (e.g., `partner-invite.jsx`, `team-directory.jsx`). The user can rename later.
+   - **Filename**: Derive from the block purpose (e.g., `partner-invite.tsx`, `team-directory.tsx`). The user can rename later.
 
 4. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type.
 
-5. **Write the complete `.jsx` file** to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
+5. **Write the complete block file** (`.tsx` preferred; `.jsx` also compiles) to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
 
 6. **Self-validate before delivering.** Before presenting the code as complete, verify:
-   - No optional chaining (`?.`) or nullish coalescing (`??`)
+   - Every data hook is called with an **inline options object literal** — `useRecords({ ... })` written through a variable or wrapper function fails to compile (verified live 2026-08-25). Share `q.select` mappings between hooks, never whole options objects
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
    - Container + content wrappers present (`<div className="container py-0"><div className="content">`)
@@ -76,8 +76,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as JSX files. A
    - When a custom DESIGN.md is in use, brand `fontFamily` (and any non-inherited brand defaults) set as an **inline style on the block's outermost wrapper** `<div>`, not relied on from `custom-code-header.html` -- Vibe Coding blocks render inside a shadow DOM and `html, body` rules don't cross that boundary. Per-element overrides (e.g. Fraunces serif on h1) still set inline at the element.
    - `fetchNextPage` only inside `useEffect`, never in render body
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
-   - `useRecordUpdate` calls use `.mutate(payload, { onSuccess, onError })` — **NOT** `.mutateAsync(...).then(...).catch(...)`. Softr's Action parser only recognizes the `.mutate(` token; `.mutateAsync(` is invisible to it and the Action never gets derived (`enabled` stays `false`, Actions tab shows "No actions used in this block yet")
-   - `useRecordUpdate` payload is `{ recordId, fields: { ... } }` — nested, not flat. Field references inside flat payloads are invisible to the parser, same silent-failure mode as the `.mutateAsync` issue
+   - `useRecordUpdate` payload is `{ recordId, fields: { ... } }` — nested. `useRecordCreate` payload is **flat** (no `fields` wrapper). The two shapes are asymmetric by design (verified live 2026-08-25)
+   - Sequential multi-row saves use `await hook.mutateAsync(...)` per row, in order, with stop-on-failure + retry state — `mutateAsync` is fully supported on the current platform (verified 2026-08-25; the old ".mutate() only" Action-parser rule is gone — see [datasources/writing.md](datasources/writing.md))
    - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
 
 ## What to Clarify
@@ -446,16 +446,12 @@ Non-negotiable rules enforced by the Softr platform:
 7. **No nested arrays in settings** — Use text with separator, split in code.
 8. **Default export required** — `export default function Block()`.
 9. **Container wrapping** — Always wrap in `<div className="container py-0"><div className="content">`. Vertical padding lives on the inner wrapper and depends on block placement (see "Block Placement & Page Spacing").
-10. **No optional chaining or nullish coalescing** — Softr's bundler fails on `?.` and `??`. Use:
-    - `(user && user.email) || ""` instead of `user?.email ?? ""`
-    - `(data && data.pages) ? data.pages.flatMap(function(p) { return p.items; }) : []`
-
-    ⚠️ **Possibly stale — do not relax on this note alone.** July 2026: a block scaffolded by Studio's own
-    AI assistant used `peopleData?.pages` and `status?.label` and rendered correctly in a published app,
-    which contradicts this rule. That's a single observation and the failure mode is a block that won't
-    compile, so the rule stands until someone re-tests it deliberately. Writing `&&` costs nothing and
-    works under either behaviour. If you confirm `?.` compiles reliably, update this constraint, the
-    self-validation checklist, and the Style Conventions note together.
+10. **Inline options literals for data hooks** — `useRecords` fails to compile when its options
+    object is passed through a variable or wrapper function. Build the options object inline at the
+    call site; share `q.select` mappings between hooks, not whole options objects. (Same
+    static-analysis family as the `q.select()` / `datasource.define()` literal rules. Verified live
+    2026-08-25 — hit in a production block whose options came from a wrapper function; the fix was
+    changing the wrapper to take the hook's *result* instead.)
 11. **Airtable: use column names, not fld... IDs** — See [datasources/airtable.md](datasources/airtable.md).
 12. **Record fields nested under `fields`** — Access via `record.fields.alias`, not `record.alias`.
 13. **ONE `useRecords` per datasource** — filter client-side rather than issuing several queries against
@@ -469,16 +465,18 @@ Non-negotiable rules enforced by the Softr platform:
 18. **`fetchNextPage` inside `useEffect` only** -- Calling it during render causes infinite re-render loops. The component calls `fetchNextPage`, which updates data, which triggers re-render, which calls `fetchNextPage` again.
 19. **All hooks before any conditional `return`** -- Hooks must be called in the same order every render. A hook declared after a conditional `return` causes React error #310.
 20. **Relative paths in navigation** -- Use `/page-name?recordId=...`, never hardcoded domains like `app.client.com/page`.
+21. **Recompiles reset Action permissions** -- Every code recompile/redeploy resets the block's
+    auto-registered Actions to **default permissions**. Do the Actions-tab permission tightening pass
+    only after the LAST redeploy, and re-check it after any future one. Verified live 2026-08-25
+    across a 15-block deployment. See [datasources/writing.md](datasources/writing.md#how-actions-work-studios-actions-tab).
 
-## Style Conventions (preferred, not enforced)
+## Style Conventions
 
-The conventions below improve consistency across the skill's examples but are NOT enforced by the Softr bundler. Softr's AI assistant in Studio outputs `const` and arrow functions, and both compile and run fine. Adopting these conventions makes hand-written blocks visually uniform with the rest of the skill, but blocks generated by Softr's AI work without conversion.
+**The current platform compiles TypeScript with modern syntax** — optional chaining (`?.`), nullish coalescing (`??`), arrow functions, `const`/`let`, generics — verified live against `get_vibe_coding_docs` and a 15-block production deployment on 2026-08-25. Write new blocks in modern TS (`.tsx`); it matches what Softr's own Studio AI emits.
 
-- Prefer `var` over `const` / `let`
-- Prefer `function() {}` over arrow functions in JSX callbacks and component props
-- Field-value helper property priority: `label` -> `name` -> `title`
+History, kept so old guidance elsewhere is recognizable as superseded: until mid-2026 this skill mandated `var` + `function(){}` and banned `?.` / `??` because the then-current bundler failed on them (verified April 2026; a Studio-scaffolded block already contradicted it by July 2026). That platform behavior is gone. Existing var-style blocks remain valid — the compiler accepts both styles — so don't churn a working block just to modernize its syntax, and don't "fix" modern syntax back to var-style when editing.
 
-If you're editing a block originally generated by Softr's AI assistant, you can convert to skill style for consistency or leave the AI's syntax as-is. Both produce a working block. Only `?.` and `??` (Hard Constraint #10) are actual bundler blockers — verified by direct experiment, April 2026. *(But see the caveat on constraint #10: a Studio-scaffolded block using `?.` rendered fine in July 2026. Keep avoiding it until that's deliberately re-tested.)*
+Still house conventions: the field-value helper is named `getFieldValue()`, with property priority `label` -> `name` -> `title`.
 
 ## Anti-Patterns Checklist
 
