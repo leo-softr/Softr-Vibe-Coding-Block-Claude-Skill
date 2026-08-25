@@ -56,7 +56,7 @@ in the published app.
 Key rules:
 - The helper block must be on the **same Softr page** as the consumer -- `window` is page-scoped, globals don't cross pages.
 - **One helper block per foreign table.** Multiple helpers with distinct namespaces coexist fine on the same page.
-- **Read-only pattern.** Helpers expose foreign table data for lookups, pickers, and display only. Writes still happen from the main block via its own `useRecordUpdate` / `useRecordCreate`. If the main block needs to write to the helper's table, use a webhook or the Softr Database REST API (see [writing.md Cross-Table Operations](../datasources/writing.md#cross-table-operations)), not the helper.
+- **Read-only pattern.** Helpers expose foreign table data for lookups, pickers, and display only. Writes still happen from the main block via its own `useRecordUpdate` / `useRecordCreate`. **Modern path for writing to another table:** connect it as a second datasource and write with `useRecordCreate({ from: ds.x })` — see [writing.md Cross-Table Operations](../datasources/writing.md#cross-table-operations); a webhook or the Softr Database REST API remain fallbacks for writes the hooks can't express. Never write through the helper.
 
 ## Companion Field Helpers
 
@@ -144,7 +144,9 @@ Key points:
 import { useRecords, q } from "@/lib/datasource";
 import { useEffect, useMemo, useRef } from "react";
 
-var select = q.select({ fullName: "fldXXX", isActive: "fldYYY" });
+// q.select values: field NAMES for Airtable/Notion/Google Sheets, field IDs for Softr DB/Supabase.
+// (An Airtable "fldXXX" ID here compiles and saves, then silently returns empty data.)
+var select = q.select({ fullName: "Full Name", isActive: "Active" });
 
 function toOption(record) {
   return { id: record.id, title: record.fields.fullName || "" };

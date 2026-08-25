@@ -105,7 +105,7 @@ var result = useLinkedRecords({
   sortOrder: "ASC",     // "ASC" | "DESC"
   search: "",           // optional search string
   enabled: true,        // defer loading until needed
-  count: 50,
+  count: 50,            // optional page size — default 100, max 1000
 });
 
 var options = (result.data && result.data.pages) ? result.data.pages.flatMap(function(p) { return p.items; }) : [];
@@ -205,9 +205,22 @@ import { useCurrentUser } from "@/lib/user";
 var user = useCurrentUser();
 // Returns null if not logged in
 // Fields: { id, fullName, firstName, lastName, email, avatar } (all string or null)
+// Note: `id` is only present when user sync is enabled.
 ```
 
-**For user groups, role, or custom fields** -- use `window.__softr_current_user` (NOT `useCurrentUser()`):
+**Custom user-record fields** are first-class: pass a `properties` map (aliased like a `select` query) and read them under `user.properties`:
+
+```jsx
+var user = useCurrentUser({
+  properties: {
+    stripeId: "FIELD_ID1",
+    plan: "FIELD_ID2",
+  },
+});
+// user.properties.stripeId, user.properties.plan
+```
+
+**For user groups / role ONLY** -- these are not exposed by `useCurrentUser()` (not even via `properties`); use `window.__softr_current_user`:
 
 ```jsx
 var softrUser = window.__softr_current_user || {};

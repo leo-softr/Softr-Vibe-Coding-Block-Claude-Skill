@@ -84,7 +84,7 @@ Two throwaway diagnostic blocks you can drop into a page to diagnose data proble
 
 Use when records load but fields come back empty, or when you're not sure which Field IDs exist on a table.
 
-**Important caveat for Softr Database:** `q.select({})` returns record IDs with empty `fields: {}` -- it does NOT dump all fields. Verified by direct experiment, April 2026. Use one of the alternatives below for Softr DB. The empty-select pattern still works for Airtable and other sources where field IDs come back automatically.
+**Important caveat for Softr Database:** `q.select({})` returns record IDs with empty `fields: {}` -- it does NOT dump all fields. Verified by direct experiment, April 2026. Use one of the alternatives below for Softr DB. The empty-select pattern still works for Airtable and other sources where the field keys come back automatically (for Airtable / Notion / Google Sheets those keys are field NAMES — the same names `q.select()` uses; see the name-vs-ID rule in [../references/softr-mcp.md](../references/softr-mcp.md#browsing-integrations-external-data-sources)).
 
 For Airtable and other non-Softr-DB sources:
 
@@ -111,7 +111,7 @@ export default function Block() {
 
 **For Softr Database, find field IDs via:**
 
-1. **Softr Database MCP server (recommended for AI-assisted workflows)** -- if you're collaborating with an AI assistant (Claude Code, Claude Desktop, Cursor, ChatGPT, Mistral) to write Vibe Coding blocks, the official Softr MCP server is the cleanest path. The AI calls schema/list-fields tools directly against your workspace and reads back every field's `id`, `name`, `type`, and dropdown option UUIDs -- no copy-paste, no transcription errors. Full setup, scopes, and scope limitations (Softr DB only -- does NOT cover Airtable / external sources) in [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
+1. **Softr MCP server (recommended for AI-assisted workflows)** -- if you're collaborating with an AI assistant (Claude Code, Claude Desktop, Cursor, ChatGPT, Mistral) to write Vibe Coding blocks, the official Softr MCP server is the cleanest path. The AI calls schema/list-fields tools directly against your workspace and reads back every field's `id`, `name`, `type`, and dropdown option UUIDs -- no copy-paste, no transcription errors. The same server also browses connected Airtable / Google Sheets / Notion / Supabase integrations down to field level. Full setup and permissions in [../references/softr-mcp.md](../references/softr-mcp.md).
 
 2. **`get-softr-database` CLI script (bundled, no MCP needed)** -- a Python CLI bundled with this skill at `~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py`. Exports the full schema (every table, every field, all dropdown option UUIDs) to `~/Desktop/softr-database-<id>-<timestamp>.json`. Run with `python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>` (prompts for API key) or set `SOFTR_API_KEY=xxx` env var to skip the prompt. Stdlib only, no `pip install`. Best when you want a portable JSON dump for sharing in chat, archiving, or diffing across schema versions. Full usage in [softr-database.md](softr-database.md#bundled-cli-script-get-softr-database).
 
@@ -182,7 +182,7 @@ export default function Block() {
 
 ### User Inspector Block
 
-Use when debugging permissions, user groups, or the `useCurrentUser()` vs `window.__softr_current_user` distinction. Renders both side-by-side as JSON. This catches a common surprise: `userGroups` only lives on the `window.__softr_current_user` object, not on `useCurrentUser()`.
+Use when debugging permissions, user groups, or the `useCurrentUser()` vs `window.__softr_current_user` distinction. Renders both side-by-side as JSON. This catches a common surprise: `userGroups` only lives on the `window.__softr_current_user` object, not on `useCurrentUser()`. (Custom user-record fields, by contrast, ARE available through the hook — `useCurrentUser({ properties: { alias: "FIELD_ID" } })` exposes them under `user.properties`; see [reading.md](reading.md#current-user).)
 
 ```jsx
 import { useCurrentUser } from "@/lib/user";

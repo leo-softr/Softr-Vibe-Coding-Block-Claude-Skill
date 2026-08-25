@@ -6,7 +6,8 @@ description: >
   Also trigger when the user asks to create cards, lists, forms, dashboards, charts, detail pages,
   or any interactive block intended for Softr — even if they don't say "Vibe Coding" explicitly.
   If the user mentions Softr in the context of building a custom UI component, creating a JSX block,
-  or vibe coding, use this skill.
+  or vibe coding, use this skill. Do NOT use for extracting brand tokens or producing a DESIGN.md
+  (that is the building-design-md skill), or for charts/dashboards with no Softr app involved.
 when_to_use: >
   Triggers on "build me a Softr block", "create a card component", "make a dashboard",
   "vibe code this", "custom block for Softr", "JSX component for Softr app",
@@ -61,6 +62,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
 
 5. **Write the complete block file** (`.tsx` preferred; `.jsx` also compiles) to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
 
+   **Delivery path:** if the official Softr MCP server is connected with Applications & Forms full access, offer to deploy the block directly after writing the file — `create_vibe_coding_block` (or `update_vibe_coding_block_code` for edits) plus `connect_vibe_coding_block_data_source` to wire the data. The local `.tsx` file stays the source of truth. Remember: every code push resets the block's Action permissions to defaults (Hard Constraint 21), and a block whose data source isn't connected saves fine but errors at page load. Details in [references/softr-mcp.md](references/softr-mcp.md).
+
 6. **Self-validate before delivering.** Before presenting the code as complete, verify:
    - Every data hook is called with an **inline options object literal** — `useRecords({ ... })` written through a variable or wrapper function fails to compile (verified live 2026-08-25). Share `q.select` mappings between hooks, never whole options objects
    - All imports use named imports (no `import React from 'react'`)
@@ -74,7 +77,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - All hooks declared before any conditional `return` -- prevents React error #310
    - Sub-components (FieldLabel, TextInput, ChipButton, SectionCard, etc.) defined at **module scope**, NOT inside `Block()` -- prevents inputs losing focus after one keystroke (each render creates a new component identity, React unmounts/remounts the `<input>`)
    - When a custom DESIGN.md is in use, brand `fontFamily` (and any non-inherited brand defaults) set as an **inline style on the block's outermost wrapper** `<div>`, not relied on from `custom-code-header.html` -- Vibe Coding blocks render inside a shadow DOM and `html, body` rules don't cross that boundary. Per-element overrides (e.g. Fraunces serif on h1) still set inline at the element.
-   - `fetchNextPage` only inside `useEffect`, never in render body
+   - `fetchNextPage` never called in the render body — only from an event handler (Load More `onClick` with `disabled={isFetching}`, the official pattern) or a guarded `useEffect` (auto-load-all)
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
    - `useRecordUpdate` payload is `{ recordId, fields: { ... } }` — nested. `useRecordCreate` payload is **flat** (no `fields` wrapper). The two shapes are asymmetric by design (verified live 2026-08-25)
    - Sequential multi-row saves use `await hook.mutateAsync(...)` per row, in order, with stop-on-failure + retry state — `mutateAsync` is fully supported on the current platform (verified 2026-08-25; the old ".mutate() only" Action-parser rule is gone — see [datasources/writing.md](datasources/writing.md))
@@ -86,7 +89,7 @@ When the user describes their block, figure out which of these areas apply and a
 
 - **Data source type**: Is it Airtable, Softr Database, REST API, or another source? This determines the data fetching approach. **Load the relevant data source guide** from the [datasources/](datasources/) directory before writing code.
 - **Data source fields**: For Airtable/Softr Database, you need actual field IDs. For REST APIs, you access the raw API response directly. If the user doesn't know field IDs:
-  - For **Softr Database**, the cleanest path is the **Softr Database MCP server** — ask whether they have it installed (`claude mcp list` shows it as `softr` or similar). If yes, query schema directly with the MCP tools instead of asking for paste-ins. If no, the next-best option is the bundled **`get-softr-database` CLI script** — tell the user to run `python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>` (it prompts for their Softr API key and exports the full schema to `~/Desktop/softr-database-<id>-<timestamp>.json` — Python stdlib only, nothing to install) and paste the resulting JSON into chat. As a final fallback, ask them to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab) — same JSON content, different acquisition path. Optionally tell them they can install the MCP once with `claude mcp add --transport http softr https://mcp.softr.io/mcp` for future sessions. Full MCP details in [references/softr-database-mcp.md](references/softr-database-mcp.md); CLI script details in [datasources/softr-database.md](datasources/softr-database.md#bundled-cli-script-get-softr-database); fallback paste-in workflows in [datasources/fields.md](datasources/fields.md#field-inspector-block).
+  - For **Softr Database**, the cleanest path is the official **Softr MCP server** — ask whether they have it installed (`claude mcp list` shows it as `softr` or similar). If yes, query schema directly with the MCP tools instead of asking for paste-ins. The same server also browses connected **Airtable, Google Sheets, Notion, and Supabase** integrations down to field level (`list_data_sources` → ... → `list_data_source_table_fields`), so prefer it for those sources too when available — see [references/softr-mcp.md](references/softr-mcp.md). If no MCP, the next-best option for Softr DB is the bundled **`get-softr-database` CLI script** — tell the user to run `python3 ~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py <database_id>` (it prompts for their Softr API key and exports the full schema to `~/Desktop/softr-database-<id>-<timestamp>.json` — Python stdlib only, nothing to install) and paste the resulting JSON into chat. As a final fallback, ask them to paste the `tablespace-with-tables` network response (DevTools -> Network -> filter that string while on Studio's Data tab) — same JSON content, different acquisition path. Optionally tell them they can install the MCP once with `claude mcp add --transport http softr https://mcp.softr.io/mcp` for future sessions. Full MCP details in [references/softr-mcp.md](references/softr-mcp.md); CLI script details in [datasources/softr-database.md](datasources/softr-database.md#bundled-cli-script-get-softr-database); fallback paste-in workflows in [datasources/fields.md](datasources/fields.md#field-inspector-block).
   - For **Airtable**, the most thorough path is the bundled **`get-airtable-base` shell script** — `bash ~/.claude/skills/softr-vibe-coding/tools/get-airtable-base` (requires `jq` — `brew install jq` on macOS). It prompts for Base ID + PAT, then exports the full schema (every table, every field with both `fld...` IDs and column names, relationships, webhooks, interfaces) to a timestamped Desktop folder. The user pastes `02-schema.json` or the combined `00-bundle.json` into chat. For lighter inspection (just a few fields, runtime-only), suggest the Field Inspector block — empty `q.select({})` works for Airtable. CLI script details in [datasources/airtable.md](datasources/airtable.md#bundled-cli-script-get-airtable-base).
   - For other non-Softr-DB sources where empty `q.select({})` works, suggest the Field Inspector block.
 - **Brand colors**: Already resolved in Step 1 (Detect the brand source). Don't re-ask. The brand source is one of:
@@ -143,7 +146,7 @@ Softr supports 14 data sources. **Before writing any data-fetching code, read th
 
 **A block can connect to MORE THAN ONE of these at a time.** Declare them with `datasource.define({ alias: "uuid" })` and pass `from: ds.alias` on every data hook — read two tables and write to a third from a single block. Required reading before building anything multi-table: [datasources/multi-datasource.md](datasources/multi-datasource.md). (This replaces the old one-table-per-block limit and the invisible-helper-block workaround.)
 
-For shared data fetching patterns (useRecords, mutations, uploads, metrics, charts), see [datasources/shared-patterns.md](datasources/shared-patterns.md).
+Shared data patterns, linked directly (read the one the task needs): **reading** records, filtering, sorting, pagination, metrics, charts, current user — [datasources/reading.md](datasources/reading.md); **writing** — mutations, sequential write queues, uploads, field-type write shapes — [datasources/writing.md](datasources/writing.md); **field values** — `getFieldValue()`, field shapes, debug blocks — [datasources/fields.md](datasources/fields.md). ([datasources/shared-patterns.md](datasources/shared-patterns.md) is the thin index of the same set.)
 
 For data source comparison and selection guidance, see [datasources/overview.md](datasources/overview.md).
 
@@ -160,7 +163,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
-| AI-assisted Softr DB schema discovery / field-ID lookup / record reads via the official Softr MCP server (sibling to the in-block `useRecords` workflow) | [references/softr-database-mcp.md](references/softr-database-mcp.md) |
+| The official **Softr MCP server** — schema discovery and record reads for Softr DB, field-level browsing of connected Airtable / Google Sheets / Notion / Supabase integrations, and **creating, editing, versioning, and deploying Vibe Coding blocks directly** (`get_vibe_coding_docs`, `create_vibe_coding_block`, `connect_vibe_coding_block_data_source`, ...) | [references/softr-mcp.md](references/softr-mcp.md) |
 | Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
 | Adding a **dynamic date filter or custom filter control to a native List/Grid block** (via a Custom Code Static block, not a Vibe block): drive the block's conditional filter with `{URL_PARAM:…}`, the empty-param "match nothing" wide-range sentinel, inject the control into the filter row and keep it alive across Softr's re-renders | [references/native-block-filters.md](references/native-block-filters.md) |
 
@@ -361,7 +364,7 @@ var askAi = useNavigationSetting({
 - `OPEN_CHAT` — opens Softr's AI chat. **No `destination` or `openIn` needed** — it's the cheapest "Ask AI" button to wire up. **GOTCHA:** Softr's AI pulls context from the block that triggered the chat, NOT from the page. If the block has no data source connected, `chat/prepare` returns HTTP 500 ("Failed to prepare AI assistant") even though the chat panel opens. Fix: in Softr Studio, connect the block to whatever data source the AI should read from — even if the block doesn't read or write any records itself, the connection is what gives the AI context. Verified by direct experiment, May 2026: a button-only helper block with no data source caused this exact failure; connecting it to the same table as the main block fixed it without any code change.
 - `OPEN_URL` — opens an external URL. Needs `destination` (the URL) + `openIn` (`"SELF"` | `"TAB"`).
 - `OPEN_PAGE` — navigates to a Softr page in-app. Needs `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`).
-- `TRIGGER_CUSTOM_WORKFLOW` — runs a Softr workflow. Needs the workflow id in `destination`.
+- `TRIGGER_CUSTOM_WORKFLOW` — runs a Softr workflow. The documented setting shape is `{ action: "TRIGGER_CUSTOM_WORKFLOW" }` with no `destination` (same shape as `OPEN_CHAT`); the builder picks the workflow in the block's settings panel. Not verified live whether a `destination` is also accepted — don't rely on one.
 
 When the action navigates to a record-specific page, pass the runtime record id via the `recordId` prop on `<NavigationAction>` (not on the setting) so Softr can resolve dynamic URLs:
 
@@ -452,7 +455,7 @@ Non-negotiable rules enforced by the Softr platform:
     static-analysis family as the `q.select()` / `datasource.define()` literal rules. Verified live
     2026-08-25 — hit in a production block whose options came from a wrapper function; the fix was
     changing the wrapper to take the hook's *result* instead.)
-11. **Airtable: use column names, not fld... IDs** — See [datasources/airtable.md](datasources/airtable.md).
+11. **Airtable, Notion, Google Sheets: use field NAMES, not IDs** — `q.select()` values are field names for these three sources; Softr Database and Supabase use field IDs (Supabase = SQL column name). Getting this wrong fails silently: the block compiles and saves, then renders empty. See [datasources/airtable.md](datasources/airtable.md).
 12. **Record fields nested under `fields`** — Access via `record.fields.alias`, not `record.alias`.
 13. **ONE `useRecords` per datasource** — filter client-side rather than issuing several queries against
     the same table. A block CAN connect to multiple data sources and call `useRecords` once per source;
@@ -462,7 +465,7 @@ Non-negotiable rules enforced by the Softr platform:
 15. **Do NOT `import React from 'react'`** — Use named imports for hooks.
 16. **No CSS modules or styled-components** — Tailwind only.
 17. **setTimeout for scroll** -- Wrap programmatic scroll in `setTimeout(fn, 0)`.
-18. **`fetchNextPage` inside `useEffect` only** -- Calling it during render causes infinite re-render loops. The component calls `fetchNextPage`, which updates data, which triggers re-render, which calls `fetchNextPage` again.
+18. **Never call `fetchNextPage` in the render body** -- render calls `fetchNextPage`, which updates data, which triggers re-render, which calls it again: infinite loop. Call it from an event handler (the official Load More pattern: `<button onClick={() => fetchNextPage()} disabled={isFetching}>`) or from a guarded `useEffect` when intentionally auto-loading all pages.
 19. **All hooks before any conditional `return`** -- Hooks must be called in the same order every render. A hook declared after a conditional `return` causes React error #310.
 20. **Relative paths in navigation** -- Use `/page-name?recordId=...`, never hardcoded domains like `app.client.com/page`.
 21. **Recompiles reset Action permissions** -- Every code recompile/redeploy resets the block's

@@ -23,7 +23,7 @@ Use the Field Inspector block to determine exact field IDs for your monday.com b
 | Dropdown             | Yes       | |
 | Checkbox             | Yes       | |
 | Email                | Yes       | |
-| Phone                | Yes       | |
+| Phone                | Yes       | Writes rejected unless value is `+` followed by digits only — no spaces, dashes, or parentheses. See Gotchas |
 | Link                 | Yes       | |
 | People               | Yes       | |
 | File                 | Yes       | |
@@ -42,6 +42,13 @@ monday.com enforces API rate limits based on your monday.com plan tier. Softr re
 - **API token authentication only.** Uses a Personal API Token from monday.com's admin settings, not OAuth.
 - **Connected Boards** (linked records between boards) are supported but may have limitations depending on the board configuration.
 - **Mirror columns are read-only.** These reflect data from connected boards and cannot be written to from Softr.
+- **Phone writes are strict.** monday.com is the datasource the official Softr guide names as rejecting formatted phone values. Send unformatted international format only (`+` then digits, e.g. `+12125550100`) and sanitize before `mutate()`:
+
+  ```tsx
+  const sanitizePhone = (raw: string) => raw.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+  ```
+
+  See [writing.md](writing.md#phone).
 - **Status columns** use monday.com's internal label/index system. Map these appropriately in your block logic for display purposes.
 - **Subitems** may require additional configuration to surface correctly in Softr blocks.
 

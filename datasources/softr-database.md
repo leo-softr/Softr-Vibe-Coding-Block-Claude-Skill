@@ -8,7 +8,7 @@ No setup needed. Softr Database is available by default in every Softr app. Crea
 
 ## AI-Assisted Workflows
 
-Softr publishes an official MCP server (`https://mcp.softr.io/mcp`) that lets the AI read Softr DB schema and field IDs directly — eliminating the manual "paste `tablespace-with-tables` JSON" step. For setup, scopes, the 20 tools, and the limitation that this only covers Softr DB (not external sources), see [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
+Softr publishes an official MCP server (`https://mcp.softr.io/mcp`) that lets the AI read Softr DB schema and field IDs directly — eliminating the manual "paste `tablespace-with-tables` JSON" step. The same server can also browse connected Airtable / Google Sheets / Notion / Supabase integrations, and can create and deploy Vibe Coding blocks. For setup, permissions, and the full tool catalog, see [../references/softr-mcp.md](../references/softr-mcp.md).
 
 ## Vibe Coding Field IDs
 Field IDs are short alphanumeric codes (e.g., `"xgETy"`, `"TLhWF"`). These codes are NOT human-readable names.
@@ -23,7 +23,7 @@ q.select({ name: "First Name" })
 
 Find field IDs in this order of preference:
 
-1. **Softr Database MCP** (recommended when working with an AI assistant) — the AI calls schema/list-fields tools directly. See [../references/softr-database-mcp.md](../references/softr-database-mcp.md).
+1. **Softr MCP server** (recommended when working with an AI assistant) — the AI calls schema/list-fields tools directly. See [../references/softr-mcp.md](../references/softr-mcp.md).
 2. **`get-softr-database` CLI script (bundled)** — a Python CLI bundled with this skill at `~/.claude/skills/softr-vibe-coding/tools/get-softr-database.py`. Exports the full schema (every table, field, dropdown option UUID) to `~/Desktop/softr-database-<id>-<timestamp>.json`. Stdlib only, no `pip install`. See [Bundled CLI script](#bundled-cli-script-get-softr-database) below.
 3. **Network inspector** — DevTools -> Network -> filter `tablespace-with-tables` for the full schema including dropdown option UUIDs. Paste the JSON into chat to share with an AI when the MCP isn't installed.
 4. **Inline in Studio** — click a field's name in the Data tab; the ID appears in the field-edit drawer.
@@ -98,7 +98,7 @@ No API rate limits. Softr Database queries run internally without external API c
 
 ## Gotchas
 - **Formula boolean values are strings.** A formula that evaluates to true returns `"1"`, not `true`. Always compare with `=== "1"` or `=== "0"`.
-- **Field IDs are opaque codes.** You cannot guess them from column names. Use the Field Inspector block to find them.
+- **Field IDs are opaque codes.** You cannot guess them from column names. Look them up via the ranked list above (MCP `list_fields` / bundled CLI / network inspector / Studio field drawer) — the generic Field Inspector block does NOT work for Softr Database.
 - **Relationships** work similarly to linked records in Airtable but use Softr's internal record IDs.
 
 ## Best For

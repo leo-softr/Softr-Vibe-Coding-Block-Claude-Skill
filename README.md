@@ -23,7 +23,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **Self-validation** — Claude checks for Softr platform compatibility (inline hook options, correct payload shapes, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
 - **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
-- **Softr Database MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp-server) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly — no more pasting `tablespace-with-tables` JSON. See `references/softr-database-mcp.md`.
+- **Softr MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp/overview) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly, browses connected Airtable / Google Sheets / Notion / Supabase integrations down to field level, and can even create and deploy Vibe Coding blocks straight into your app — no more pasting `tablespace-with-tables` JSON or copy-pasting code into Studio. See `references/softr-mcp.md`.
 
 ---
 
@@ -179,10 +179,10 @@ softr-vibe-coding/
 │   │                                 # Scripting Extension, cross-table cascades,
 │   │                                 # batch update gotchas, field-ID discipline,
 │   │                                 # Airtable formulas
-│   ├── softr-database-mcp.md         # Softr Database MCP server (sibling to
-│   │                                 # datasources/softr-database.md; AI-assisted
-│   │                                 # schema discovery, field-ID lookup, OAuth
-│   │                                 # install, scope limitations)
+│   ├── softr-mcp.md                  # Official Softr MCP server — vibe coding block
+│   │                                 # tools (create/edit/version/deploy), integrations
+│   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
+│   │                                 # Softr DB schema + record tools, auth, permissions
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -201,6 +201,10 @@ softr-vibe-coding/
 │   └── quick-reference.md            # Syntax cheat sheet (207 lines)
 │                                     # Imports, hook signatures, mutation shapes,
 │                                     # field mapping, component skeleton
+│
+├── tools/                            # Bundled CLI scripts (run, not read)
+│   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)
+│   └── get-softr-database.py         # Full Softr DB schema export (Python stdlib)
 │
 └── datasources/                      # Data source guides (loaded on demand)
     ├── overview.md                   # Comparison matrix, selection guide
@@ -270,7 +274,7 @@ The skill enforces these automatically, but good to know (verified live against 
 - Must use `export default function Block()`
 - Must wrap layout in `<div className="container py-0"><div className="content">`
 - Only ONE `useRecords` call per **datasource** — but a block can connect to several sources; declare them with `datasource.define()` and pass `from:` on every hook
-- `fetchNextPage` only inside `useEffect` — in render body causes infinite loops
+- `fetchNextPage` never in the render body (infinite loop) — call it from an event handler (Load More `onClick`) or a guarded `useEffect`
 - All hooks declared before any conditional `return` — React error #310
 - Every field value rendered in JSX must pass through `getFieldValue()`
 - Mutations use `recordId` (not `id`) and always call `refetch()` in `onSuccess`

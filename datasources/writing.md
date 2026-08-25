@@ -217,12 +217,17 @@ Rules that make this safe:
 import { useUpload } from "@/lib/datasource";
 
 var upload = useUpload();
+// Returns { uploadAsync, isUploading } — use isUploading to disable the submit
+// button / show a spinner while the upload is in flight:
+//   <Button disabled={upload.isUploading || !file}>...
 
 // Single file:
 upload.uploadAsync(file).then(function(results) {
   var result = results[0];
   if (result.status === "completed") {
     // result.url = uploaded file URL, result.file.name = original filename
+  } else {
+    toast.error((result.error && result.error.message) || "Upload failed");
   }
 });
 
@@ -234,9 +239,18 @@ upload.uploadAsync(file).then(function(results) {
       name: "Document",
       attachment: { filename: result.file.name, url: result.url },
     });
+  } else {
+    toast.error((result.error && result.error.message) || "Upload failed");
   }
 });
+
+// Multiple files: uploadAsync accepts an array; filter the completed results.
+upload.uploadAsync(Array.from(e.target.files)).then(function(results) {
+  var completed = results.filter(function(r) { return r.status === "completed"; });
+});
 ```
+
+Always handle the non-`"completed"` branch — a failed result carries `result.error?.message` for the toast.
 
 ### Async/await style
 
@@ -314,7 +328,7 @@ needed.
 
 ### Linked Record
 
-Array of `{ id }` objects. See "Linked Record Format for Mutations" above.
+Array of record-id **strings** (`["RECORD_ID"]`) on Softr Database (verified 2026-08-25); the legacy / Airtable fallback shape is `[{ id }]` objects. See "Linked Record Format for Mutations" above.
 
 ### Multi-Select
 
@@ -404,9 +418,21 @@ To upload a file before writing it to a record, see [File Uploads](#file-uploads
 
 _Shape matches the example shown in [File Uploads](#file-uploads). Not yet independently verified across all data sources._
 
-### Text / Email / URL / Phone
+### Text / Email / URL
 
 Plain string. To clear a value, both `null` and `""` work for Softr Database text fields (verified by direct experiment, May 2026, for `useRecordUpdate`). Behavior on other data sources has not been independently verified.
+
+### Phone
+
+**Unformatted international format only**: `+` followed by digits — nothing else (e.g. `+12125550100`). Some datasources (Monday.com is the one the official guide names) reject values containing spaces, dashes, or parentheses. Strip all non-digit characters except the leading `+` before submitting (official sanitizer from the developer guide):
+
+```tsx
+const sanitizePhone = (raw: string) => raw.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+
+mutate({ phone: sanitizePhone(inputValue) });
+```
+
+Any form block with a phone input should sanitize before `mutate()` — never send the user's typed formatting through.
 
 ## Cross-Table Operations
 

@@ -1,6 +1,6 @@
 # Common Patterns
 
-Small reusable patterns that come up across Vibe Coding blocks but don't warrant their own reference file. Each is a copy-pasteable snippet using the skill's preferred style (`var`, `function() {}`).
+Small reusable patterns that come up across Vibe Coding blocks but don't warrant their own reference file. Each is a copy-pasteable snippet. The snippets below use legacy var-style (`var`, `function() {}`), which remains valid — write new blocks in modern TS (see SKILL.md Style Conventions).
 
 ## Table of Contents
 

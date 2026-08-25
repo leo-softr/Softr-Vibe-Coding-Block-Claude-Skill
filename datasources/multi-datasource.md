@@ -45,6 +45,8 @@ Applies to: `useRecords`, `useRecord`, `useLinkedRecords`, `useFieldOptions`, `u
 
 Does **not** apply to `useUpload` and `useCurrentRecordId` — those are app-level and take no `from`.
 
+`useProxyFetch` (REST API sources) is **also datasource-scoped**, but takes the alias as its **function argument** rather than a `from:` option — `useProxyFetch(ds.store)`. With a single datasource `useProxyFetch()` works bare; once the block has more than one, omitting the alias throws, exactly like omitting `from:` on a record hook. See [rest-api.md](rest-api.md#multiple-datasources).
+
 ## The values must be inline string literals
 
 Softr statically analyses `datasource.define()`, exactly like `q.select()`. Hoisting the ids

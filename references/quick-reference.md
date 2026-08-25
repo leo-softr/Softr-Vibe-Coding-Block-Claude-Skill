@@ -52,6 +52,7 @@ var ds = datasource.define({           // values MUST be inline string literals
 });
 
 useRecords({ from: ds.people, select: select });   // `from:` required once >1 source
+var proxyFetch = useProxyFetch(ds.people);         // REST API source: alias is the ARGUMENT, not a from: option
 ```
 
 Ids are plain UUIDs. Get them by asking Studio's AI chat to **write code**, never to recite a
@@ -90,8 +91,9 @@ var result = useRecord({ recordId: recordId, select: select });
 ## Current User
 
 ```jsx
-var currentUser = useCurrentUser();          // { id, fullName, firstName, lastName, email, avatar } | null
-var softrUser = window.__softr_current_user; // full object with userGroups
+var currentUser = useCurrentUser();          // { id, fullName, firstName, lastName, email, avatar } | null; id only with user sync
+var withProps = useCurrentUser({ properties: { plan: "FIELD_ID" } });  // custom user fields → withProps.properties.plan
+var softrUser = window.__softr_current_user; // userGroups/role ONLY — not exposed by the hook
 ```
 
 ## Create

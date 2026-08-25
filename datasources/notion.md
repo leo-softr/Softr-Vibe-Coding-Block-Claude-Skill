@@ -10,8 +10,8 @@ Document and database platform used as a data source for Softr. Requires a Basic
 4. If a database does not appear in the list: open Notion, click the ellipsis menu (...) on the database page, go to Connections, find Softr, and click Allow.
 5. Multiple Notion workspaces can be connected to a single Softr app.
 
-## Vibe Coding Field IDs
-Use the Field Inspector block to determine exact field IDs for Notion database properties. Property names in Notion are typically used as field IDs.
+## Vibe Coding Field References
+`q.select()` values for Notion are the database's **property NAMES**, not internal IDs — same rule as Airtable and Google Sheets (official developer guide). Getting this wrong fails silently: the block compiles and saves, then renders with empty data. Use the Field Inspector block to confirm the exact property names when unsure.
 
 ## Supported Fields
 

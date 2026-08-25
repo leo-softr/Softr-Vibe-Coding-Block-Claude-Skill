@@ -100,6 +100,24 @@ export default function Block() {
 - Softr injects the authentication headers configured in the data source automatically
 - API keys are **never exposed** in client-side code
 - The response is the raw API JSON -- access fields directly (e.g., `item.name`, not `record.fields.name`)
+- **The proxy only supports text payloads** -- streams, `FormData`, and file uploads won't work. Serialize request bodies as JSON/text.
+
+### Multiple datasources
+
+When the block has more than one datasource, `useProxyFetch` needs to know which source to route through. Unlike the record hooks (which take a `from:` option), it takes the alias as its **function argument**:
+
+```jsx
+import { datasource, useProxyFetch } from "@/lib/datasource";
+
+var ds = datasource.define({
+  store: "ds_id_1",     // the REST API datasource
+  orders: "ds_id_2",    // e.g. a Softr DB table alongside it
+});
+
+var proxyFetch = useProxyFetch(ds.store);   // alias as ARGUMENT, not from:
+```
+
+With a single datasource `useProxyFetch()` works with no argument; once there's more than one, omitting the alias **throws**. Define the aliases with `datasource.define`, the same pattern the record hooks use — see [multi-datasource.md](multi-datasource.md).
 
 ### Dynamic Query Parameters
 
@@ -124,7 +142,7 @@ var result = useQuery({
 
 ### POST Requests
 
-`proxyFetch` accepts the same options as standard `fetch`:
+`proxyFetch` accepts the same options as standard `fetch`, but bodies must be text (JSON strings etc.) — `FormData`, streams, and file uploads are not supported by the proxy:
 
 ```jsx
 var result = useQuery({
@@ -172,6 +190,7 @@ fetch("https://workflows-api.softr.io/v1/workflows/WORKFLOW_ID/executions/EXECUT
 
 - Supports GET and POST methods only in the data source connector (no PUT, PATCH, DELETE -- use Softr Action buttons with custom API call actions for those)
 - Response data must be parseable JSON
+- **Proxy payloads are text-only** -- streams, `FormData`, and file uploads through `proxyFetch` fail. For file-to-record uploads use `useUpload` (see [writing.md](writing.md#file-uploads)), which targets the connected record datasource; uploading files to an arbitrary external API needs a different mechanism (e.g. a Softr workflow / webhook receiver)
 - No 2-way user sync
 - Requires Business or Enterprise plan
 

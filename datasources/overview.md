@@ -32,7 +32,7 @@
 - Data is connected to **dynamic blocks** (List, Grid, Table, Kanban, Chart, Form, etc.) in the Softr Studio.
 - **Multiple data sources** can coexist in a single Softr app, even on the same page.
 - Softr IP addresses to whitelist for secured databases: `3.120.79.212`, `3.123.159.186`, `52.58.246.121`
-- **AI-assisted schema discovery via MCP:** Softr Database is the only source with a first-party MCP server (`https://mcp.softr.io/mcp`). When installed, the AI reads schema and field IDs directly from your workspace -- no manual paste-in. External sources still need the manual workflows in [fields.md](fields.md). See [softr-database.md](softr-database.md#ai-assisted-workflows-softr-database-mcp-server).
+- **AI-assisted schema discovery via MCP:** the official Softr MCP server (`https://mcp.softr.io/mcp`) reads schema and field references directly from the workspace -- Softr Databases in full, plus browsable field-level access to connected **Airtable, Google Sheets, Notion, and Supabase** integrations. Other external sources still need the manual workflows in [fields.md](fields.md). See [../references/softr-mcp.md](../references/softr-mcp.md).
 
 ## User Sync Availability
 

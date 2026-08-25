@@ -2,7 +2,7 @@
 
 Companion reference for Softr Vibe Coding blocks. Many Softr blocks talk to an Airtable backend, and some flows can't be done from the block side — most commonly **cross-table writes triggered by a record change** (the block can only write to its own configured data source). For those, the right tool is an Airtable Automation Script, written in JavaScript and triggered by Airtable's automation runner.
 
-This guide covers Airtable's two scripting environments + Airtable formulas. **It is NOT about Softr Vibe Coding** — runtime, API surface, and gotchas are entirely different. Don't apply Softr block rules (no `?.`, shadow DOM, etc.) here.
+This guide covers Airtable's two scripting environments + Airtable formulas. **It is NOT about Softr Vibe Coding** — runtime, API surface, and gotchas are entirely different. Don't apply Softr block rules (shadow DOM isolation, data-hook constraints, etc.) here.
 
 ## When to reach for an Airtable script vs. a Softr block
 
