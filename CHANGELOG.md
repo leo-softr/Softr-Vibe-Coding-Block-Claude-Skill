@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.1.2] - 2026-08-26
+- Document four linked-record write traps verified live 2026-08-26
+- Fail the build when main moves ahead of npm
+
 ## [2.1.1] - 2026-08-26
 - Release 2.1.1
 - Document external-URL attachment ingestion (copy, not link)
