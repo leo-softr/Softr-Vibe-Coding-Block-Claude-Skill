@@ -414,9 +414,36 @@ createRecord.mutate({
 });
 ```
 
-To upload a file before writing it to a record, see [File Uploads](#file-uploads) above for the full `useUpload` flow.
+To upload a file from the user's machine before writing it to a record, see
+[File Uploads](#file-uploads) above for the full `useUpload` flow.
 
-_Shape matches the example shown in [File Uploads](#file-uploads). Not yet independently verified across all data sources._
+#### A file already on the public web needs no upload step
+
+Hand the attachment field any publicly reachable URL and Softr fetches the file, stores **its own copy**,
+and generates preview thumbnails. The saved record points at Softr's bucket rather than the original host,
+so the source can later move or delete the file without breaking the record:
+
+```jsx
+// No useUpload — the URL is the upload
+{ photo: { filename: "lamp.jpg", url: "https://cdn.example.com/abc123" } }
+```
+
+Details that matter in practice:
+
+- The `filename` you supply is what Softr stores and serves. It does not have to match anything at the
+  source, and the **source URL needs no file extension** — Softr sniffs the real content type on fetch.
+- Softr reads the URL **server-side**, so the file must be reachable without auth headers. A signed or
+  expiring link works only while it is still valid.
+- The original URL is **not** retained on the record. Store it in a separate URL field when provenance or
+  a later re-pull matters.
+- A bulk import of images from another system (Airtable, a vendor CDN, a CSV of image links) is therefore
+  a plain loop of record writes with no download-and-re-upload stage.
+
+_Write shape verified live 2026-08-26 on Softr Database via the MCP `update_record`: a 20,990-byte
+`image/jpeg` behind an extensionless ImageKit URL came back as a Softr-hosted S3 object of identical size
+and type, with small/medium/large thumbnails generated. Copy-not-link confirmed. The in-block
+`useRecordUpdate` / `createRecord` path takes the same shape, but external-URL ingestion was not separately
+tested there, nor on other data sources._
 
 ### Text / Email / URL
 
