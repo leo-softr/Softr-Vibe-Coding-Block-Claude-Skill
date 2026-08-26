@@ -122,6 +122,13 @@ Known limits and behaviors (per official docs):
   `{ filename, url }` on an ATTACHMENT field with any publicly reachable URL; Softr fetches it, stores its
   own copy and generates thumbnails, so backfilling images from another system is one write per record
   with no upload step. Verified 2026-08-26 — see [../datasources/writing.md](../datasources/writing.md#attachment).
+- **`update_field` silently ignores `allowMultipleEntries` nested inside `options`** — it is a TOP-LEVEL
+  field property; the call succeeds and changes nothing (verified 2026-08-26). To flip a LINKED_RECORD
+  field between single and multi, `PUT` it via the Tables API with `allowMultipleEntries` at top level —
+  and always echo `options.inverseLinkFieldId` in that PUT, because omitting it severs the inverse
+  pairing. Full write-up, including the silent on-write clobbering of single-valued link pairs and the
+  truthy-`[]` empty-link read shape:
+  [../datasources/writing.md](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).
 - Limits: 100 records per `create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `aggregate_data`. For big tables prefer a filter or aggregate over paging.
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.

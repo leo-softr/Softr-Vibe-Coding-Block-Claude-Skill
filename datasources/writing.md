@@ -291,6 +291,43 @@ parentAccount: "RECORD_ID_1"
 string-array shape is the verified current form on Softr Database; if a linked-record write
 fails on an Airtable-backed block, try the `[{ id }]` object shape before deeper debugging.
 
+### Linked-record write traps (verified live 2026-08-26)
+
+Four Softr Database behaviors proven by direct experiment on a live production build — a
+49-link backfill across a self-referencing parent/child pair. They bite hardest in backfills
+and schema work, and **none of them raises an error**.
+
+1. **A single-valued link pair is enforced ON WRITE — and it clobbers silently.** With
+   `allowMultipleEntries: false` on the inverse side, writing child N's link to a parent
+   silently unlinks child N−1: no error, the earlier link just vanishes (16 of 49 backfill
+   links disappeared this way before it was caught). Pre-existing multi links DO survive a
+   flip from multi to single, which is why a scratch-table spike that flips an
+   already-linked pair reports the setting as "cosmetic only" and misleads — the
+   enforcement only fires on the next write. If one side must hold many links, both sides
+   must allow multiple entries; enforce any one-parent rule in the UI, not the schema.
+
+2. **`allowMultipleEntries` is a TOP-LEVEL field property, not part of `options`.** The
+   workspace MCP's `update_field` silently ignores it when nested inside `options` — the
+   call succeeds and changes nothing. A Tables API `PUT /fields/{id}` with the property at
+   top level works.
+
+3. **A Tables API field PUT that omits `options.inverseLinkFieldId` SEVERS the inverse
+   pairing** — it comes back `null` and the two sides stop mirroring each other. Always
+   echo `inverseLinkFieldId` inside the `options` you send, and re-read BOTH sides after
+   any linked-record field PUT to confirm the pairing survived.
+
+4. **An empty multi-entry link reads back as `[]`, which is truthy in JS.** Any
+   "already linked — skip" guard written as `if (value)` matches every record after a
+   single→multi flip, so a resumable backfill re-processes nothing or skips everything.
+   Test presence explicitly:
+
+   ```jsx
+   const hasLink = Array.isArray(v) ? v.length > 0 : !!v;
+   ```
+
+   (The populated read shapes are in [fields.md](fields.md); this is the empty case, and
+   it becomes a write trap the moment a backfill uses it as a skip condition.)
+
 ## Writing to Field Types
 
 Different Softr field types accept different value shapes in mutation payloads. The shape returned when you READ a field is often different from the shape you must SEND when you WRITE.
