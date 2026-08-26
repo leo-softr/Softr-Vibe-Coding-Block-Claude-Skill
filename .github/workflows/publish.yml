@@ -37,6 +37,67 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Guard: npm must mirror main at all times. A push that changes any file shipped in
+      # the npm package without bumping the version leaves the registry silently behind —
+      # the run would otherwise go green while npm serves stale content. Fail loudly instead.
+      # Manual runs (workflow_dispatch) are exempt, so you can always re-run to inspect.
+      - name: Fail if published files changed without a version bump
+        if: steps.check.outputs.skip == 'true' && github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          CURRENT: ${{ steps.check.outputs.current }}
+        run: |
+          set -euo pipefail
+
+          # Resolve a diff base. `before` is all-zeros on a brand-new branch and can be
+          # unreachable after a force-push, so fall back to the first parent before giving up.
+          ZERO="0000000000000000000000000000000000000000"
+          BASE=""
+          if [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "$ZERO" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            BASE="$BEFORE"
+          elif git rev-parse -q --verify "${AFTER}^" >/dev/null; then
+            BASE="${AFTER}^"
+          fi
+
+          if [ -z "$BASE" ]; then
+            echo "::warning::Cannot determine what this push changed — skipping the mirror check."
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE" "$AFTER")
+          echo "Changed in this push:"
+          echo "$CHANGED" | sed 's/^/  /'
+
+          # The watched set is derived from package.json "files" (plus package.json itself)
+          # rather than hardcoded here, so this guard stays correct when the shipped file
+          # list changes. CHANGELOG.md is excluded: the workflow rewrites it after every
+          # publish, and a hand-edit to it alone is not a reason to cut a release.
+          OFFENDERS=$(CHANGED="$CHANGED" node -e '
+            const pkg = require("./package.json");
+            const watched = (pkg.files || [])
+              .filter((f) => f !== "CHANGELOG.md")
+              .concat("package.json");
+            const changed = (process.env.CHANGED || "").split("\n").filter(Boolean);
+            const hit = changed.filter((f) =>
+              watched.some((w) => (w.endsWith("/") ? f.startsWith(w) : f === w))
+            );
+            process.stdout.write(hit.join("\n"));
+          ')
+
+          if [ -z "$OFFENDERS" ]; then
+            echo "Nothing that ships to npm changed in this push — no release needed."
+            exit 0
+          fi
+
+          echo "::error::npm is behind main — these published files changed at v${CURRENT}, which is already on the registry."
+          echo "Files that ship to npm and changed without a version bump:"
+          echo "$OFFENDERS" | sed 's/^/  /'
+          echo ""
+          echo "Cut a release so npm matches main:"
+          echo "  npm version patch -m 'Release %s' && git push origin main --follow-tags"
+          exit 1
+
       - name: Generate CHANGELOG.md entry
         if: steps.check.outputs.skip == 'false'
         env:
