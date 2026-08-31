@@ -93,6 +93,8 @@ After `source ~/.zshrc`, just run `get-softr-database <database_id>` from anywhe
 | Relationship   | Yes      | Linked records to other Softr Database tables. Write as an **array of record-id strings**, e.g. `[recordId]` (verified 2026-08-25) |
 | Formula        | Read-only | Booleans return as strings: use `=== "1"` for true, `=== "0"` for false |
 
+This table is the coarse block-side view. The full current catalog is larger — Rating, Duration, Currency, Percent, plus computed Lookup/Rollup/Count and system fields — and is best fetched live via the MCP's `get_schema`, authoritative **for the server you're calling**: the per-app servers currently document a fuller catalog than the workspace server (adding Address, Progress, Time, Date range, Button, and display options like Percent's progress-bar/ring), and even operator names differ between the two — see [../references/softr-mcp.md](../references/softr-mcp.md#softr-database-tools).
+
 ## Rate Limits
 No API rate limits. Softr Database queries run internally without external API calls, making it the best choice for high-traffic applications.
 

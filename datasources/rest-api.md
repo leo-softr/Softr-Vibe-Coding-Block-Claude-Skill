@@ -190,7 +190,7 @@ fetch("https://workflows-api.softr.io/v1/workflows/WORKFLOW_ID/executions/EXECUT
 
 - Supports GET and POST methods only in the data source connector (no PUT, PATCH, DELETE -- use Softr Action buttons with custom API call actions for those)
 - Response data must be parseable JSON
-- **Proxy payloads are text-only** -- streams, `FormData`, and file uploads through `proxyFetch` fail. For file-to-record uploads use `useUpload` (see [writing.md](writing.md#file-uploads)), which targets the connected record datasource; uploading files to an arbitrary external API needs a different mechanism (e.g. a Softr workflow / webhook receiver)
+- **Proxy payloads are text-only** -- streams, `FormData`, and file uploads through `proxyFetch` fail. For file-to-record uploads use `useUpload` (see [writing.md](writing.md#file-uploads)), which targets the connected record datasource; uploading files to an arbitrary external API needs a different mechanism — e.g. a Softr Workflow with a `WEBHOOK` trigger (and `RESPONDED_TO_WEBHOOK` for a custom HTTP reply), buildable via MCP: [../references/softr-mcp.md](../references/softr-mcp.md#workflows)
 - No 2-way user sync
 - Requires Business or Enterprise plan
 

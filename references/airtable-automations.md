@@ -1,6 +1,6 @@
 # Airtable Automation Scripts & Formulas
 
-Companion reference for Softr Vibe Coding blocks. Many Softr blocks talk to an Airtable backend, and some flows can't be done from the block side — most commonly **cross-table writes triggered by a record change** (the block can only write to its own configured data source). For those, the right tool is an Airtable Automation Script, written in JavaScript and triggered by Airtable's automation runner.
+Companion reference for Softr Vibe Coding blocks. Many Softr blocks talk to an Airtable backend, and some flows can't be done from the block side — most commonly **cross-table cascades triggered by a record change** (a block writes only to its connected data sources, and even a multi-datasource block shouldn't carry heavy cascade logic — see [datasources/multi-datasource.md](../datasources/multi-datasource.md)). For those, the right tool is an Airtable Automation Script, written in JavaScript and triggered by Airtable's automation runner.
 
 This guide covers Airtable's two scripting environments + Airtable formulas. **It is NOT about Softr Vibe Coding** — runtime, API surface, and gotchas are entirely different. Don't apply Softr block rules (shadow DOM isolation, data-hook constraints, etc.) here.
 
@@ -10,10 +10,11 @@ This guide covers Airtable's two scripting environments + Airtable formulas. **I
 |---|---|
 | Build UI inside a Softr page | Softr Vibe Coding block |
 | React to a record-level event in Airtable (e.g. status change) and cascade to other tables | **Airtable Automation Script** |
+| React to a record-level event in a **Softr Database** and cascade | **Softr Workflow** (record triggers + bulk actions + JS/Python code node) — see [softr-mcp.md → Workflows](softr-mcp.md#workflows) |
 | Run ad-hoc transformations / bulk fixes | Airtable Scripting Extension |
 | Compute a derived value displayed in an Airtable cell | Airtable formula field |
 
-If a Softr block needs to write across multiple tables in response to a user click, the **cleanest pattern** is: have the Softr block write to its own table, and let an Airtable automation handle the cascade. See [datasources/writing.md → Cross-Table Operations](../datasources/writing.md#cross-table-operations) for the alternative (Softr Database REST API), but the Airtable-side automation is usually simpler.
+For plain multi-table writes from a user click, the default is **multi-datasource from the block itself** (`from:`-scoped mutation hooks — see [datasources/writing.md → Cross-Table Operations](../datasources/writing.md#cross-table-operations)). When the multi-table write is really a **cascade with its own logic** — too heavy to live in the block — the cleanest pattern is: have the block write to its own table, and let the backend cascade: an Airtable automation for Airtable backends, a Softr Workflow for Softr Database backends. writing.md lists all the alternatives, including the Softr Database REST API fallback.
 
 ## Two scripting environments — pick the right one
 

@@ -509,9 +509,10 @@ block, no REST API, and no exposed key. Required reading:
 deployment routed all of its cross-table writes (header + ledger + audit-log rows) through
 `from:`-scoped mutation hooks.
 
-Two remaining alternatives, for the cases multi-datasource doesn't cover:
+Three remaining alternatives, for the cases multi-datasource doesn't cover:
 
 - **For Airtable backends** — when the cascade logic is heavy, write to the block's own table and let an Airtable automation script handle the cascade. See [../references/airtable-automations.md](../references/airtable-automations.md). Keeps the block simple and lets cross-table logic live next to the data.
+- **For Softr Database backends** — same pattern, native tool: a **Softr Workflow** triggered by the record change (record added / updated / deleted / meets-conditions / enters-view triggers, bulk record update/delete actions, per-item loops, and a custom JS/Python code node). Buildable and publishable via the MCP. See [../references/softr-mcp.md](../references/softr-mcp.md#workflows).
 - **Softr Database REST API via `fetch()`** — a fallback for what the hooks can't express (e.g. writes from outside a Vibe block, or admin tooling that must bypass block bindings). Details below.
 
 **Base URL:** `https://tables-api.softr.io/api/v1/databases/{databaseId}/tables/{tableId}/records`

@@ -137,7 +137,7 @@ Value shapes per action type (full detail in SKILL.md's NavigationAction section
 - `OPEN_PAGE` — `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`)
 - `OPEN_URL` — `destination` (URL) + `openIn` (`"SELF"` | `"TAB"`)
 - `OPEN_CHAT` — no destination (mind the data-source-context gotcha in [anti-patterns.md](anti-patterns.md))
-- `TRIGGER_CUSTOM_WORKFLOW` — no destination; builder picks the workflow in Studio
+- `TRIGGER_CUSTOM_WORKFLOW` — no destination; builder picks the workflow in Studio (workflow-side receiving end by name: the "Run Custom Workflow action triggered" trigger — name-based match, not wired live; see [softr-mcp.md](softr-mcp.md#workflows))
 
 **[verified-undocumented] `action` is accepted as optional.** Softr's setting validator accepts an initialValue with no `action` key — `{ destination: "/", openIn: "SELF" }` alone — and Studio's own AI emits exactly that shape (verified 2026-08-31: a Studio-generated block with three action-less `useNavigationSetting` initialValues, plus three more action-less link values inside an array setting, saved and rendered its Settings pane). Corroborating in-repo evidence that not every key is mandatory: the validator's own error message for `openIn` ends in *"if provided"* (see [anti-patterns.md](anti-patterns.md#editable-settings)). Two consequences:
 

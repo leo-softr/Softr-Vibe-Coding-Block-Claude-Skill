@@ -25,7 +25,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **Self-validation** — Claude checks Softr platform compatibility and house conventions (inline hook options, correct payload shapes, correct imports, container wrappers or a deliberate full-bleed layout, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — every app-UI block (dashboards, lists, forms, detail pages) ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states; static marketing blocks use the editorial baseline instead
 - **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
-- **Softr MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp/overview) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly, browses connected Airtable / Google Sheets / Notion / Supabase integrations down to field level, and can even create and deploy Vibe Coding blocks straight into your app — no more pasting `tablespace-with-tables` JSON or copy-pasting code into Studio. See `references/softr-mcp.md`.
+- **Softr MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp/overview) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly, browses connected Airtable / Google Sheets / Notion / Supabase integrations down to field level, creates and deploys Vibe Coding blocks straight into your app, manages full record/table/field/database CRUD (deletes included), and can scaffold applications and build **Softr Workflows** against a 418-node trigger/action catalog. Also covers Softr's **per-application MCP servers** (one per published app, scoped to the app's own permissions). See `references/softr-mcp.md`.
 
 ---
 
@@ -184,7 +184,10 @@ softr-vibe-coding/
 │   ├── softr-mcp.md                  # Official Softr MCP server — vibe coding block
 │   │                                 # tools (create/edit/version/deploy), integrations
 │   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
-│   │                                 # Softr DB schema + record tools, auth, permissions
+│   │                                 # Softr DB schema + record tools incl. deletes,
+│   │                                 # app management/scaffolding, Workflows suite
+│   │                                 # (26 tools, 418-node catalog), per-application
+│   │                                 # MCP servers, auth, permissions
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
