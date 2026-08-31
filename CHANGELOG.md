@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.2.0] - 2026-08-31
+- Add editable-settings and static-blocks references: undocumented useLongTextSetting + navigation array-schema type, settings-first doctrine, full-bleed/full-viewport heroes, block-owned fixed headers
+
 ## [2.1.2] - 2026-08-26
 - Document four linked-record write traps verified live 2026-08-26
 - Fail the build when main moves ahead of npm
