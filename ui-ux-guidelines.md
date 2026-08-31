@@ -192,6 +192,17 @@ Aim for at least **1.25x ratio** between adjacent scale steps. Sizes only 1-2px 
 - Use `text-foreground`, not pure black. The theme token is calibrated for comfortable contrast.
 - **Use tabular numbers** in data tables for column alignment: add `style={{ fontVariantNumeric: "tabular-nums" }}` to numeric cells.
 
+### Marketing / editorial display type (heroes, landing blocks)
+
+The scale above is for **app UI** (dashboards, forms, lists). Static marketing blocks get a sanctioned exception lane (patterns verified from rendering Studio-AI hero output, 2026-08-31 — see [references/static-blocks.md](references/static-blocks.md)):
+
+- **Display headings 40–60px**, stepped per breakpoint with arbitrary px classes — `text-[40px] md:text-[56px] lg:text-[54px] xl:text-[60px]` — px precision because the Tailwind scale jumps too coarsely up there.
+- **Display line-height 1.05–1.1** for multi-line display headings (`leading-[1.08]`); the leading-snug rule above is for app-scale headings.
+- **Slight negative tracking on large display type**: `tracking-[-0.015em]`.
+- **Eyebrow/tagline pattern**: 13–14px, uppercase, `tracking-[0.15em]`–`tracking-[0.2em]`, `font-medium`, in an accent color, above the heading. (An eyebrow IS a "short label" — the all-caps rule below permits it.)
+- **Wordmark/logotype text**: `font-light`/`font-normal` + wide tracking (`tracking-[0.16em]`) for luxury brands.
+- Body copy in this lane still follows the body rules (16–19px, `leading-[1.6]`-ish, max-width constrained).
+
 ### Typography Anti-Patterns:
 - **DO NOT** use monospace typography as lazy shorthand for "technical/developer" vibes.
 - **DO NOT** place large rounded icons above every heading — they rarely add value and look templated.
@@ -220,7 +231,7 @@ All spacing uses **multiples of 4px**. The critical step that pure 8pt systems m
 - **Vary spacing for hierarchy.** A heading with extra space above reads as more important. Uniform padding everywhere feels monotonous.
 - **Internal spacing <= external spacing:** Padding *inside* a component must be smaller than the margin *between* components.
 - **Button height:** 40px (`h-10`) or 48px (`h-12`) — touch-friendly.
-- **Never use arbitrary values** like `p-[13px]`. Always use the Tailwind scale.
+- **Stick to the Tailwind scale for spacing in app-UI blocks** — avoid arbitrary spacing values like `p-[13px]` there; scale steps keep rhythm consistent. This is a design-consistency preference, NOT a platform limit: the platform's Tailwind build is JIT and the full arbitrary-value syntax compiles, including opacity-modified arbitrary hex (`bg-[#FAF5EC]/85`), negatives (`-top-[22%]`), arbitrary object-position/z/vw (verified from rendering Studio-AI output, 2026-08-31). In the **editorial/brand-faithful lane** (marketing heroes, luxury type, brand-exact radii — see [references/static-blocks.md](references/static-blocks.md)), px-precise arbitrary values are the correct tool. Elsewhere in this file, `min-h-[44px]` touch targets already use them.
 - **Generous whitespace** reduces cognitive load — it is not wasted space.
 
 ### Depth and Elevation:
@@ -306,7 +317,7 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 | State | Purpose | Implementation |
 |---|---|---|
 | **Default** | Ready to use | Standard `Button` component |
-| **Hover** | Cursor over it | Handled by shadcn `Button` |
+| **Hover** | Cursor over it | Handled by shadcn `Button` — EXCEPT when an inline `style={{ backgroundColor }}` overrides the variant: inline style beats every `hover:bg-*` class, so use `hover:opacity-90` / transform instead (see SKILL.md's brand-hex Button recipe) |
 | **Focus** | Keyboard-selected | `focus-visible:ring-2` — never remove |
 | **Active** | Being pressed | Pressed in, darker |
 | **Loading** | Action in progress | Replace label with `<Spinner />` + disable |
@@ -535,6 +546,8 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 ### Keyboard and screen reader:
 - All interactive elements reachable by keyboard (Tab, Enter, Space, Escape).
 - `aria-label` on all icon-only buttons.
+- **`aria-hidden="true"` on decorative glyph characters** used as separators or ornaments (●, •, |, →, ✦) — screen readers otherwise announce them literally ("black circle"). Purely decorative empty divs need nothing; decorative `<img>` elements need `alt=""`.
+- **Landmark hygiene when a block ships page chrome**: shadow DOM does NOT hide landmarks from assistive tech, and Softr's native chrome uses semantic elements — so a block's own `<header>`/`<main>` on a page with native chrome creates duplicate banner/main landmarks. Use plain `<div>`s there; reserve `<header>`/`<main>` for pages where the native chrome is hidden.
 - Semantic HTML: `<button>` for actions, `<a>` for navigation, `<input>` for data.
 - **Focus rings:** Never `outline: none` without replacement. Always keep `focus-visible:ring-2`. Focus ring must be 2-3px thick, high contrast, offset from the element.
 - Tables: proper `<thead>`, `<tbody>`, `<th scope="col">`.
@@ -550,6 +563,9 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 - **Hover states are desktop-only.** Never depend on `:hover` for essential actions.
 - Form fields: `w-full` on mobile.
 - Navigation: collapse to hamburger or bottom nav on small screens.
+
+### Art-directed responsive images:
+A settings hook returns a plain value, so one `useImageSetting` may safely feed **two sibling `<img>` renders** with opposite visibility classes — desktop: absolute-positioned, masked, cropped via arbitrary `object-[x%_y%]`; mobile: in-flow full-bleed (`hidden lg:block` / `lg:hidden`, same mechanism as the table→cards swap in §18). The builder still edits ONE image in the Settings pane. To bleed the mobile render edge-to-edge against the wrapper's own horizontal padding, use matching negative margins (`-mx-6` against `px-6`, `md:-mx-12` against `md:px-12`).
 
 ### Breakpoint strategy:
 ```

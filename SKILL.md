@@ -21,7 +21,7 @@ allowed-tools: Read Write Glob Grep Bash
 
 You generate complete, production-ready Softr Vibe Coding blocks as TypeScript React files. A Vibe Coding block is a single file with a default-exported React component, compiled by Softr's server and run in the browser inside a Softr app. The current platform compiles TypeScript with modern syntax — optional chaining (`?.`), nullish coalescing (`??`), arrow functions, `const`, generics — plus shadcn/ui from `@/components/ui/*`, lucide-react, sonner, and date-fns (verified live against the builder MCP's `get_vibe_coding_docs` and a 15-block production deployment, 2026-08-25).
 
-> **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md).
+> **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md). One nuance: on a landing page where the native header is **hidden**, a hero block CAN render its own fixed in-block header (`position: fixed` inside the shadow root anchors to the viewport — verified 2026-08-31 from Softr's own Studio-AI output); pattern + caveats in [references/static-blocks.md](references/static-blocks.md#block-owned-landing-page-header).
 
 ## Your Workflow
 
@@ -51,24 +51,24 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
 
    Do not silently default to Softr's brand. The user must opt in to defaults explicitly.
 
-2. **Understand what the user wants to build.** They will describe it in plain language. Only ask about things you genuinely cannot infer: **data source type** and **field IDs**. For everything else, make sensible defaults and flag your assumptions.
+2. **Understand what the user wants to build — and fork on archetype.** They will describe it in plain language. First decide: is this a **data-connected block** (list, dashboard, form, detail page — reads or writes records) or a **static marketing block** (hero, page header, pricing table, testimonial band, footer, content section — zero datasources, all content from editable settings)? For static blocks, read [references/static-blocks.md](references/static-blocks.md) and **skip the data-source questions and datasource guides entirely** (Step 1 brand detection still runs); settings-first design becomes the default — see [references/editable-settings.md](references/editable-settings.md#granularity-doctrine-settings-first-static-blocks). For data blocks, only ask about things you genuinely cannot infer: **data source type** and **field IDs**. For everything else, make sensible defaults and flag your assumptions.
 
 3. **Apply defaults for the rest, don't ask.** Infer these from context instead of asking:
    - **Project folder**: Derive from the block description (e.g., "partner-portal", "client-dashboard"). If the user has already specified a folder in this session, reuse it.
    - **Brand colors**: Use whatever was chosen in Step 1 — DESIGN.md tokens, the user's override, or the default Softr palette (primary `#386AF5`, accent `#FCB500`). Never silently fall back to defaults.
    - **Filename**: Derive from the block purpose (e.g., `partner-invite.tsx`, `team-directory.tsx`). The user can rename later.
 
-4. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type.
+4. **Load the relevant data source guide** from [datasources/](datasources/) before writing code. Read the specific guide for the user's data source type. (Static marketing blocks: skip this step — read [references/static-blocks.md](references/static-blocks.md) instead.)
 
 5. **Write the complete block file** (`.tsx` preferred; `.jsx` also compiles) to the project sub-folder and tell the user the full path. Create the sub-folder if it doesn't exist yet. The file must be fully self-contained, **visually polished from the first version**, and ready to paste into Softr's Vibe Coding editor. Styling is not an afterthought -- it ships in v1. **Never deliver code inline in chat.** Copy-pasting JSX from chat corrupts characters (`>`, `>=`, `=>`, quotes), causing compilation errors that are hard to debug. Always write to a file.
 
    **Delivery path:** if the official Softr MCP server is connected with Applications & Forms full access, offer to deploy the block directly after writing the file — `create_vibe_coding_block` (or `update_vibe_coding_block_code` for edits) plus `connect_vibe_coding_block_data_source` to wire the data. The local `.tsx` file stays the source of truth. Remember: every code push resets the block's Action permissions to defaults (Hard Constraint 21), and a block whose data source isn't connected saves fine but errors at page load. Details in [references/softr-mcp.md](references/softr-mcp.md).
 
-6. **Self-validate before delivering.** Before presenting the code as complete, verify:
+6. **Self-validate before delivering.** Before presenting the code as complete, verify. (Data-hook items apply only to data-connected blocks; static marketing blocks swap in the checklist deltas from [references/static-blocks.md](references/static-blocks.md#workflow-deltas).)
    - Every data hook is called with an **inline options object literal** — `useRecords({ ... })` written through a variable or wrapper function fails to compile (verified live 2026-08-25). Share `q.select` mappings between hooks, never whole options objects
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
-   - Container + content wrappers present (`<div className="container py-0"><div className="content">`)
+   - Container + content wrappers present (`<div className="container py-0"><div className="content">`) — OR a deliberate full-bleed layout recorded in the `// BLOCK PLACEMENT:` comment (see "Block Placement & Page Spacing")
    - `// BLOCK PLACEMENT:` comment present at top of file with wrapper classes matching the placement (see "Block Placement & Page Spacing")
    - Loading, error, and empty states all handled
    - Mutation calls gated behind `enabled` check (if using mutations)
@@ -81,7 +81,10 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - Mutations use `recordId` (not `id`) and call `refetch()` in `onSuccess`
    - `useRecordUpdate` payload is `{ recordId, fields: { ... } }` — nested. `useRecordCreate` payload is **flat** (no `fields` wrapper). The two shapes are asymmetric by design (verified live 2026-08-25)
    - Sequential multi-row saves use `await hook.mutateAsync(...)` per row, in order, with stop-on-failure + retry state — `mutateAsync` is fully supported on the current platform (verified 2026-08-25; the old ".mutate() only" Action-parser rule is gone — see [datasources/writing.md](datasources/writing.md))
-   - No hardcoded domains in links -- use relative paths (`/page?recordId=...`)
+   - No hardcoded domains in links -- use relative paths (`/page?recordId=...`); same-page anchors written relative too (`/#section`)
+   - Static block: no hardcoded user-visible copy — every string/image/link is an editable setting (see [references/editable-settings.md](references/editable-settings.md#granularity-doctrine-settings-first-static-blocks))
+   - Array-setting rows keyed by **index**, never by a builder-editable field value
+   - Media settings that may start empty (`src: ""`) gated with a conditional render or placeholder — never an unconditional `<img src={setting.src}>`
 
 ## What to Clarify
 
@@ -108,7 +111,7 @@ When the user describes their block, figure out which of these areas apply and a
   Softr logo assets (for blocks that need Softr branding):
   - Icon + wordmark (SVG): `https://cdn.brandfetch.io/idytCFzVcY/theme/dark/logo.svg`
   - Icon only (PNG): `https://cdn.brandfetch.io/idytCFzVcY/w/1024/h/1024/theme/dark/icon.png`
-- **Layout and style**: Cards vs. table vs. list? How many columns? Apply the Premium Visual Baseline regardless.
+- **Layout and style**: Cards vs. table vs. list? How many columns? Apply the Premium Visual Baseline for app-UI blocks; static marketing blocks use the editorial baseline in [references/static-blocks.md](references/static-blocks.md#editorial-baseline-replaces-the-premium-visual-baseline) instead.
 - **Interactivity**: Create/edit/delete? Filtering? Sorting? Pagination?
 - **User context**: Does it need to know who's logged in?
 - **Settings**: Should anything be editable by the Softr builder (titles, images, toggle sections)?
@@ -166,6 +169,8 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | The official **Softr MCP server** — schema discovery and record reads for Softr DB, field-level browsing of connected Airtable / Google Sheets / Notion / Supabase integrations, and **creating, editing, versioning, and deploying Vibe Coding blocks directly** (`get_vibe_coding_docs`, `create_vibe_coding_block`, `connect_vibe_coding_block_data_source`, ...) | [references/softr-mcp.md](references/softr-mcp.md) |
 | Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
 | Adding a **dynamic date filter or custom filter control to a native List/Grid block** (via a Custom Code Static block, not a Vibe block): drive the block's conditional filter with `{URL_PARAM:…}`, the empty-param "match nothing" wide-range sentinel, inject the control into the filter row and keep it alive across Softr's re-renders | [references/native-block-filters.md](references/native-block-filters.md) |
+| **Editable settings deep-dive** — full hook catalog (incl. verified-undocumented `useLongTextSetting` and the `navigation` array-schema type), settings-first granularity doctrine, heading-line-split and `-text`/`-link` pairing patterns, naming conventions, rename-resets-value gotcha, empty-media gating, key-by-index rule | [references/editable-settings.md](references/editable-settings.md) |
+| **Static marketing blocks** — heroes, landing headers, pricing tables, footers: workflow deltas (skip datasources), editorial baseline, full-bleed license, full-viewport sizing, block-owned fixed header + caveats, section anchors | [references/static-blocks.md](references/static-blocks.md) |
 
 ## Code Structure
 
@@ -190,9 +195,11 @@ export default function Block() {
 }
 ```
 
-Always wrap the outermost layout in `container` and `content` divs — these constrain width to match the Softr app's max width settings.
+Wrap the outermost layout in `container` and `content` divs by default — these constrain width to match the Softr app's max width settings so the block aligns with neighboring native blocks. Note this is a **house convention, not platform-enforced**: per the official developer guide the platform default is full width, and the classes are merely "available" to constrain it (verified 2026-08-31 against `get_vibe_coding_docs` and a rendering wrapper-free Studio-AI hero).
 
-**Exception:** Blocks inside Softr column containers — omit wrappers so Softr controls layout.
+**Exceptions (omit the wrappers deliberately):**
+- Blocks inside Softr column containers — Softr controls layout.
+- Full-bleed marketing blocks (heroes, banner bands, footers) — backgrounds and decorative shapes run edge-to-edge; the block then owns its own gutters (`px-6 md:px-12 lg:px-16`) and inner max-widths, and records the choice in the `// BLOCK PLACEMENT:` comment. See [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license).
 
 ## Block Placement & Page Spacing
 
@@ -229,7 +236,7 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 
 ### Spacing values (defaults)
 
-**Container** (always): `<div className="container py-0">`
+**Container** (default — omitted by full-bleed blocks and blocks inside column containers; see table below): `<div className="container py-0">`
 
 **Inner wrapper** classes by block position:
 
@@ -239,6 +246,7 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 | Middle block | `py-3 px-8` | 12px + Softr separator + 12px ≈ 24px between blocks |
 | Last block (footer-adjacent) | `pt-3 pb-12 px-8` | 12px top + 48px bottom for footer breathing room |
 | Standalone (only block on page) | `pt-3 pb-12 px-8` | Treat like a last block |
+| Full-bleed (hero / banner / footer) | none — no container/content; block owns gutters `px-6 md:px-12 lg:px-16` | Edge-to-edge backgrounds; see [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license) |
 
 **Back button** (when present at the top of a block — typically on detail pages): wrap in `<div className="mt-6 mb-4">`. The `mt-6` (24px) adds breathing room above the button independent of wrapper padding; `mb-4` (16px) sits between the button and the first card. Apply this regardless of whether the block is first or mid-page.
 
@@ -246,9 +254,15 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 
 **Net page rhythm**: between-block gaps (12 + 12 = 24px) match within-block card gaps (`mb-6` = 24px), so the page reads as one consistent vertical rhythm.
 
+### Full-viewport hero blocks
+
+A hero may size itself to the viewport — vh units inside a block resolve against the real window (blocks are shadow DOM in the main document, not iframes). The Studio-verified responsive shape is `min-h-screen lg:min-h-0 lg:h-screen` (natural height on mobile, locked viewport height on desktop). Three rules: (1) `h-screen` fills the window only when the native header is hidden on that page — with a native header above, a 100vh block overflows by the header height; use `min-h-[calc(100vh-<px>)]` when native chrome stays; (2) hard `h-screen` + `overflow-hidden` + centered flex **clips settings-grown content unrecoverably** — prefer `lg:min-h-screen` unless the locked look is explicitly wanted; (3) the standard spacing table above does not apply — the hero owns all its spacing. Extend the placement comment: `// BLOCK PLACEMENT: full-viewport hero, native header hidden, owns all spacing`. Full detail in [references/static-blocks.md](references/static-blocks.md#full-viewport-hero-sizing).
+
 ## Premium Visual Baseline
 
 **Every block must look polished in its first version.** Styling is not a follow-up task — it is a core requirement of every code generation. Apply ALL of the following by default unless the user explicitly requests a minimal/plain style.
+
+**Scope: this is the app-UI baseline** — dashboards, lists, forms, detail pages. Static marketing blocks (heroes, landing sections, footers) use the **editorial baseline** in [references/static-blocks.md](references/static-blocks.md#editorial-baseline-replaces-the-premium-visual-baseline) instead — typographic hierarchy and brand-exact values, no gradient wrapper/cards/skeletons/empty states (nothing loads).
 
 Refer to [ui-ux-guidelines.md](ui-ux-guidelines.md) for full design principles.
 
@@ -303,9 +317,11 @@ Adjust the top gradient color to complement the user's brand.
 **Tailwind CSS** is pre-configured. **Semantic color tokens** preferred:
 `bg-background`, `bg-card`, `bg-primary`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-destructive`, `border`, `border-input`
 
+**Arbitrary values compile in full** — the platform's Tailwind build is JIT, so the whole arbitrary-value syntax works, including opacity modifiers on arbitrary hex (`bg-[#FAF5EC]/85`), variant + arbitrary + opacity combined (`hover:bg-[#6E7A5C]/10`), negative arbitrary values (`-top-[22%]`, `hover:-translate-y-[1px]`), arbitrary object-position (`object-[62%_25%]`), arbitrary z (`z-[1]`), and vw sizing (verified 2026-08-31 from rendering Studio-AI output). Classes must be **static source strings** — never template-interpolate (`` bg-[${x}] ``); JIT extracts classes by static scan (standard-Tailwind inference, not Softr-verified). When to reach for them vs. the scale: see the editorial lane in [ui-ux-guidelines.md](ui-ux-guidelines.md) §7. (This covers arbitrary *values* and standard variants; arbitrary *selector* variants like `[&_svg]:` have at least one known bundler failure — see the SelectTrigger row in [references/anti-patterns.md](references/anti-patterns.md#layout--styling).)
+
 **Font classes:** `font-heading`, `font-sans`, `font-mono`
 
-**Conditional classNames:** `import { cn } from "@/lib/utils";`
+**Conditional classNames:** `import { cn } from "@/lib/utils";` — template-literal conditionals (`` className={`base ${cond ? "a" : "b"}`} ``) are equally valid (Studio AI emits them); prefer `cn()` when merging many groups or de-duplicating conflicting classes.
 
 **DO NOT USE:** CSS modules, styled-components, or CSS file imports.
 
@@ -376,6 +392,19 @@ When the action navigates to a record-specific page, pass the runtime record id 
 
 For on-brand custom styling (matching DESIGN.md inline-style conventions instead of shadcn Button), wrap the same pattern with a styled `<button>` — `<NavigationAction>` will render its children into the button's slot. The `asChild` attribute on Button is what enables this slot composition; without it shadcn renders its own native button and ignores `<NavigationAction>`.
 
+**Third shape — standalone `<NavigationAction>` with `className`** (text-style links, nav items — no Button wrapper). NavigationAction renders its own clickable element and forwards `className` onto it; include UA-style resets since that element ships default chrome. Observed in Studio-AI output 2026-08-31, not in the official developer guide — don't treat className forwarding as officially guaranteed:
+
+```jsx
+<NavigationAction
+  navigation={item.link}
+  className="text-[15px] text-[#2A2520] hover:text-[#AE5E3D] transition-colors bg-transparent border-none cursor-pointer no-underline"
+>
+  {item.label}
+</NavigationAction>
+```
+
+**Brand hex on a shadcn `<Button>` — the middle path.** To keep `<Button asChild>` (slot composition, focus ring, disabled handling) while guaranteeing an exact brand color, set the color as an inline style: `<Button asChild className="... shadow-none" style={{ backgroundColor: "#B4603D" }}>`. The precedence consequence: with an inline `backgroundColor`, **no `hover:bg-*` class can ever repaint it** (inline style outranks all classes, and ui-ux-guidelines' "hover handled by shadcn Button" no longer holds) — do hover feedback with `hover:opacity-90` / `hover:-translate-y-[1px]` instead. Alternative: a static `bg-[#HEX]` class also works (arbitrary values compile, and shadcn's `cn()`/tailwind-merge resolves it against the variant's `bg-primary`), in which case `hover:bg-*` stays available.
+
 **Any public npm package** auto-installs on import: `import { format } from "date-fns";`
 
 ### React Hooks — Critical Import Rule
@@ -393,12 +422,17 @@ useState(null);  // without import = ReferenceError
 
 ## Editable Settings
 
-Hooks from `@/lib/editable-settings` let Softr builders customize blocks. Each `name` must be unique.
+Hooks from `@/lib/editable-settings` let Softr builders customize blocks via **Content → Settings**. Each `name` must be unique — and `name` is the **persistence key**: renaming it in a later edit silently resets the builder's saved value to `initialValue`. Compact signatures below; the deep-dive (granularity doctrine, naming conventions, undocumented hooks/types, empty-media gating) is [references/editable-settings.md](references/editable-settings.md).
 
 ```jsx
 import { useTextSetting } from "@/lib/editable-settings";
 var title = useTextSetting({ name: "title", label: "Title", initialValue: "Welcome", required: false });
 // Returns: string
+
+import { useLongTextSetting } from "@/lib/editable-settings";
+var description = useLongTextSetting({ name: "description", label: "Description", initialValue: "..." });
+// Returns: string — multi-line textarea in the Settings pane. UNDOCUMENTED officially but verified
+// working 2026-08-31 (Studio-AI output). Render with `whitespace-pre-line` or builder line breaks collapse.
 
 import { useImageSetting } from "@/lib/editable-settings";
 var image = useImageSetting({ name: "hero", label: "Hero Image", initialValue: { src: "https://...", alt: "Hero" } });
@@ -417,6 +451,7 @@ import { useNavigationSetting } from "@/lib/editable-settings";
 var nav = useNavigationSetting({ name: "cta", label: "CTA", initialValue: { action: "OPEN_PAGE", destination: "/pricing", openIn: "SELF" } });
 // Returns: { action, destination, openIn }
 // `openIn` MUST be one of: "SELF" (same tab), "TAB" (new tab), or "MODAL". Any other value (e.g. "SAME_TAB", "NEW_TAB") fails Softr's setting validator with: "useNavigationSetting(): The 'initialValue.openIn' property in the 'navigation' setting must be \"SELF\", \"TAB\", or \"MODAL\" if provided".
+// The validator ACCEPTS an initialValue with no `action` key (Studio AI emits { destination, openIn } alone — verified 2026-08-31). Keep emitting an explicit `action` when generating, but don't flag its absence as a defect when reviewing existing blocks.
 
 import { useBooleanSetting } from "@/lib/editable-settings";
 var show = useBooleanSetting({ name: "toggle", label: "Show header", initialValue: false });
@@ -432,13 +467,19 @@ var features = useArraySetting({
   },
   initialValue: [{ title: "Fast", description: "Blazing fast.", icon: { icon: "zap" } }],
 });
-// Schema types: "text", "image", "video", "vibeCodingBlockIcon"
+// Schema types: "text", "image", "video", "vibeCodingBlockIcon" — plus UNDOCUMENTED-but-working
+// "navigation" (verified 2026-08-31 via Studio-AI output; renders per-item link pickers, item values
+// carry the useNavigationSetting shape → pass to <NavigationAction navigation={item.link}>).
+// Give navigation-typed schema entries a per-field initialValue, or guard the render — builder-added
+// rows otherwise start with that field undefined.
 // No nested arrays. Don't put vibeCodingBlockIcon as first field.
+// Key rendered rows by INDEX (key={index}), never by an editable field — builder-added rows all start
+// at the schema default, so value keys duplicate immediately. See references/editable-settings.md.
 ```
 
 ## Hard Constraints
 
-Non-negotiable rules enforced by the Softr platform:
+Non-negotiable rules. Most are enforced by the Softr platform (compiler, validator, or runtime); the ones marked **[house]** are conventions this skill enforces on itself — the platform accepts violations, but the rule exists for consistency or safety:
 
 1. **Browser-only** — No server-side code, no Node.js APIs.
 2. **Static field mappings** — `q.select()` keys and values must be string literals.
@@ -448,7 +489,7 @@ Non-negotiable rules enforced by the Softr platform:
 6. **Array setting icon placement** — Never put `vibeCodingBlockIcon` as first field.
 7. **No nested arrays in settings** — Use text with separator, split in code.
 8. **Default export required** — `export default function Block()`.
-9. **Container wrapping** — Always wrap in `<div className="container py-0"><div className="content">`. Vertical padding lives on the inner wrapper and depends on block placement (see "Block Placement & Page Spacing").
+9. **Container wrapping [house]** — Wrap in `<div className="container py-0"><div className="content">` by default so the block's width matches native blocks. NOT platform-enforced: the platform default is full width and the wrappers are officially optional (verified 2026-08-31). Deliberate full-bleed blocks (heroes, banner bands, footers) and blocks inside column containers omit them — see "Block Placement & Page Spacing" and [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license). Vertical padding lives on the inner wrapper and depends on block placement.
 10. **Inline options literals for data hooks** — `useRecords` fails to compile when its options
     object is passed through a variable or wrapper function. Build the options object inline at the
     call site; share `q.select` mappings between hooks, not whole options objects. (Same
@@ -464,10 +505,10 @@ Non-negotiable rules enforced by the Softr platform:
 14. **React functional components only** — No class components.
 15. **Do NOT `import React from 'react'`** — Use named imports for hooks.
 16. **No CSS modules or styled-components** — Tailwind only.
-17. **setTimeout for scroll** -- Wrap programmatic scroll in `setTimeout(fn, 0)`.
+17. **setTimeout for scroll [house]** -- Wrap **programmatic** scroll commands (`scrollIntoView`, `scrollTo`) in `setTimeout(fn, 0)`. This is about ISSUING scrolls only — LISTENING to window scroll (`window.addEventListener("scroll", ...)`) needs no wrapper and works normally from block code; see [references/common-patterns.md](references/common-patterns.md#scroll-condensing-fixed-header-landing-page-hero).
 18. **Never call `fetchNextPage` in the render body** -- render calls `fetchNextPage`, which updates data, which triggers re-render, which calls it again: infinite loop. Call it from an event handler (the official Load More pattern: `<button onClick={() => fetchNextPage()} disabled={isFetching}>`) or from a guarded `useEffect` when intentionally auto-loading all pages.
 19. **All hooks before any conditional `return`** -- Hooks must be called in the same order every render. A hook declared after a conditional `return` causes React error #310.
-20. **Relative paths in navigation** -- Use `/page-name?recordId=...`, never hardcoded domains like `app.client.com/page`.
+20. **Relative paths in navigation [house]** -- Use `/page-name?recordId=...`, never hardcoded domains like `app.client.com/page`. The platform accepts absolute self-domain URLs as navigation setting values (a Studio-generated hero shipped its CTA configured as `https://<app>.softr.app/#section` — observed in the Settings pane, 2026-08-31), but they break on custom-domain publish — rewrite them relative, including hash anchors (`/#section`).
 21. **Recompiles reset Action permissions** -- Every code recompile/redeploy resets the block's
     auto-registered Actions to **default permissions**. Do the Actions-tab permission tightening pass
     only after the LAST redeploy, and re-check it after any future one. Verified live 2026-08-25
@@ -480,6 +521,8 @@ Non-negotiable rules enforced by the Softr platform:
 History, kept so old guidance elsewhere is recognizable as superseded: until mid-2026 this skill mandated `var` + `function(){}` and banned `?.` / `??` because the then-current bundler failed on them (verified April 2026; a Studio-scaffolded block already contradicted it by July 2026). That platform behavior is gone. Existing var-style blocks remain valid — the compiler accepts both styles — so don't churn a working block just to modernize its syntax, and don't "fix" modern syntax back to var-style when editing.
 
 Still house conventions: the field-value helper is named `getFieldValue()`, with property priority `label` -> `name` -> `title`.
+
+**Platform truth sources.** Blocks emitted by Softr's own Studio AI are known-good evidence of what the current platform accepts — they compile and render live, and they surface undocumented hooks and setting types before the official docs catch up (this is how `useLongTextSetting` and the `navigation` array-schema type were discovered, 2026-08-31). Mine them for capabilities, but **never copy them verbatim**: fix React keys on settings-array loops (index, never a builder-editable label), consolidate near-duplicate hardcoded hexes into brand/DESIGN.md tokens, add the missing mobile nav / media-setting guards, and normalize formatting. Functional patterns in Studio output are platform-support evidence; its formatting and code hygiene are not patterns to imitate. (This is distinct from the no-churn rule above — cleaning up a block you're ADOPTING into the repo as source of truth is required; modernizing a deployed working block's syntax is still churn.) Adoption checklist: [references/softr-mcp.md](references/softr-mcp.md#adopting-studio-ai-generated-code). Note the inverse rule stays too: Studio's chat **prose** fabricates facts (datasource UUIDs) — trust its code, not its answers.
 
 ## Anti-Patterns Checklist
 

@@ -15,13 +15,15 @@
 This Claude skill teaches Claude Code how to generate complete, polished Softr Vibe Coding blocks as `.tsx` / `.jsx` files (the current platform compiles TypeScript with modern syntax — verified live August 2026). It includes:
 
 - **Complete Vibe Coding API reference** — `useRecords`, `q.select()`, mutations, uploads, metrics, charts, editable settings, `useProxyFetch` for REST APIs
+- **Editable settings deep-dive** — full hook catalog including verified-undocumented capabilities (`useLongTextSetting`, the `navigation` array-schema type), settings-first design doctrine so clients edit copy/images/links in Content → Settings without re-prompting
+- **Static marketing blocks** — heroes, landing headers, pricing tables, footers: editorial baseline, full-bleed layouts, full-viewport sizing, block-owned fixed headers with scroll-condensing treatment
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
 - **Helper blocks & cross-block patterns** — Invisible helper blocks for multi-table access via `window` globals + `CustomEvent`, `useWindowData` hook, breadcrumb navigation, saved views architecture
 - **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
 - **Native shell styling** — re-skin Softr's native top bar, **footer**, nav, dropdowns, and **page background** via global Custom Code CSS (stable selectors vs. hashed classes, floating "island" header/footer, the dropdown grid fix, the multi-layer page-background stacking, restyle-vs-replace) — distinct from blocks
 - **UI/UX design guidelines** — 26 sections covering visual hierarchy, color, typography, spacing, motion design, accessibility, responsive patterns, and an AI slop anti-pattern checklist
-- **Self-validation** — Claude checks for Softr platform compatibility (inline hook options, correct payload shapes, correct imports, container wrappers, `getFieldValue()` wrapping, hooks ordering) before delivering code
-- **Premium visual baseline** — Every block ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states
+- **Self-validation** — Claude checks Softr platform compatibility and house conventions (inline hook options, correct payload shapes, correct imports, container wrappers or a deliberate full-bleed layout, `getFieldValue()` wrapping, hooks ordering) before delivering code
+- **Premium visual baseline** — every app-UI block (dashboards, lists, forms, detail pages) ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states; static marketing blocks use the editorial baseline instead
 - **Debug utilities** — Field Inspector, API Response Inspector, and User Inspector blocks for diagnosing data source and permissions issues
 - **Softr MCP integration** — when the [official Softr MCP server](https://docs.softr.io/mcp/overview) is installed (`claude mcp add --transport http softr https://mcp.softr.io/mcp`), Claude reads Softr DB schema, field IDs, and dropdown option UUIDs directly, browses connected Airtable / Google Sheets / Notion / Supabase integrations down to field level, and can even create and deploy Vibe Coding blocks straight into your app — no more pasting `tablespace-with-tables` JSON or copy-pasting code into Studio. See `references/softr-mcp.md`.
 
@@ -161,20 +163,20 @@ Create a contact form that creates records in our Airtable Contacts table
 
 ```
 softr-vibe-coding/
-├── SKILL.md                          # Main skill (330 lines)
+├── SKILL.md                          # Main skill
 │                                     # Workflow, code structure, visual baseline,
 │                                     # components, settings, 21 hard constraints
 │
-├── ui-ux-guidelines.md               # Design reference (746 lines)
+├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
 │                                     # spacing, motion, accessibility, AI slop checklist
 │
 ├── references/                       # Advanced patterns (loaded on demand)
-│   ├── helper-blocks.md              # Cross-block communication (370 lines)
+│   ├── helper-blocks.md              # Cross-block communication
 │   │                                 # Invisible helper blocks, window globals,
 │   │                                 # CustomEvent, useWindowData hook, breadcrumbs,
 │   │                                 # saved views, companion field helpers
-│   ├── airtable-automations.md       # Airtable automation scripting (350 lines)
+│   ├── airtable-automations.md       # Airtable automation scripting
 │   │                                 # "Run a script" automation action vs.
 │   │                                 # Scripting Extension, cross-table cascades,
 │   │                                 # batch update gotchas, field-ID discipline,
@@ -183,7 +185,7 @@ softr-vibe-coding/
 │   │                                 # tools (create/edit/version/deploy), integrations
 │   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
 │   │                                 # Softr DB schema + record tools, auth, permissions
-│   ├── advanced-integrations.md      # Shadow DOM CSS isolation (69 lines)
+│   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
 │   │                                 # nav, dropdowns, page background) via global
@@ -192,13 +194,22 @@ softr-vibe-coding/
 │   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
 │   │                                 # controls on native List/Grid blocks — wide-range
 │   │                                 # sentinel, inject into filter row, survive re-renders
-│   ├── anti-patterns.md              # Categorized violation catalog (86 lines)
+│   ├── anti-patterns.md              # Categorized violation catalog
 │   │                                 # Data access, mutations, hooks, layout,
-│   │                                 # permissions, helper blocks
-│   ├── common-patterns.md            # Small reusable patterns (102 lines)
-│   │                                 # localStorage cross-page state,
-│   │                                 # clipboard copy button
-│   └── quick-reference.md            # Syntax cheat sheet (207 lines)
+│   │                                 # permissions, editable settings, helper blocks
+│   ├── common-patterns.md            # Small reusable patterns
+│   │                                 # localStorage cross-page state, clipboard copy,
+│   │                                 # navigation blocker, scroll-condensing header,
+│   │                                 # auth-aware CTA, image masks, blobs, dot lists
+│   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
+│   │                                 # verified-undocumented useLongTextSetting +
+│   │                                 # "navigation" array-schema type, granularity
+│   │                                 # doctrine, naming, rename-resets gotcha
+│   ├── static-blocks.md              # Static marketing archetype: heroes, landing
+│   │                                 # headers, pricing, footers — workflow deltas,
+│   │                                 # editorial baseline, full-bleed + full-viewport,
+│   │                                 # block-owned header, section anchors
+│   └── quick-reference.md            # Syntax cheat sheet
 │                                     # Imports, hook signatures, mutation shapes,
 │                                     # field mapping, component skeleton
 │
@@ -212,11 +223,11 @@ softr-vibe-coding/
     ├── multi-datasource.md           # Several data sources in ONE block: datasource.define(),
     │                                 #   the from: parameter, getting the datasource UUIDs
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
-    │                                 # metrics, charts, current user (198 lines)
+    │                                 # metrics, charts, current user
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes
     ├── fields.md                     # getFieldValue(), field type shapes, record
-    │                                 # structure, debug utilities (160 lines)
+    │                                 # structure, debug utilities
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
@@ -235,7 +246,7 @@ softr-vibe-coding/
 
 ### How context loading works
 
-Only `SKILL.md` loads into Claude's context when the skill triggers (~330 lines). The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 24 files totaling 3,100+ lines.
+Only `SKILL.md` loads into Claude's context when the skill triggers. The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 26 files totaling 6,500+ lines.
 
 ---
 
@@ -272,7 +283,7 @@ The skill enforces these automatically, but good to know (verified live against 
 - Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
 - Must use `export default function Block()`
-- Must wrap layout in `<div className="container py-0"><div className="content">`
+- Wrap layout in `<div className="container py-0"><div className="content">` for app/content blocks (house convention for width alignment with native blocks) — the platform default is actually full width, so full-bleed marketing blocks (heroes, banners, footers) legitimately omit the wrappers and own their gutters
 - Only ONE `useRecords` call per **datasource** — but a block can connect to several sources; declare them with `datasource.define()` and pass `from:` on every hook
 - `fetchNextPage` never in the render body (infinite loop) — call it from an event handler (Load More `onClick`) or a guarded `useEffect`
 - All hooks declared before any conditional `return` — React error #310

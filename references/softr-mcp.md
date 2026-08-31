@@ -12,6 +12,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Connection and auth](#connection-and-auth)
 - [Permissions model](#permissions-model)
 - [Vibe coding block tools](#vibe-coding-block-tools)
+- [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
 - [Softr Database tools](#softr-database-tools)
@@ -75,6 +76,18 @@ Before writing any block code through the MCP, call `get_vibe_coding_docs` — i
 | Data sources | `connect_vibe_coding_block_data_source`, `disconnect_vibe_coding_block_data_source`, `set_vibe_coding_block_data_source_sort`, `set_vibe_coding_block_data_source_record_filters` |
 
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
+
+## Adopting Studio-AI-generated code
+
+When you pull a Studio-AI-generated block via `get_vibe_coding_block_code` to adopt into a project repo as source of truth: its output renders fine but ships with predictable defects. **Functional patterns in Studio output are platform-support evidence** (it surfaces undocumented capabilities before the docs do — see SKILL.md's "Platform truth sources"); **its code hygiene is not a pattern to imitate.** Cleanup pass before committing:
+
+- **Run a formatter** — Studio output ships inconsistent indentation (observed: statements at column 0 inside a 4-space-indented component).
+- **Hoist and consolidate brand hexes** into module-scope constants; flag near-duplicate hexes as probable unintended drift (observed: `#AE5E3D` vs `#B4603D` for one terracotta in a single block).
+- **Fix React keys on settings-array loops** — Studio emits `key={item.label}`; use `key={index}` (see [anti-patterns.md](anti-patterns.md#editable-settings)).
+- **Add the guards Studio omits** — conditional render for empty media settings, `whitespace-pre-line` on long-text settings, mobile nav for block-owned headers, `aria-hidden` on decorative glyphs.
+- **Rewrite absolute self-domain URLs relative** (`https://<app>.softr.app/#x` → `/#x`) — observed as a configured setting value on a Studio-generated hero, 2026-08-31.
+
+This is distinct from SKILL.md's no-churn rule: cleaning up a block you're ADOPTING into the repo is required; modernizing a deployed working block's syntax is still churn — don't do that.
 
 ## Vibe coding gotchas (official)
 

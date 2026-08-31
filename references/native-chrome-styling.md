@@ -1,6 +1,6 @@
 # Styling Softr's Native Shell (Header · Footer · Page Background) via Custom Code
 
-**This is NOT about Vibe Coding blocks.** Softr's top bar, navigation, dropdown menus, footer, and the page background are part of the *native app shell* — configured in Softr Studio and rendered in the **main document**, not inside a block's shadow DOM. You **cannot** build or replace them as a Vibe Coding block. To re-skin them, add **CSS to Settings → Custom Code → Code inside header** (the same place brand fonts/tokens live, i.e. the `custom-code-header.html` produced by `building-design-md`). Pure CSS — no markup, no JS — and the native chrome stays in place, so Softr's auth-aware nav (account menu, sign-out, user-group gating) keeps working.
+**This is NOT about Vibe Coding blocks.** Softr's top bar, navigation, dropdown menus, footer, and the page background are part of the *native app shell* — configured in Softr Studio and rendered in the **main document**, not inside a block's shadow DOM. You **cannot** build or replace the native chrome itself as a Vibe Coding block. To re-skin it, add **CSS to Settings → Custom Code → Code inside header** (the same place brand fonts/tokens live, i.e. the `custom-code-header.html` produced by `building-design-md`). Pure CSS — no markup, no JS — and the native chrome stays in place, so Softr's auth-aware nav (account menu, sign-out, user-group gating) keeps working. (Separate pattern, different problem: a landing page with the native header **hidden** can carry a block-owned in-block header — see [Restyle vs. replace vs. block-owned header](#restyle-vs-replace-vs-block-owned-header).)
 
 This doc covers the **header / nav / dropdowns**, the **footer**, the **floating "island" treatment** for both, and the **page background** — which is trickier than it looks, because Softr stacks the same fill on several layers.
 
@@ -212,8 +212,12 @@ body,
 })();
 ```
 
-## Restyle vs. replace
+## Restyle vs. replace vs. block-owned header
 
 **Restyle the native bar (recommended):** robust, global, keeps Softr's auth-aware nav (account menu, user-group-gated items) and stays editable in Studio.
 
 **Replace it** (hide `#topbar-root`, inject a fully custom HTML/JS header globally): only if you need structure the native nav can't do — e.g. multi-column mega-menus with icon cards. It's **fragile**: you lose Softr's logged-in account menu + user-group gating, you must re-init the JS on every SPA route change (Softr swaps pages without a full reload), and the custom header won't render in the Studio editor. Steer users to restyle unless the structure genuinely requires replacement.
+
+**Block-owned header (landing pages only):** on a marketing/landing page where the native header is **hidden in Studio**, a full-bleed hero block can render its own `<header>` with `position: fixed` — fixed elements inside a block's shadow root still anchor to the viewport, and window scroll listeners work from block code. Proven by Softr Studio AI's own hero output (2026-08-31), and the official user guide lists "a page header" as a supported static layout. How the replace-option caveats transfer: **per-page only** and **no auth-aware nav / user-group gating** carry over (same losses as replacing globally — it's for public landing pages, not logged-in app pages); **"won't render in the Studio editor" does NOT** (a Vibe-block header renders in Studio like any block); **"manual SPA re-init" does not apply** (React owns the block's lifecycle). Two caveats of its own: don't ship it on a page where the native `#topbar-root` is still visible (the z-index contest between the block's header and the native sticky bar is untested — hide one), and it exists only on pages containing the block. Full pattern, mobile-nav requirement, and caveat set: [static-blocks.md](static-blocks.md#block-owned-landing-page-header).
+
+Decision order: restyle when the native structure suffices → block-owned header for landing pages that hide native chrome → global replacement only when a logged-in app needs structure the native nav can't do.

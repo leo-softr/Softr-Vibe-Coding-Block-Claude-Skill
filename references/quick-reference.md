@@ -15,8 +15,8 @@ import { datasource, useRecords, useRecord, useRecordCreate, useRecordUpdate, us
 // USER
 import { useCurrentUser } from "@/lib/user";
 
-// EDITABLE SETTINGS
-import { useTextSetting, useImageSetting, useVideoSetting, useArraySetting,
+// EDITABLE SETTINGS  (useLongTextSetting is undocumented officially but verified working 2026-08-31)
+import { useTextSetting, useLongTextSetting, useImageSetting, useVideoSetting, useArraySetting,
          useVibeCodingBlockIconSetting, useNavigationSetting,
          useBooleanSetting } from "@/lib/editable-settings";
 
@@ -201,9 +201,18 @@ var result2 = useMetric({ select: select, metric: metric.count() });
 ## Editable Settings
 
 ```jsx
-var title = useTextSetting({ name: "title", label: "Title", initialValue: "Hello" });
-var show = useBooleanSetting({ name: "toggle", label: "Show header", initialValue: false });
+var title = useTextSetting({ name: "title", label: "Title", initialValue: "Hello" });          // string
+var body = useLongTextSetting({ name: "body", label: "Body", initialValue: "..." });           // string; multi-line textarea — render with whitespace-pre-line
+var show = useBooleanSetting({ name: "toggle", label: "Show header", initialValue: false });   // boolean
+var items = useArraySetting({ name: "nav-items", label: "Nav items",
+  schema: { label: { type: "text", label: "Label", initialValue: "Item" },
+            link: { type: "navigation", label: "Link", initialValue: { action: "OPEN_PAGE", destination: "/", openIn: "SELF" } } },
+  initialValue: [/* seed rows */] });
+// Array schema types: "text" | "image" | "video" | "vibeCodingBlockIcon" | "navigation" (undocumented, verified 2026-08-31)
+// Key rendered array rows by INDEX, never by an editable field. Renaming a setting's `name` resets its saved value.
 ```
+
+Deep-dive (granularity doctrine, all hooks, gotchas): [editable-settings.md](editable-settings.md)
 
 ## Field Value Helper (getFieldValue)
 
@@ -251,15 +260,17 @@ Catches BOTH Softr's in-app SPA navigation (nav bar, sidebar, `<NavigationAction
 export default function Block() {
   var result = useRecords({ select: select, count: 25 });
 
-  if (result.status === "pending") return <div className="container py-6"><div className="content">Loading...</div></div>;
-  if (result.status === "error") return <div className="container py-6"><div className="content">Error</div></div>;
+  if (result.status === "pending") return <div className="container py-0"><div className="content"><div className="py-3 px-8">Loading...</div></div></div>;
+  if (result.status === "error") return <div className="container py-0"><div className="content"><div className="py-3 px-8">Error</div></div></div>;
 
   var records = (result.data && result.data.pages) ? result.data.pages.flatMap(function(p) { return p.items; }) : [];
 
   return (
-    <div className="container py-6">
+    <div className="container py-0">
       <div className="content">
-        {/* UI */}
+        <div className="py-3 px-8">
+          {/* UI — inner wrapper owns vertical spacing; classes depend on placement (see SKILL.md Block Placement) */}
+        </div>
       </div>
     </div>
   );
