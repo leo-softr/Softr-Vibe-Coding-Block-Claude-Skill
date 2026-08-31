@@ -321,6 +321,15 @@ For Automation Scripts, your ONLY user-visible surfaces are `console.log()` (run
 
 For formula fields inside Airtable itself (NOT scripts). Quick rules:
 
+- **The Meta API can CREATE formula, rollup, and lookup fields — and whole tables** (verified
+  live 2026-08-31: a full payroll junction table with two SUM rollups, lookups, and formula
+  fields built via `POST /v0/meta/bases/{base}/tables` + `…/fields`; rollup options shape:
+  `{recordLinkFieldId, fieldIdInLinkedTable, formula: "SUM(values)"}`). The long-standing
+  "computed fields are UI-only" rule is dead. Still API-impossible: **automations**, **views**,
+  **field/table deletion**, and **select-option renames** (field name/description PATCH works).
+  Corollary: reference other fields by `{fldXXX}` id inside API-created formulas — id references
+  survive renames, and the API accepts them even though the UI shows names.
+
 - **NEVER add comments inside Airtable formulas.** Airtable's formula engine doesn't have a comment syntax — anything that looks like a comment will fail to compile.
 - **Guard against blank inputs by default.** Airtable surfaces `#ERROR!` (or `#NaN!` for divide-by-blank) when arithmetic, date, or many string operations touch a blank field — `{A} * {B}` errors when either is blank, `{A} / {B}` errors when `{B}` is blank, `DATEADD({Start At}, 20, 'minutes')` errors when `{Start At}` is blank, and one upstream `#ERROR!` propagates through every downstream formula that references it. Wrap any formula whose inputs could be empty with an `IF()` guard returning `BLANK()` in the empty branch. Prefer explicit `IF()` / `AND()` guards over a catch-all `IFERROR(<expr>, BLANK())` — explicit guards keep intent readable and don't mask unrelated bugs (a typo'd field name silently returns blank instead of failing loudly). Reach for `IFERROR()` only when inputs come from genuinely uncontrolled sources.
 
