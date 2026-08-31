@@ -211,7 +211,55 @@ Rules that make this safe:
   to `undefined`.
 - **Gate the whole flow on the hooks' `enabled` booleans**, same as any mutation UI.
 
-## File Uploads
+### Parallel writes across tables (the one sanctioned parallelism)
+
+The no-parallel rule above is about *same-table batches*. Writes to **different tables through
+different hooks, with no ordering or id-linking dependency between them**, may run concurrently —
+`Promise.all` of the two `mutateAsync` promises roughly halves the wall-clock of a two-table save
+(verified live 2026-08-31: a Kanban reassignment writing `Wigs.Worker` + a batch of
+`Wig Services.Worker` lines in parallel):
+
+```jsx
+Promise.all([
+  updateWig.mutateAsync({ recordId: wigId, fields: { worker: [{ id: targetId }] } }),
+  reassignServicesViaHelper(lineTargets),   // helper-owned batch on ANOTHER table
+]).then(onSaved).catch(onFailed);
+```
+
+Checklist before parallelizing:
+
+- **Different tables, different hooks.** Same-table batches stay sequential — Airtable's
+  per-base rate limit, and stop-on-first-failure semantics that a parallel volley can't give you.
+- **No dependency either way.** If one write needs the other's id (header → lines), it's a
+  sequence, not a pair.
+- **Neither side is an event-driven helper that correlates responses by FIFO queue order.**
+  Many helper blocks in the wild match `onSuccess` events to requests with `queue.shift()` —
+  concurrent dispatches completing out of order mis-pair the correlation ids. Serialize calls
+  into such a helper, or upgrade it to batch semantics (one event carries the whole batch, the
+  helper chains `mutateAsync` internally and answers once). See
+  [anti-patterns.md → Helper Blocks](../references/anti-patterns.md#helper-blocks).
+- **Partial failure is acceptable and handled.** With `Promise.all`, one side can commit while
+  the other fails — refetch both tables in the failure path so the UI shows the true state.
+
+### Optimistic moves + undo (perceived speed beats write speed)
+
+For drag-and-drop or one-click reassignment UIs, don't make the user watch the writes — a
+multi-row save through helpers takes seconds, and a board that freezes until `refetch()`
+completes reads as broken. The pattern (verified live 2026-08-31 on a custom Kanban):
+
+1. **Override map**: `pendingMoves[recordId] = target` in state; the render layer applies the
+   override on top of server-derived data, so the card jumps the moment it's dropped.
+2. **Background writes** with a small per-card "saving" spinner; the board stays interactive
+   (track saving per record id, not one global flag).
+3. **Revert on failure**: delete the override + `refetch()` → the card snaps back, with an
+   error toast.
+4. **Clear on convergence**: an effect compares each override against fresh server data and
+   deletes it once they match — never clear on a timer.
+5. **Undo**: snapshot the *server* state before mutating (previous lead, each row's previous
+   value — per-row, since a batch may have had mixed values), and offer
+   `toast.success(msg, { duration: 8000, action: { label: "Undo", onClick: restore } })`.
+   The restore is just another optimistic move driven by the snapshot. Snapshot before the
+   write, not from the UI — the UI may already be showing an optimistic override.
 
 ```jsx
 import { useUpload } from "@/lib/datasource";
