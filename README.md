@@ -109,7 +109,7 @@ npx -y dembrandt@latest install-browser   # one-time: fetches the Chromium dembr
 
 The skill auto-updates on every Claude Code session (SessionStart hook), and the dembrandt server checks the registry for the newest release on every launch (`@latest`), so both stay current. Skip the two dembrandt lines if you only want default Softr styling. Full operating guide (MCP flow, multi-page crawls, DESIGN.md anatomy, drift QA): `references/dembrandt.md`.
 
-Previously used the `building-design-md` companion skill? It's retired as of v2.4.0 and can be uninstalled — DESIGN.md files it produced remain fully supported (Step 1 reads their `brand:`/`source:` frontmatter and `Application Patterns`/`tech_stack` sections as before).
+The [`building-design-md`](https://github.com/leo-softr/design-md-extractor-skill) companion skill moved to the same engine: since its v2.0.0 it drives dembrandt too, and layers on what raw extraction can't provide — voice & copy register, resolved font names, logo assets, Softr app-pattern scaffolds, and the `custom-code-header.html` snippet. Run it when a project deserves the full brand foundation; this skill's Step 1 covers the quick raw DESIGN.md. Files from its v1.x (pre-dembrandt) remain fully supported.
 
 ---
 

@@ -78,7 +78,7 @@ Body sections in order: `# Design System` → Overview → Colors → Typography
 - **Font URLs** (in the Typography section): direct `.woff2` links to the site's real webfonts. The frontmatter `fontFamily` reports the *computed* value, which can be a generic fallback (`ui-sans-serif`) while the Font URLs reveal the actual brand font — cross-check before declaring the brand font, and use these URLs when authoring page-level `@font-face` CSS.
 - Motion tokens exist in dembrandt's JSON extraction but are **not** part of DESIGN.md `[official]` — don't expect an animation section.
 
-Legacy note: DESIGN.md files generated before this pipeline (the retired `building-design-md` skill) carry different frontmatter (`brand:`/`source:`/`extracted:`) and extra sections (`Application Patterns`, `tech_stack`). They remain valid brand sources — Step 1 honours whatever token sections are present rather than demanding the dembrandt shape.
+Companion-skill note: the `building-design-md` skill (v2+) drives this same dembrandt pipeline and layers more on top — voice & copy register, a resolved `fonts` block, logo `assets`, Softr `tech_stack`, and an Application Patterns scaffold — appended around an untouched dembrandt base, so its files read here natively. Files from its v1.x (pre-dembrandt) carry different frontmatter (`brand:`/`source:`/`extracted:`) and old-format sections; they remain valid brand sources — Step 1 honours whatever token sections are present rather than demanding the dembrandt shape.
 
 ## Authoring `custom-code-header.html` from DESIGN.md
 
