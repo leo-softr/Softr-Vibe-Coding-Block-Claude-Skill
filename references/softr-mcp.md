@@ -164,21 +164,26 @@ Known limits and behaviors (per official docs):
   own copy and generates thumbnails, so backfilling images from another system is one write per record
   with no upload step. Verified 2026-08-26 — see [../datasources/writing.md](../datasources/writing.md#attachment).
 - **`update_field` silently ignores `allowMultipleEntries` nested inside `options`** — it is a TOP-LEVEL
-  field property; the call succeeds and changes nothing (verified 2026-08-26; the server has grown
-  substantially since — deletes added by 2026-08-31 — so this write surface is worth a re-test when
-  next touched live). To flip a LINKED_RECORD
+  field property; the call succeeds and changes nothing (verified 2026-08-26; the write surface was
+  re-touched live 2026-09-01 and the silent-no-op failure class held — see the SELECT-choices bullet
+  below). To flip a LINKED_RECORD
   field between single and multi, `PUT` it via the Tables API with `allowMultipleEntries` at top level —
   and always echo `options.inverseLinkFieldId` in that PUT, because omitting it severs the inverse
   pairing. Full write-up, including the silent on-write clobbering of single-valued link pairs and the
   truthy-`[]` empty-link read shape:
   [../datasources/writing.md](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).
+- **`update_field` on a SELECT field silently drops added choices** — the call succeeds and echoes the
+  OLD choice set back, no error (verified live 2026-09-01; the second known silent no-op on this write
+  surface, joining the `allowMultipleEntries` finding above). New choices must be added in Studio —
+  or, when the field has `allowToAddNewChoice` enabled, the first record write with an unknown label
+  auto-creates the choice.
 - Limits: 100 records per `create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `aggregate_data`. For big tables prefer a filter or aggregate over paging.
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.
 
 ## Workflows
 
-Softr Workflows are automations built from trigger + action nodes, and the MCP can build, wire, test, and publish them — a **26-tool suite** (roster-verified 2026-08-31; `list_node_types` called live, the build/publish loop itself not yet exercised end to end):
+Softr Workflows are automations built from trigger + action nodes, and the MCP can build, wire, test, and publish them — a **26-tool suite** (roster-verified 2026-08-31; the full build → wire → test → publish loop **exercised end to end 2026-09-01** — 10 production workflows built live through MCP; see the build-loop findings below):
 
 | Group | Tools |
 |---|---|
@@ -197,8 +202,19 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 **Mechanics from the server's own instructions:**
 
 - Node inputs can embed **references to another node's runtime output**, a loop's current item, or named date/time tokens.
-- **Test-first is mandated:** every testable node needs a test run before its outputs become referenceable by downstream nodes. Each node carries a `testRunMode` — `REAL_ONLY`, `MOCK_ONLY`, or `MOCK_AND_REAL` — so some nodes can only be tested against real side effects while others mock.
+- **Test-first is mandated:** every testable node needs a test run before its outputs become referenceable by downstream nodes. Each node carries a `testRunMode` — `REAL_ONLY`, `MOCK_ONLY`, or `MOCK_AND_REAL` — so some nodes can only be tested against real side effects while others mock. See the test-safety rules under build-loop findings below before testing anything against a production workspace.
 - **Workflows are workspace-level, not part of an app**: `preview_app` / `publish_app` do not apply. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
+
+**Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows):**
+
+- **`create_workflow` instantiates an OLD version of the trigger node.** Immediately call `replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a specific field changed) only exists at v1.2.0; the version `create_workflow` instantiates doesn't have it.
+- **FILTER node conditions are set via `update_node_inputs` with inputName `"condition"`** — the value is an `{operator, conditions: [...]}` object. The condition is stored on the FILTER node's **outgoing path**, the same way the Studio builder wires it.
+- **`LOOP_ACTION_GROUP`'s `loopVariables.items` must reference a plain array**, e.g. `$.records` — a `[*]` projection (e.g. `$.records[*].fields.X`) is rejected by the validator. Per-item references **inside** the loop use `{loopActionGroup.<id>:::loopVariables.items.fields.<fieldId>}` (use the bracket form for ids that start with a digit).
+- **`update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
+- **Test-safety rules** (which `testRunMode` means what in practice):
+  - Record-**write** nodes (`SOFTR_TABLES_UPDATE_RECORD` etc.) are `REAL_ONLY` — **never test them against a production workspace**; the test performs the real write.
+  - `SOFTR_SEND_EMAIL` is `MOCK_AND_REAL` — **always pass `mode: "mock"`**.
+  - Triggers and `GET_RECORDS` are `REAL_ONLY` but read-only-safe; a record-updated / enters-view trigger test just samples an existing record.
 
 **Why this matters to block work:** Softr Workflows are now the Softr-native answer to the "block writes to its own table, backend cascades the rest" pattern — for **Softr Database backends** what [airtable-automations.md](airtable-automations.md) is for Airtable backends. See the cross-table alternatives in [../datasources/writing.md](../datasources/writing.md#cross-table-operations).
 
