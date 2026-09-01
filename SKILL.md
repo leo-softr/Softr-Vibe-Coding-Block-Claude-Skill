@@ -6,8 +6,9 @@ description: >
   Also trigger when the user asks to create cards, lists, forms, dashboards, charts, detail pages,
   or any interactive block intended for Softr — even if they don't say "Vibe Coding" explicitly.
   If the user mentions Softr in the context of building a custom UI component, creating a JSX block,
-  or vibe coding, use this skill. Do NOT use for extracting brand tokens or producing a DESIGN.md
-  (that is the building-design-md skill), or for charts/dashboards with no Softr app involved.
+  or vibe coding, use this skill. Do NOT use for standalone brand-token extraction with no Softr app
+  involved (that is the dembrandt tool on its own — this skill drives dembrandt in Step 1 when a
+  project needs a DESIGN.md), or for charts/dashboards with no Softr app involved.
 when_to_use: >
   Triggers on "build me a Softr block", "create a card component", "make a dashboard",
   "vibe code this", "custom block for Softr", "JSX component for Softr app",
@@ -29,12 +30,14 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
 
    - **If `./DESIGN.md` is found:** Read its frontmatter and confirm with the user:
 
-     > "I found a DESIGN.md in this project (brand: `<name>`, source: `<source>`, extracted: `<date>`). Use its brand tokens for this block?
+     > "I found a DESIGN.md in this project (brand: `<name>`, extracted from: `<source URL>`). Use its brand tokens for this block?
      > 1. Yes — use this DESIGN.md
      > 2. No — use the default Softr style instead
      > 3. No — I'll paste a different brand override"
 
-     If (1), load every relevant section: `colors`, `typography`, `rounded`, `elevation`, `components`, and especially the `Application Patterns` scaffold. Apply those tokens throughout the block. Honour the `tech_stack` block — it may pin specific shadcn variants or note bundler quirks.
+     (Filling the placeholders: in a dembrandt-generated file, `<name>` is the frontmatter `name:` and the source URL sits inside `description:`; legacy files carry `brand:`/`source:`/`extracted:` instead. On request, a stale DESIGN.md can also be regenerated with dembrandt — that overwrites `./DESIGN.md`, and legacy scaffolding sections like `Application Patterns`/`tech_stack` are not reproduced.)
+
+     If (1), load every token section present: `colors`, `typography`, `spacing`, `rounded`, `components` from the YAML frontmatter, plus the body's Layout / Elevation & Depth / Shapes evidence and the Typography section's **Font URLs** (the frontmatter `fontFamily` can name a generic fallback like `ui-sans-serif` while the Font URLs reveal the real brand font — cross-check before picking the font). Sections without extracted evidence are simply absent — don't invent defaults for them. Legacy pre-dembrandt files may instead carry `elevation`, an `Application Patterns` scaffold, or a `tech_stack` block — honour those when present (the `tech_stack` block may pin specific shadcn variants or note bundler quirks). Full format anatomy: [references/dembrandt.md](references/dembrandt.md#designmd-anatomy-what-step-1-reads).
 
      If (2), proceed with the default Softr style (see Step 3).
 
@@ -43,11 +46,11 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - **If `./DESIGN.md` is NOT found:** Tell the user:
 
      > "No DESIGN.md found in this project. Three options:
-     > A. **Set up a brand foundation first** — use the `building-design-md` skill to extract brand tokens from the client's website or a brand guide, then come back here. (Recommended for client work. Not installed? Run `npx building-design-md@latest init` in your terminal.)
+     > A. **Generate one now with dembrandt** — give me the brand's website URL and I'll extract its design system (real-browser crawl: colors, typography, spacing, components) into `./DESIGN.md`, then build on those tokens. (Recommended for client work.)
      > B. **Quick brand override** — paste the brand's primary color, accent color, and font name now. I'll apply just those.
      > C. **Use the default Softr style** — primary `#386AF5`, accent `#FCB500`, Inter font."
 
-     Wait for their pick. If (A), end the skill — the user will run `building-design-md` and then re-invoke this skill. If (B) or (C), record their choice for Step 3 and continue.
+     Wait for their pick. If (A) — extracting only a site the user owns or has permission to analyze (a contracted client's own site qualifies) — run the dembrandt pipeline from [references/dembrandt.md](references/dembrandt.md) in this same session — via the dembrandt MCP server when connected (`get_design_tokens` with `pages: 3`–`5` → poll `get_job_status` → `get_findings` sanity check → `generate_design_md`, then **write the returned markdown to `./DESIGN.md` in the project root**), or the CLI fallback when not (`npx -y dembrandt@latest <url> --design-md --crawl 5`, then copy `output/<domain>/DESIGN.md` to `./DESIGN.md`). If neither is available, give the user the install commands from that reference and pause until dembrandt is set up (an MCP server added now connects next session — the CLI is the same-session path). Show the user the extracted brand summary, then continue to Step 2 with those tokens. No public website to extract? Use (B), or offer to hand-author `./DESIGN.md` from whatever brand material the user has (a brand guide PDF, a style sheet) — Step 1 honours any DESIGN.md with token sections, not only dembrandt-generated ones. If (B) or (C), record their choice for Step 3 and continue.
 
    Do not silently default to Softr's brand. The user must opt in to defaults explicitly.
 
@@ -96,7 +99,7 @@ When the user describes their block, figure out which of these areas apply and a
   - For **Airtable**, the most thorough path is the bundled **`get-airtable-base` shell script** — `bash ~/.claude/skills/softr-vibe-coding/tools/get-airtable-base` (requires `jq` — `brew install jq` on macOS). It prompts for Base ID + PAT, then exports the full schema (every table, every field with both `fld...` IDs and column names, relationships, webhooks, interfaces) to a timestamped Desktop folder. The user pastes `02-schema.json` or the combined `00-bundle.json` into chat. For lighter inspection (just a few fields, runtime-only), suggest the Field Inspector block — empty `q.select({})` works for Airtable. CLI script details in [datasources/airtable.md](datasources/airtable.md#bundled-cli-script-get-airtable-base).
   - For other non-Softr-DB sources where empty `q.select({})` works, suggest the Field Inspector block.
 - **Brand colors**: Already resolved in Step 1 (Detect the brand source). Don't re-ask. The brand source is one of:
-  - **Project's `./DESIGN.md`** (recommended for client work — produced by the `building-design-md` skill)
+  - **Project's `./DESIGN.md`** (recommended for client work — generated by dembrandt in Step 1, or already present in the project; see [references/dembrandt.md](references/dembrandt.md))
   - **User's quick override** (paste of primary + accent + font)
   - **Default Softr palette** (only when the user explicitly opted in — never as a silent fallback):
 
@@ -171,6 +174,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Adding a **dynamic date filter or custom filter control to a native List/Grid block** (via a Custom Code Static block, not a Vibe block): drive the block's conditional filter with `{URL_PARAM:…}`, the empty-param "match nothing" wide-range sentinel, inject the control into the filter row and keep it alive across Softr's re-renders | [references/native-block-filters.md](references/native-block-filters.md) |
 | **Editable settings deep-dive** — full hook catalog (incl. verified-undocumented `useLongTextSetting` and the `navigation` array-schema type), settings-first granularity doctrine, heading-line-split and `-text`/`-link` pairing patterns, naming conventions, rename-resets-value gotcha, empty-media gating, key-by-index rule | [references/editable-settings.md](references/editable-settings.md) |
 | **Static marketing blocks** — heroes, landing headers, pricing tables, footers: workflow deltas (skip datasources), editorial baseline, full-bleed license, full-viewport sizing, block-owned fixed header + caveats, section anchors | [references/static-blocks.md](references/static-blocks.md) |
+| Generating or refreshing a project **`DESIGN.md` with dembrandt** — MCP + CLI install (`@latest` npx, one-time browser step), the extract → poll → `get_findings` → `generate_design_md` → write-`./DESIGN.md` flow, multi-page crawls, DESIGN.md anatomy (frontmatter tokens, Font URLs), authoring `custom-code-header.html` from tokens, brand-drift QA with `compute_drift` | [references/dembrandt.md](references/dembrandt.md) |
 
 ## Code Structure
 
@@ -390,7 +394,7 @@ When the action navigates to a record-specific page, pass the runtime record id 
 </NavigationAction>
 ```
 
-For on-brand custom styling (matching DESIGN.md inline-style conventions instead of shadcn Button), wrap the same pattern with a styled `<button>` — `<NavigationAction>` will render its children into the button's slot. The `asChild` attribute on Button is what enables this slot composition; without it shadcn renders its own native button and ignores `<NavigationAction>`.
+For on-brand custom styling (matching the Step 1 brand tokens' inline-style conventions instead of shadcn Button), wrap the same pattern with a styled `<button>` — `<NavigationAction>` will render its children into the button's slot. The `asChild` attribute on Button is what enables this slot composition; without it shadcn renders its own native button and ignores `<NavigationAction>`.
 
 **Third shape — standalone `<NavigationAction>` with `className`** (text-style links, nav items — no Button wrapper). NavigationAction renders its own clickable element and forwards `className` onto it; include UA-style resets since that element ships default chrome. Observed in Studio-AI output 2026-08-31, not in the official developer guide — don't treat className forwarding as officially guaranteed:
 

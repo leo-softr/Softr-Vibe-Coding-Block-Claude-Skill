@@ -17,6 +17,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **Complete Vibe Coding API reference** — `useRecords`, `q.select()`, mutations, uploads, metrics, charts, editable settings, `useProxyFetch` for REST APIs
 - **Editable settings deep-dive** — full hook catalog including verified-undocumented capabilities (`useLongTextSetting`, the `navigation` array-schema type), settings-first design doctrine so clients edit copy/images/links in Content → Settings without re-prompting
 - **Static marketing blocks** — heroes, landing headers, pricing tables, footers: editorial baseline, full-bleed layouts, full-viewport sizing, block-owned fixed headers with scroll-condensing treatment
+- **Brand pipeline via dembrandt** — no DESIGN.md in the project? The skill generates one on the spot with [dembrandt](https://github.com/dembrandt/dembrandt) (real-browser design-token extraction over MCP: colors, typography, spacing, components from any site you have permission to analyze), writes it to the project root, and builds every block on those tokens — or keeps the default Softr style if you skip it
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
 - **Helper blocks & cross-block patterns** — Invisible helper blocks for multi-table access via `window` globals + `CustomEvent`, `useWindowData` hook, breadcrumb navigation, saved views architecture
 - **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
@@ -88,24 +89,27 @@ Build me a Softr Vibe Coding block that shows a team directory with cards
 
 ---
 
-## Companion skill — `building-design-md`
+## Brand pipeline — dembrandt
 
-This skill is **Step 2** of a two-skill brand-to-blocks pipeline:
+This skill is the second half of a brand-to-blocks pipeline:
 
 ```
-New client → building-design-md (brand → DESIGN.md) → softr-vibe-coding (DESIGN.md → blocks) → shipped Softr app
+New client → dembrandt (website → DESIGN.md) → softr-vibe-coding (DESIGN.md → blocks) → shipped Softr app
 ```
 
-The upstream skill is [`building-design-md`](https://github.com/leo-softr/design-md-extractor-skill), which extracts a brand foundation (colors, typography, voice) from a website URL or brand guide into a portable `DESIGN.md` file. When that file exists in your project folder, this skill picks it up automatically and applies the brand tokens throughout every block it generates — no re-asking about colors or fonts.
+The DESIGN.md generator is [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, npm) — a real-browser design-token extractor: point it at a website and it extracts colors, typography, spacing, radii, shadows, and component styles, rendered as a portable `DESIGN.md` in Google's DESIGN.md draft format. When that file exists in your project folder, this skill picks it up automatically and applies the brand tokens throughout every block it generates — no re-asking about colors or fonts. When it doesn't, the skill offers to generate one on the spot through the dembrandt MCP server (writing it to the project root), or proceeds with the default Softr style if you skip branding.
 
-**Install both for the full workflow:**
+**Install for the full workflow:**
 
 ```bash
-npx building-design-md@latest init
 npx softr-vibe-coding@latest init
+claude mcp add --transport stdio dembrandt -- npx -y --package dembrandt@latest dembrandt-mcp
+npx -y dembrandt@latest install-browser   # one-time: fetches the Chromium dembrandt drives
 ```
 
-Both auto-update on every Claude Code session. Skip the first one if you only want default Softr styling.
+The skill auto-updates on every Claude Code session (SessionStart hook), and the dembrandt server checks the registry for the newest release on every launch (`@latest`), so both stay current. Skip the two dembrandt lines if you only want default Softr styling. Full operating guide (MCP flow, multi-page crawls, DESIGN.md anatomy, drift QA): `references/dembrandt.md`.
+
+Previously used the `building-design-md` companion skill? It's retired as of v2.4.0 and can be uninstalled — DESIGN.md files it produced remain fully supported (Step 1 reads their `brand:`/`source:` frontmatter and `Application Patterns`/`tech_stack` sections as before).
 
 ---
 
@@ -212,6 +216,10 @@ softr-vibe-coding/
 │   │                                 # headers, pricing, footers — workflow deltas,
 │   │                                 # editorial baseline, full-bleed + full-viewport,
 │   │                                 # block-owned header, section anchors
+│   ├── dembrandt.md                  # DESIGN.md generation with dembrandt
+│   │                                 # MCP/CLI install (@latest npx + browser step),
+│   │                                 # extract → poll → findings → generate → write
+│   │                                 # flow, DESIGN.md anatomy, drift QA
 │   └── quick-reference.md            # Syntax cheat sheet
 │                                     # Imports, hook signatures, mutation shapes,
 │                                     # field mapping, component skeleton
@@ -249,7 +257,7 @@ softr-vibe-coding/
 
 ### How context loading works
 
-Only `SKILL.md` loads into Claude's context when the skill triggers. The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 26 files totaling 6,500+ lines.
+Only `SKILL.md` loads into Claude's context when the skill triggers. The data source guides, reference files, and UI/UX guidelines load **on demand** — Claude reads only the files relevant to your specific block. This keeps context lean even with 30+ files totaling 6,000+ lines.
 
 ---
 
@@ -318,6 +326,7 @@ Pull requests are what make open source great, and we appreciate the spirit behi
 
 - [Softr Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide) — Official Softr Vibe Coding documentation
 - [Softr Data Sources](https://docs.softr.io/data-sources) — Official Softr data source documentation
+- [dembrandt](https://github.com/dembrandt/dembrandt) — Real-browser design-token extractor used for DESIGN.md generation (see `references/dembrandt.md`)
 - [Impeccable](https://github.com/pbakaus/impeccable) — Design patterns and UI/UX anti-pattern principles by Paul Bakaus (referenced in the UI/UX guidelines)
 - [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills) — How Claude Code skills work
 
