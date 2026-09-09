@@ -81,15 +81,44 @@ var filtered = options.filter(function (o) {
 
 So `rural art` finds *The Rural Art Company*. A single `indexOf(query)` would not.
 
-## Show the search box only when it earns its place
+## Searchable by default — not by option count
 
 ```jsx
 var searchable = props.onCreate
   ? true
-  : props.searchable === true || (props.searchable !== false && options.length >= 8);
+  : props.searchable === true || (props.searchable !== false && !props.bare);
 ```
 
-Under eight options a search box is noise — the picker should still read as a picker.
+Every **framed** dropdown — a table filter, a form field — gets the search box, whatever the
+option count. `bare` inline editors are click-only. `onCreate` forces the box on, because the
+typed text is what gets created.
+
+**Why not a threshold (changed 2026-09-10).** The first version of this component showed the
+search box at 8+ options. On one filter row that made "All projects" (2 options) a plain
+picker and "All vendors" (99) a type-to-filter, side by side, and the client read the
+difference as a bug — the project filter looked like the broken one. The count of options is
+*data*; whether a dropdown is searchable is *design*, and design must not change under the
+user's hands the day a third project is added. Leo, 2026-09-10: type-to-filter is the default
+for table filters, even a two-option one, so the desk never has to check whether *this*
+dropdown is the searchable kind. The other half of the same instruction: a status update in a
+table row is a click, not a search — which is what `bare` already is.
+
+### Which dropdowns get a search box
+
+| Dropdown | Search box | How |
+|---|---|---|
+| Table filter — project, vendor, status, room, any of them | yes | default |
+| Open-ended or data-driven picker in a form — vendor, project, room, item, purchase order, saved list | yes | default |
+| Short **fixed** enum the user is **setting** — a status, a location, a purpose, a group-by / sort-by | no | `searchable={false}` |
+| Inline `bare` editor in a table cell — a status chip, a location string | no | `bare` is click-only |
+| Anything with `onCreate` | yes, always | forced |
+
+The third row is the only place `searchable={false}` belongs: four fixed options the user is
+choosing *between*, where a search box is noise. A *filter* on that same status field still
+gets the box — filtering and setting are different jobs, and the filter row is exactly where
+the rule has to hold uniformly. If a wrapper sits between the call site and `Combo`
+(`ColumnFilter`, `SelectInput`, …), thread `searchable={props.searchable}` through it rather
+than reaching past the wrapper.
 
 ## One flat row list for the keyboard
 
@@ -111,7 +140,8 @@ A filter row near the bottom of the viewport otherwise opens into nothing.
 
 - **`bare`** — inline-editor mode. No border, no fill; `triggerContent` (a status chip, a
   cell's text) *is* the trigger. Lets a table cell become editable without every row growing
-  a form control.
+  a form control. Click-only: the search box is off in this variant, because a status update
+  in a row is a click, not a search (Leo, 2026-09-10).
   ⚠ If any column width in your table is derived from the trigger's chrome, keep the
   chevron the SAME size in both variants. Shrinking it in `bare` silently changes those
   widths in a different file.
@@ -141,7 +171,7 @@ Everything else — the trigger, the card, the rows — stays flat.
 - [ ] `composedPath()` click-outside
 - [ ] Sorted A→Z inside the component, with `autoSort={false}` only where order is meaning
 - [ ] Multi-token filter
-- [ ] Search box hidden under 8 options
+- [ ] Searchable by default; `bare` is click-only; `searchable={false}` only on a short fixed enum the user is setting
 - [ ] Keyboard: ↑ ↓ Enter Esc Tab, active row scrolled into view
 - [ ] `aria-haspopup="listbox"`, `aria-expanded`, `role="listbox"` / `role="option"`,
       `aria-selected`, and an `aria-label` on the trigger

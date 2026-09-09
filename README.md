@@ -227,7 +227,9 @@ softr-vibe-coding/
 │                                     # why native <select> and shadcn <Select> both
 │                                     # break in the shadow DOM, composedPath()
 │                                     # click-outside, A-Z inside the component,
-│                                     # multi-token filter, bare inline-editor variant
+│                                     # multi-token filter, searchable BY DEFAULT
+│                                     # (bare = click-only; searchable={false} only
+│                                     # for a fixed enum being set — Sep 10 2026)
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)

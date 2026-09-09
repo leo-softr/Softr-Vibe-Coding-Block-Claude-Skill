@@ -15,6 +15,8 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Decorative Background Blobs (Editorial Layering)](#decorative-background-blobs-editorial-layering)
 - [Dot-Separated Inline List](#dot-separated-inline-list)
 - [Drag-to-Reorder Rows](#drag-to-reorder-rows)
+- [Create → open](#create--open)
+- [Clickable Row with an Inner Link](#clickable-row-with-an-inner-link)
 
 ## Cross-Page State with localStorage + URL Parameters
 
@@ -392,3 +394,123 @@ on failure, clear the override and refetch, because a half-applied renumber is w
 **Only gate the drag on permissions, not on a sort mode.** If the list has an alternative sort, let the
 drag switch to manual order rather than disabling the handle — see the disabled-control note in
 [../ui-ux-guidelines.md](../ui-ux-guidelines.md#26-finishing-touches).
+
+## Create → open
+
+When the user creates a record they are about to work on — a new item, a new saved list — land them on it. They made it in order to fill it in, so closing the dialog back into the list and leaving them to find the row they just made is a step nobody asked for. Leo, 2026-09-10: "when you create a new item anywhere in the interface, once it's created, you need to open the item details page of the item you just created … when you create a new list, once it's created, you need to open this list details, as you'll likely want to fill the list straight after."
+
+`useRecordCreate`'s `onSuccess` receives the created record, but the wrapper around its id has moved before. Read it defensively — a miss is survivable, a crash is not:
+
+```jsx
+/* What useRecordCreate hands onSuccess is the created record. The exact wrapper has moved
+   before, so read the id defensively — a miss is survivable (the row still gets created and
+   the list still refetches, the user just picks it) but a crash is not. */
+function getCreatedId(created) {
+  if (!created) return "";
+  if (typeof created === "string") return created;
+  if (created.id) return String(created.id);
+  if (created.recordId) return String(created.recordId);
+  if (created.record && created.record.id) return String(created.record.id);
+  if (created.data && created.data.id) return String(created.data.id);
+  return "";
+}
+```
+
+Then navigate on success — and only when there is an id to navigate to:
+
+```jsx
+createItem.mutate(payload, {
+  onSuccess: function (created) {
+    setBusy(false);
+    var id = getCreatedId(created);
+    if (id) {
+      window.location.href = "/item?recordId=" + encodeURIComponent(id);
+      return;
+    }
+    // The record exists; we just can't address it. Stay put, refetch, say so.
+    setOpen(false);
+    itemsResult.refetch();
+    toast.success('"' + name + '" created — it is in the list below.');
+  },
+  onError: function () {
+    setBusy(false);
+  },
+});
+```
+
+**Never navigate with an empty id.** `/item?recordId=` would render the detail page's own "record not found" state, and the user would conclude the create failed when it did not. The fallback keeps them where the new row will appear once the refetch lands.
+
+**Keep the path relative.** `/item?recordId=…`, never the app's domain — the same block runs on the preview URL and on the custom domain (SKILL.md's no-hardcoded-domains rule).
+
+**Where the id comes from is not always where it goes.** For an `onCreate` inside a Combo — a vendor typed into a picker — the created id is patched into the form and the user keeps editing; there is nothing to open. See [searchable-dropdown.md](searchable-dropdown.md#variants-worth-having). Navigation is for records that have their own page and that the user will work on next.
+
+## Clickable Row with an Inner Link
+
+An index table exists to get the user into a record, so the hit area is the whole row. But a row is not a link: cmd-click, middle-click, right-click → "Copy link" and hover-to-see-the-URL all come from a real `<a>`. Keep both — the row handler for the plain click, an anchor on the name for everything the browser does with anchors — and make sure they do not fight:
+
+```jsx
+function ProjectRow(props) {
+  var row = props.row;
+  var href = "/project?recordId=" + encodeURIComponent(row.id);
+
+  // The row handler bows out the moment a modifier is held — those clicks belong to the
+  // anchor (new tab, new window, select).
+  function openRow(event) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (typeof window !== "undefined") window.location.href = href;
+  }
+
+  return (
+    <TableRow className="cursor-pointer hover:bg-[#FFF7EF]" onClick={openRow}>
+      <TableCell>
+        <a
+          href={href}
+          className="hover:underline"
+          onClick={function (e) {
+            e.stopPropagation(); // the anchor navigates itself; without this the row handler ALSO fires
+          }}
+        >
+          {row.name}
+        </a>
+      </TableCell>
+      {/* … */}
+    </TableRow>
+  );
+}
+```
+
+Two things go wrong without the two guards. Without `stopPropagation` on the anchor, a cmd-click on the name opens the new tab AND navigates the current one, because the row handler runs too. Without the modifier check on the row, a cmd-click on the cell padding (next to the anchor, not on it) navigates the current tab — the opposite of what the user asked for.
+
+Any *other* control inside the row — an inline status chip, a checkbox, a menu — needs `stopPropagation` on its own handler as well, or every click on it opens the record. (The drag handle in [Drag-to-Reorder Rows](#drag-to-reorder-rows) already does this.)
+
+### Keyboard picker over the same rows
+
+Where a table has a quick-find box, wire it like a picker so the keyboard alone gets into a record: the box takes focus, ↑ ↓ move a highlight, Enter opens the highlighted row, Escape clears the query (and the highlight with it).
+
+```jsx
+var [active, setActive] = useState(0);
+// Filtering shrinks the list under the highlight, so clamp rather than index past the end.
+var activeIdx = rows.length === 0 ? 0 : Math.min(active, rows.length - 1);
+
+function onKeyDown(e) {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    var step = e.key === "ArrowDown" ? 1 : -1;
+    setActive(function (a) {
+      return Math.min(Math.max(a + step, 0), Math.max(rows.length - 1, 0));
+    });
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    var hit = rows[activeIdx];
+    if (hit) window.location.href = "/project?recordId=" + encodeURIComponent(hit.id);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    setQuery("");
+    setActive(0);
+  }
+}
+
+<input autoFocus value={query} onChange={function (e) { setQuery(e.target.value); setActive(0); }} onKeyDown={onKeyDown} … />
+```
+
+Paint the highlighted row with the same colour the mouse hover gets (`data-active="true"` + `bg-[#FFF7EF]`) and scroll it into view when it moves (`querySelector('[data-active="true"]').scrollIntoView({ block: "nearest" })` in a `useEffect` on `activeIdx`) — the Combo in [searchable-dropdown.md](searchable-dropdown.md#one-flat-row-list-for-the-keyboard) does the same. Reset `active` to 0 whenever the query changes: the old index points at a row that may no longer be in the list. `autoFocus` is right only when the block *is* the page's reason to exist — an index page whose first act is always a search; on a page with content above the table, a focus steal scrolls the page to the box.
