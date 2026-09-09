@@ -220,9 +220,14 @@ softr-vibe-coding/
 │   │                                 # MCP/CLI install (@latest npx + browser step),
 │   │                                 # extract → poll → findings → generate → write
 │   │                                 # flow, DESIGN.md anatomy, drift QA
-│   └── quick-reference.md            # Syntax cheat sheet
-│                                     # Imports, hook signatures, mutation shapes,
-│                                     # field mapping, component skeleton
+│   ├── quick-reference.md            # Syntax cheat sheet
+│   │                                 # Imports, hook signatures, mutation shapes,
+│   │                                 # field mapping, component skeleton
+│   └── searchable-dropdown.md        # THE dropdown pattern for blocks
+│                                     # why native <select> and shadcn <Select> both
+│                                     # break in the shadow DOM, composedPath()
+│                                     # click-outside, A-Z inside the component,
+│                                     # multi-token filter, bare inline-editor variant
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)
