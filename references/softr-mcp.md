@@ -101,14 +101,52 @@ components, adding a hook — where being sure of "the exact current text" of a 
 is harder than being sure of the whole file. Also use it when the local file is the source of truth and
 has drifted from the deployed block in ways you have not enumerated.
 
-**Caveat on the `operations` argument.** It is an array of `{search, replace}` objects. Some MCP clients
-serialize it as a JSON *string* instead, and the API rejects that with a Jackson error — `Cannot
-deserialize value of type java.util.ArrayList<java.util.Map<String,String>> from String value` (hit
-2026-09-09, mid-session, on a tool that had accepted the same shape minutes earlier). It is a client
-serialization quirk, not a bad request: if it will not take the array, fall back to the full replace
-rather than mangling the edit to fit.
+### The array-argument serialization quirk, and why it is a security issue
 
-Both paths recompile, so both reset Action permissions either way (Hard Constraint 21).
+**Several tools on this server take an array argument, and some MCP clients serialize it as a JSON
+*string* instead.** The API then rejects it with a Jackson error before it reaches any business logic:
+
+```
+Cannot deserialize value of type `java.util.ArrayList<java.util.Map<String,Object>>`
+from String value (token `JsonToken.VALUE_STRING`)
+```
+
+Root cause: the server advertises an **empty schema** for its tools (`{"type":"object"}`, no property
+definitions), so a client has no type information to serialize against. Confirmed 2026-09-09 on:
+
+| Tool | Array argument | Fallback if it fails |
+|---|---|---|
+| `update_vibe_coding_block_code_search_replace` | `operations` | Use `update_vibe_coding_block_code` (full replace) |
+| `set_vibe_coding_block_action_visibility` | `updates` | **NONE — a human must fix it in Studio** |
+
+It is intermittent, and that is the trap: on 2026-09-09 both tools accepted the array early in a
+session and rejected it an hour later, same shapes, same session. Do not conclude from one success
+that the path is reliable for the rest of your work.
+
+**Why the second row is a security problem, not an inconvenience.** Every code push resets the block's
+auto-registered Actions to Softr's defaults, and the default for a `genericActions` **ADD_RECORD is
+`ALL_USERS`** — writable by logged-OUT visitors. The documented remedy is to re-tighten with
+`set_vibe_coding_block_action_visibility`. When that call is the one that fails, a routine cosmetic push
+silently leaves public write access on the block, and nothing in the push result says so: the push
+itself returns `errors: null, warnings: null`. Verified live 2026-09-09 — one push left four ADD_RECORD
+actions open across two blocks.
+
+**So treat permission restoration as a step that must be VERIFIED, never assumed:**
+
+1. Push the code.
+2. Call `set_vibe_coding_block_action_visibility` for every action that needs tightening.
+3. **Read the permissions back with `get_vibe_coding_block_settings` and confirm each one actually
+   changed.** A successful-looking sequence is not evidence; the failure is an argument rejection, so
+   the call errors rather than lying, but an agent that batches calls can easily miss which one failed.
+4. If any action is still `ALL_USERS`, **do not publish.** Report the exact list — page, block, action
+   type, data source — and have a human set them on the block's Actions tab in Studio.
+
+Do not improvise around a rejection. `update_vibe_coding_block_settings` is not a substitute: its schema
+is equally empty, it writes far more than one permission, and guessing its payload risks clobbering the
+block's data source connections. Restoring an older block version is not a substitute either — it
+reverts the code along with the permissions, undoing the change you just pushed.
+
+Both edit paths recompile, so both reset Action permissions either way (Hard Constraint 21).
 
 ## Adopting Studio-AI-generated code
 

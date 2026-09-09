@@ -548,8 +548,15 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     across a 15-block deployment. See [datasources/writing.md](datasources/writing.md#how-actions-work-studios-actions-tab).
     **Any save counts, including one whose only change is a comment** -- there is no "cosmetic edit"
     exemption; a `search_replace` that rewrites nothing but a code comment rebuilds the Actions exactly
-    like a full rewrite does (verified live 2026-09-09, on two blocks at once). Re-check permissions
-    after EVERY push.
+    like a full rewrite does (verified live 2026-09-09, on two blocks at once).
+    **Re-read the permissions after EVERY push and confirm they actually changed** -- do not assume the
+    restore worked. Softr's default for a `genericActions` ADD_RECORD is `ALL_USERS`, i.e. writable by
+    logged-OUT visitors, and the MCP call that re-tightens it (`set_vibe_coding_block_action_visibility`)
+    can itself fail with no fallback (see the array-argument quirk in
+    [references/softr-mcp.md](references/softr-mcp.md#the-array-argument-serialization-quirk-and-why-it-is-a-security-issue)).
+    A push that returns `errors: null` can still have left public write access on the block.
+    **If any action is still `ALL_USERS`, do not publish** -- surface the list and have a human set it
+    in Studio.
 22. **Blocks cannot import each other -- cross-block consistency is discipline, not architecture [house]**
     -- Every block compiles standalone. There is no shared module, no design-system import, nothing that
     makes two blocks stay alike. Two blocks that must look the same WILL drift, and the drift usually
