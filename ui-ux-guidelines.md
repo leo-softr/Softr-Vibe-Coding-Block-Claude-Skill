@@ -719,6 +719,8 @@ Actively check for and reject these fingerprints of generic AI-generated interfa
 - **Relative timestamps:** "2 hours ago" via `date-fns/formatDistanceToNow`
 - **Truncate long text** with `truncate` or `line-clamp-2`, full value in `Tooltip`
 - **Sticky headers** for long tables
+- **Never render an affordance you have not wired.** A grip glyph that does not drag, a chevron that does not sort, a card that looks clickable and is not — the signifier IS the promise, and an unfulfilled one reads as a broken feature, not a missing one. Either wire it or delete it. (Observed 2026-09-09: a `GripVertical` shipped as decoration on every row of a reorderable list; users reported the list as "can't be reordered", not as "missing drag".)
+- **A control that is disabled by default is indistinguishable from a broken one.** If the only explanation lives in a `title` tooltip, nobody reads it — they file a bug. When a control depends on a mode the user has not chosen yet, prefer making the action *switch the mode and proceed* over greying it out. Disable only for genuine impossibility (permissions, first row can't move up), and when you do, say why in visible text rather than on hover. (Same 2026-09-09 report: reorder arrows were disabled until you switched the sort to Manual, which nothing on screen told you.)
 
 ---
 

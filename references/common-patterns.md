@@ -14,6 +14,7 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Edge-Fade Image Mask (Editorial Hero)](#edge-fade-image-mask-editorial-hero)
 - [Decorative Background Blobs (Editorial Layering)](#decorative-background-blobs-editorial-layering)
 - [Dot-Separated Inline List](#dot-separated-inline-list)
+- [Drag-to-Reorder Rows](#drag-to-reorder-rows)
 
 ## Cross-Page State with localStorage + URL Parameters
 
@@ -292,3 +293,102 @@ Certifications, feature tags, meta rows: `GMP Manufacturing ● ISO 22716 ● Lo
 - **Keep `gap-y-*`** on the container for multi-line rhythm when the list wraps.
 - **If the list is expected to wrap often**, drop the dots and let the gap carry the rhythm — any inline separator looks orphaned at a line break.
 - `aria-hidden="true"` on the glyph — screen readers announce `●` as "black circle" otherwise.
+
+
+## Drag-to-Reorder Rows
+
+Reordering a list by dragging, written against a Softr block's constraints. Four of the five decisions
+below are non-obvious, and each one is a bug if you get it wrong.
+
+```jsx
+var [drag, setDrag] = useState(null);            // { from, over } while dragging, else null
+var [optimisticOrder, setOptimisticOrder] = useState(null);  // ids, post-drop, pre-refetch
+var rowElsRef = useRef([]);
+
+/* The pointer is CAPTURED, so no other element receives enter/leave — rects are the only
+   thing that can answer "what is under the cursor". Compare against each row's MIDPOINT so
+   the row you are over is the one that yields. */
+function dropIndex(count, clientY) {
+  for (var i = 0; i < count; i++) {
+    var el = rowElsRef.current[i];
+    if (!el) continue;
+    var r = el.getBoundingClientRect();
+    if (clientY < r.top + r.height / 2) return i;
+  }
+  return count - 1;
+}
+```
+
+The handle — never the whole row, so text selection and the row's own buttons keep working:
+
+```jsx
+<span
+  role="button"
+  aria-label={"Drag to reorder " + row.name}
+  className="touch-none select-none"          // or the browser scrolls instead of dragging
+  style={{ cursor: "grab" }}
+  onPointerDown={function (e) {
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    setDrag({ from: index, over: index });
+  }}
+  onPointerMove={function (e) {
+    if (!drag) return;
+    var over = dropIndex(rows.length, e.clientY);
+    if (over !== drag.over) setDrag({ from: drag.from, over: over });
+  }}
+  onPointerUp={function () {
+    if (!drag) return;
+    var from = drag.from, to = drag.over;
+    setDrag(null);
+    if (from !== to) {
+      var next = rows.slice();
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      applyOrder(next);
+    }
+  }}
+  onPointerCancel={function () { setDrag(null); }}
+>
+  <GripVertical className="h-3.5 w-3.5" />
+</span>
+```
+
+**Pointer capture, not mouse events.** Capture makes the handle the target of every move and of the up
+*wherever the pointer travels*, and obliges the browser to send `pointercancel` if it takes the pointer
+away. Without it, a drag released over another application never delivers its up and the row stays
+stuck mid-drag until a reload.
+
+**Measure rects, don't listen for `onPointerEnter` on each row.** While the pointer is captured, no
+other element gets enter/leave at all, so per-row handlers silently never fire. And
+`document.elementFromPoint` is not the escape hatch — inside a block it returns the shadow host (see
+[anti-patterns.md](anti-patterns.md#layout--styling)).
+
+**Draw the insertion line with an INSET box-shadow, never a border.** A real 2px border grows the row
+by 2px and shoves every row below it down a notch, so the list crawls under the pointer as the target
+changes:
+
+```jsx
+style={Object.assign({}, ROW_STYLE, isTarget
+  ? (drag.over < drag.from
+      ? { boxShadow: "inset 0 2px 0 0 " + ACCENT }     // landing above
+      : { boxShadow: "inset 0 -2px 0 0 " + ACCENT })   // landing below
+  : null)}
+```
+
+**Renumber the whole run — never swap a pair.** A swap cannot express "drop three rows up", and on a
+nullable order field it corrupts the sort: positions start null, so numbering only the two rows that
+moved leaves the rest null, and any "nulls last" comparator then throws every untouched row to the
+bottom the moment the user switches to that sort. Write `position = i + 1` for every row whose slot
+actually changed. The first reorder on a fresh list costs N writes; later ones cost the distance
+travelled.
+
+**Hold an optimistic order until the refetch lands.** The position writes are in flight while the
+records still carry their OLD numbers, so re-sorting on those throws the row back to where it was
+dragged from for a beat — which reads as the drag having failed. Apply `optimisticOrder` ahead of both
+sorts and clear it when the refetch resolves. Writes stay sequential (`await mutateAsync` per row, in
+order, stop on first failure — see [../datasources/writing.md](../datasources/writing.md#sequential-multi-row-writes-mutateasync));
+on failure, clear the override and refetch, because a half-applied renumber is worse than none.
+
+**Only gate the drag on permissions, not on a sort mode.** If the list has an alternative sort, let the
+drag switch to manual order rather than disabling the handle — see the disabled-control note in
+[../ui-ux-guidelines.md](../ui-ux-guidelines.md#26-finishing-touches).
