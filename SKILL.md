@@ -555,8 +555,11 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     can itself fail with no fallback (see the array-argument quirk in
     [references/softr-mcp.md](references/softr-mcp.md#the-array-argument-serialization-quirk-and-why-it-is-a-security-issue)).
     A push that returns `errors: null` can still have left public write access on the block.
-    **If any action is still `ALL_USERS`, do not publish** -- surface the list and have a human set it
-    in Studio.
+    **If any action is still `ALL_USERS`, report it WITH its severity and let the builder decide.**
+    Check the page's own VIEW permission first (`get_page_permissions`): a page gated to logged-in
+    users makes an open action housekeeping, a public page makes it a real hole. Surface the list
+    either way -- page, block, action type, data source -- and note that a human sets them on the
+    block's Actions tab. Do not unilaterally block a publish; it is not your app.
 22. **Blocks cannot import each other -- cross-block consistency is discipline, not architecture [house]**
     -- Every block compiles standalone. There is no shared module, no design-system import, nothing that
     makes two blocks stay alike. Two blocks that must look the same WILL drift, and the drift usually

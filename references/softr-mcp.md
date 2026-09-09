@@ -138,8 +138,29 @@ actions open across two blocks.
 3. **Read the permissions back with `get_vibe_coding_block_settings` and confirm each one actually
    changed.** A successful-looking sequence is not evidence; the failure is an argument rejection, so
    the call errors rather than lying, but an agent that batches calls can easily miss which one failed.
-4. If any action is still `ALL_USERS`, **do not publish.** Report the exact list — page, block, action
-   type, data source — and have a human set them on the block's Actions tab in Studio.
+4. If any action is still `ALL_USERS`, **report it and let the builder decide.** Check the page's own
+   VIEW permission first with `get_page_permissions`, because that is what sets the severity:
+   - **Page VIEW is gated** (e.g. `LOGGED_IN_USERS`) — an anonymous visitor cannot load the page at
+     all, so exploiting the open action means calling its endpoint directly, and the realistic worst
+     case is junk records rather than data exposure or deletion. Housekeeping: worth fixing on the
+     next Studio pass, not worth holding a release for.
+   - **Page VIEW is `ALL_USERS`** — the action permission is the only gate left. That is a genuine
+     hole and deserves to be called one.
+
+   Report page, block, action type, data source and current group; say which of the two cases applies;
+   note that a human sets them on the block's Actions tab in Studio. Then stop — **do not unilaterally
+   block the publish.** It is not your app, and the person whose app it is needs the finding and the
+   severity, not a veto.
+
+   One caveat worth stating: page visibility and action permissions are *separate* gates, and whether
+   Softr enforces page VIEW on the action endpoint itself is unverified here. The reason to treat a
+   gated page as low-severity is the practical difficulty and low blast radius, not a proof that the
+   action is unreachable. Say that plainly rather than implying the action is safe.
+
+   **Calibration matters.** This guidance read "do not publish" in v2.5.1 and immediately fired at
+   maximum severity on a logged-in-gated app where the real exposure was junk records. A warning that
+   cannot distinguish housekeeping from a breach gets tuned out, and then it is worth nothing on the
+   day it matters.
 
 Do not improvise around a rejection. `update_vibe_coding_block_settings` is not a substitute: its schema
 is equally empty, it writes far more than one permission, and guessing its payload risks clobbering the
