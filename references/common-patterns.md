@@ -513,4 +513,6 @@ function onKeyDown(e) {
 <input autoFocus value={query} onChange={function (e) { setQuery(e.target.value); setActive(0); }} onKeyDown={onKeyDown} … />
 ```
 
+Make the rows themselves focusable too (`tabIndex={0}`, an `onKeyDown` that opens on Enter only when `event.target === event.currentTarget`, so an Enter on the anchor inside the row is not handled twice), and let `onMouseEnter` *and* `onFocus` both move the highlight onto the row — the highlight is the single answer to "which record does Enter open", whichever device last touched it. That is the shape `projects-table.jsx` shipped on 2026-09-10.
+
 Paint the highlighted row with the same colour the mouse hover gets (`data-active="true"` + `bg-[#FFF7EF]`) and scroll it into view when it moves (`querySelector('[data-active="true"]').scrollIntoView({ block: "nearest" })` in a `useEffect` on `activeIdx`) — the Combo in [searchable-dropdown.md](searchable-dropdown.md#one-flat-row-list-for-the-keyboard) does the same. Reset `active` to 0 whenever the query changes: the old index points at a row that may no longer be in the list. `autoFocus` is right only when the block *is* the page's reason to exist — an index page whose first act is always a search; on a page with content above the table, a focus steal scrolls the page to the box.
