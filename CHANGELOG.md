@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.5.0] - 2026-09-09
+- Cross-block and cross-page consistency: the failure mode where every block looks correct alone
+
 ## [2.4.2] - 2026-09-01
 - softr-mcp.md: Workflows build/publish loop verified end to end 2026-09-01 (10 production workflows built live via MCP), replacing the not-yet-exercised hedge with build-loop findings: create_workflow instantiates an OLD trigger node version — immediately replace_trigger_node with the same type for current inputs (updateField on SOFTR_TABLES_RECORD_UPDATED only exists at v1.2.0); FILTER conditions set via update_node_inputs inputName "condition" ({operator, conditions} object stored on the outgoing path like the builder); LOOP_ACTION_GROUP loopVariables.items must be a plain array like $.records — [*] projections rejected by the validator, per-item refs inside the loop via {loopActionGroup.<id>:::loopVariables.items.fields.<fieldId>} (bracket form for digit-leading ids); update_node_inputs batches validate against STORED node state so dependent updates split into sequential calls; test-safety doctrine — record-write nodes REAL_ONLY (never test against production), SOFTR_SEND_EMAIL always mode:"mock", triggers/GET_RECORDS REAL_ONLY but read-only-safe. Plus: workspace update_field on SELECT silently drops added choices (echoes old set, no error) — add choices in Studio or let allowToAddNewChoice auto-create on first unknown-label write; joins the allowMultipleEntries silent-ignore
 
