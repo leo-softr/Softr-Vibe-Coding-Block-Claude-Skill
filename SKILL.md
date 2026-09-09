@@ -222,6 +222,25 @@ Blocks rarely live alone — most Softr pages stack 2–4 blocks vertically, oft
 1. **"Should the detail page have a back button?"** — if yes, always wire one. Use the back-navigation pattern in [references/helper-blocks.md](references/helper-blocks.md#breadcrumb--back-navigation): `window.history.back()` for users with history, plus a fallback URL for users who arrived via shared link.
 2. **"What page should the back button fall back to when there's no history?"** — this is a separate question, easy to skip but important. Don't default silently; ask. If the user doesn't have a listing page yet, default to `/` and leave a `// TODO: update fallback when /jobs (or similar) exists` comment so it can be updated later.
 
+**Chrome that repeats across pages must land in the SAME place on every page [house].** A back button,
+a page title, a primary action -- anything the user meets on more than one screen -- is a cross-page
+contract, not a per-block decision. Before adding one, open the blocks that already have it and copy
+the exact offset; when you change it, change it everywhere in the same edit. Verified the hard way
+2026-09-09: an item-detail back button carried an extra `mt-6` that the project-header back button did
+not, so it sat 24px lower, and the mismatch only surfaced when a user moved between the two pages in
+one session. **No amount of reading a single block reveals this** -- each block looks correct alone,
+which is exactly why it needs to be a standing rule rather than a review item.
+
+Two habits make it survive:
+
+- **Let the wrapper's padding be the ONLY thing positioning repeated chrome.** Give the back button
+  `mb-4` (space below it) and no top margin, so its offset is the wrapper's top padding and nothing
+  else. One number per page then governs the position, and pages can only drift if their wrappers do.
+- **Loading skeletons repeat the chrome too.** A skeleton standing in for a page that has a back button
+  needs that button's placeholder at the same offset as the real one, or the button visibly jumps the
+  moment the record arrives. Change both in the same edit -- see §12 of
+  [ui-ux-guidelines.md](ui-ux-guidelines.md).
+
 **Persist the answer as a grep-able comment at the top of the generated file** so future edits know the spacing assumptions and can be updated consistently:
 
 ```jsx
@@ -322,6 +341,16 @@ Adjust the top gradient color to complement the user's brand.
 `bg-background`, `bg-card`, `bg-primary`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-destructive`, `border`, `border-input`
 
 **Arbitrary values compile in full** — the platform's Tailwind build is JIT, so the whole arbitrary-value syntax works, including opacity modifiers on arbitrary hex (`bg-[#FAF5EC]/85`), variant + arbitrary + opacity combined (`hover:bg-[#6E7A5C]/10`), negative arbitrary values (`-top-[22%]`, `hover:-translate-y-[1px]`), arbitrary object-position (`object-[62%_25%]`), arbitrary z (`z-[1]`), and vw sizing (verified 2026-08-31 from rendering Studio-AI output). Classes must be **static source strings** — never template-interpolate (`` bg-[${x}] ``); JIT extracts classes by static scan (standard-Tailwind inference, not Softr-verified). When to reach for them vs. the scale: see the editorial lane in [ui-ux-guidelines.md](ui-ux-guidelines.md) §7. (This covers arbitrary *values* and standard variants; arbitrary *selector* variants like `[&_svg]:` have at least one known bundler failure — see the SelectTrigger row in [references/anti-patterns.md](references/anti-patterns.md#layout--styling).)
+
+**A brand colour you use BOTH ways exists twice, and the two copies drift silently.** Arbitrary values
+are resolved at build time, so a class string can never read your `C.accent` constant. A card styled
+with Tailwind (`border-[#3B1F2B] hover:border-[#54594F]`) and its loading skeleton styled inline
+(`style={{ border: "1px solid " + C.accent }}`) therefore hold the same colour in two places that no
+compiler will ever reconcile, and nothing fails when they disagree -- it just looks wrong. Verified
+2026-09-09: a card's rest border was changed and its skeleton's was not, so the whole grid visibly
+re-outlined itself the instant the data arrived. Two habits keep it honest: write the hex-to-token
+mapping in a comment beside the class string (`#3B1F2B = C.accent`), and prefer the runtime token
+wherever inline `style` is already in play, so only one of the two copies is ever a literal.
 
 **Font classes:** `font-heading`, `font-sans`, `font-mono`
 
@@ -517,6 +546,21 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     auto-registered Actions to **default permissions**. Do the Actions-tab permission tightening pass
     only after the LAST redeploy, and re-check it after any future one. Verified live 2026-08-25
     across a 15-block deployment. See [datasources/writing.md](datasources/writing.md#how-actions-work-studios-actions-tab).
+    **Any save counts, including one whose only change is a comment** -- there is no "cosmetic edit"
+    exemption; a `search_replace` that rewrites nothing but a code comment rebuilds the Actions exactly
+    like a full rewrite does (verified live 2026-09-09, on two blocks at once). Re-check permissions
+    after EVERY push.
+22. **Blocks cannot import each other -- cross-block consistency is discipline, not architecture [house]**
+    -- Every block compiles standalone. There is no shared module, no design-system import, nothing that
+    makes two blocks stay alike. Two blocks that must look the same WILL drift, and the drift usually
+    hides in the *mechanism* rather than the value: verified 2026-09-09, a report card and a saved-list
+    card that were supposed to be identical had ended up hovering by two different mechanisms (Tailwind
+    `hover:` variants on one, React `useState` on the other), so a change to either could never reach
+    the other. Neither block looked wrong on its own -- that is the whole problem. When a treatment is
+    deliberately shared across blocks: name it in a comment in BOTH files, list the exact tokens that
+    are shared, and promise nothing beyond them (the class strings usually differ in layout and padding,
+    and do not need to match). The same rule governs repeated page chrome -- see **Block Placement &
+    Page Spacing**.
 
 ## Style Conventions
 

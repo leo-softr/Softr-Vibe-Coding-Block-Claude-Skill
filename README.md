@@ -291,7 +291,8 @@ The skill enforces these automatically, but good to know (verified live against 
 - Create payloads are **flat**; update payloads are `{ recordId, fields: {...} }` — asymmetric by design
 - `mutateAsync` is fully supported — it's the tool for sequential multi-row saves
 - SELECT fields write by option **label string**; linked records write as arrays of record-id strings
-- Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy
+- Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy, and note there is **no cosmetic-edit exemption**: an edit that changes only a comment resets them too
+- **Blocks cannot import each other**, so two blocks that must look alike will drift — each one looks correct in isolation while the set does not. Repeated page chrome (back button, title, primary action) must sit at the same offset on every page, and a loading skeleton must track the REST state of whatever it stands in for
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
 - Must use `export default function Block()`
 - Wrap layout in `<div className="container py-0"><div className="content">` for app/content blocks (house convention for width alignment with native blocks) — the platform default is actually full width, so full-bleed marketing blocks (heroes, banners, footers) legitimately omit the wrappers and own their gutters

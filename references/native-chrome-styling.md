@@ -156,6 +156,41 @@ footer [role="list"] > div > div {
 }
 ```
 
+## Relocating footer nodes, not just restyling them
+
+CSS alone cannot move an element to a **different parent**. `order` only reorders siblings, so a
+"put the Website / Terms links down on the copyright line" request — where the links and the copyright
+live in different containers — needs a small JS relocation job in the same Custom Code block, not more
+selectors.
+
+The shape that works:
+
+1. Build one flex row, insert it where the copyright currently sits.
+2. Move the copyright node into it, then the link nodes after it.
+3. Hide the container the links vacated **only if it is now genuinely empty** — check for remaining
+   element children rather than assuming, or you will blank a container that still holds something.
+4. Run it BEFORE any job that measures height (a footer-compacting pass, a sticky offset calculation);
+   those must see the final arrangement or they measure the old one.
+
+```js
+/* relocate, then compact — order matters: compactFooter() measures height */
+relocateFooterLinks();
+compactFooter();
+```
+
+Two details worth copying:
+
+- **Truncate rather than wrap.** A relocated row should ellipsise under width pressure
+  (`min-width:0` on the flex children plus `text-overflow:ellipsis`), never stack — a footer row that
+  reflows to two lines at an awkward width looks broken in a way a clipped label does not.
+- **Scope hover underlines away from logos and icons.** An `::after` underline scaled from
+  `transform-origin:50%` gives a centre-out grow; gate it with `:not(:has(svg)):not(:has(img))` so it
+  never appears under the logo or the social glyphs, and use `currentColor` so the footer's own colour
+  rules keep working untouched.
+
+Same caveat as everything else here: **it renders on the published app only.** The Studio editor keeps
+showing the old arrangement, which reads exactly like "the script did not run."
+
 ## Page background
 
 **The trickiest one — Softr paints the SAME fill on FOUR stacked layers:** `html`, `body`, `#page-content` (stable id; classes `content spr-content-root`), AND a deeper **class-less wrapper div** nested a few levels inside `#page-content`. Style any one layer and the ones above cover it — this is why setting `body` alone appears to "do nothing."

@@ -390,6 +390,15 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 - Use `<Skeleton />` from shadcn/ui matching the final layout shape.
 - Pulsing animation is included by default.
 - Replace content progressively as data arrives.
+- **Match the component's REST state, not just its shape.** A skeleton stands in for a real card, so it
+  must carry that card's *resting* border, background and padding -- not its hover state, and not a
+  different border "because it is only a placeholder". When the two disagree the grid visibly re-draws
+  itself the instant data lands, which is the one thing a skeleton exists to prevent (observed live
+  2026-09-09: skeletons left on the old border colour after the cards moved to a new one).
+- **When an interactive element's resting style changes, change its skeleton in the same edit.** Nothing
+  links them -- in a Tailwind + inline-token codebase the colour is literally written twice.
+- **Skeletons repeat page chrome too.** If the page has a back button, breadcrumb or title above the
+  content, the skeleton needs those at the SAME offsets, or the chrome jumps when the record arrives.
 
 ### Perceived Performance:
 - **Optimistic UI**: Update the interface immediately, handle failures gracefully. Use for low-stakes actions (likes, filters); avoid for payments or destructive operations.
@@ -550,6 +559,7 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 - **Landmark hygiene when a block ships page chrome**: shadow DOM does NOT hide landmarks from assistive tech, and Softr's native chrome uses semantic elements — so a block's own `<header>`/`<main>` on a page with native chrome creates duplicate banner/main landmarks. Use plain `<div>`s there; reserve `<header>`/`<main>` for pages where the native chrome is hidden.
 - Semantic HTML: `<button>` for actions, `<a>` for navigation, `<input>` for data.
 - **Focus rings:** Never `outline: none` without replacement. Always keep `focus-visible:ring-2`. Focus ring must be 2-3px thick, high contrast, offset from the element.
+- **`focus-within:` for containers, `focus-visible:` for the focusable element itself.** A card or row that *holds* buttons is usually a plain `<div>` and never takes focus, so `focus-visible:` on it is dead CSS that reads like an accessibility feature and does nothing. Use `focus-within:` there, so tabbing to a control inside the card lights the same affordance a mouse user gets from `hover:` -- and keep `focus-visible:ring-2` on the button or link itself. Whenever a card has a `hover:` treatment and contains tab stops, it wants the matching `focus-within:` variant.
 - Tables: proper `<thead>`, `<tbody>`, `<th scope="col">`.
 
 ---
@@ -699,6 +709,9 @@ Actively check for and reject these fingerprints of generic AI-generated interfa
 
 - **Smooth transitions:** `transition-all duration-200` on cards and rows
 - **Hover states on rows/cards:** `hover:bg-muted/50` for interactivity indication
+- **Rest and hover compete for the same colour, and the RESTING state wins.** If a card's resting border already uses your strongest colour, hover has nothing left to change to -- the answer is a *third* colour for hover, never demoting the resting state to free one up. A resting border is permanent and seen by everyone; a hover border exists only for whoever has a pointer on it. (Observed 2026-09-09: freeing the strong colour for hover left the cards reading as unbordered at rest.)
+- **Move hover in the same direction as the rest of the hover treatment.** If the background lightens on hover, the border should lighten too -- a border that hardens while the background softens reads as two effects fighting rather than one card lifting.
+- **Check border colours against the surface they actually sit on.** A hairline tuned for contrast *inside* a white card disappears where that card meets a coloured page ground; the same hex that reads correctly between table rows can be invisible at the card's outer edge.
 - **Auto-focus first field** when form opens (`autoFocus`)
 - **Escape to cancel** any modal, dialog, or inline edit
 - **Confirmation animation:** Brief `Check` icon in save button after success

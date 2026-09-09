@@ -83,6 +83,33 @@ Before writing any block code through the MCP, call `get_vibe_coding_docs` — i
 
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
 
+### Which edit tool: full replace vs. targeted search-replace
+
+`update_vibe_coding_block_code` sends the whole file; `update_vibe_coding_block_code_search_replace`
+sends only the fragments that change. This is not just a bandwidth choice — it changes what can go wrong.
+
+**Reach for search-replace when ONE source file is deployed to SEVERAL blocks.** Datasource UUIDs are
+per BLOCK, not per table, so a file living on two pages needs a different `datasource.define()` pair in
+each. A full replace overwrites that pair and forces a manual swap on every single push — the classic
+way to point a project page at the company page's data. Targeted replacements never touch lines you did
+not name, so **each block keeps its own pair and the swap step disappears entirely** (verified
+2026-09-09 across a report block deployed to two pages). It is also the safer option on large files:
+retransmitting ~100KB verbatim to change one class string is its own corruption risk.
+
+**Reach for the full replace when the change is structural** — reordering JSX, moving logic between
+components, adding a hook — where being sure of "the exact current text" of a dozen scattered fragments
+is harder than being sure of the whole file. Also use it when the local file is the source of truth and
+has drifted from the deployed block in ways you have not enumerated.
+
+**Caveat on the `operations` argument.** It is an array of `{search, replace}` objects. Some MCP clients
+serialize it as a JSON *string* instead, and the API rejects that with a Jackson error — `Cannot
+deserialize value of type java.util.ArrayList<java.util.Map<String,String>> from String value` (hit
+2026-09-09, mid-session, on a tool that had accepted the same shape minutes earlier). It is a client
+serialization quirk, not a bad request: if it will not take the array, fall back to the full replace
+rather than mangling the edit to fit.
+
+Both paths recompile, so both reset Action permissions either way (Hard Constraint 21).
+
 ## Adopting Studio-AI-generated code
 
 When you pull a Studio-AI-generated block via `get_vibe_coding_block_code` to adopt into a project repo as source of truth: its output renders fine but ships with predictable defects. **Functional patterns in Studio output are platform-support evidence** (it surfaces undocumented capabilities before the docs do — see SKILL.md's "Platform truth sources"); **its code hygiene is not a pattern to imitate.** Cleanup pass before committing:
