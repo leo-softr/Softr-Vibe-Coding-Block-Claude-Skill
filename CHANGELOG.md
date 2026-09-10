@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.8.2] - 2026-09-10
+- Corrections on evidence: Softr never strips the trailing newline; the array-argument rejection was client-side stringification, not an empty server schema (2.8.2)
+
 ## [2.8.1] - 2026-09-10
 - Verifying a push: errors:null is not proof — fetch-back byte-compare, deployed==disk pre-check, two-block swaps (2.8.1)
 - Inventory + keyboard-picker snippet reconciled with the shipped projects-table shape
