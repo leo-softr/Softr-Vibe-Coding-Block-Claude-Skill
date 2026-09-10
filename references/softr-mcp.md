@@ -124,11 +124,14 @@ unverified until you have pulled the source back down and compared it.
 3. Push the **entire** file.
 4. **Fetch it back and compare again.** Identical, or you are not done: diff, fix, re-push.
 
-**Tolerate exactly one difference: the trailing newline.** Softr sometimes strips the file's final
-`\n` on save and sometimes keeps it — stripped on every push on 2026-09-09, kept on every push on
-2026-09-10, same app, same tools. A comparison that demands byte equality will report a phantom
-mismatch on some days; one that ignores *all* whitespace will miss the dropped-blank-line case above.
-Compare with the trailing newline normalised and nothing else.
+**Compare byte for byte, trailing newline included.** Softr stores exactly what it receives: across
+58 push→fetch pairs between 2026-08-26 and 2026-09-10 (14 blocks, 16–161 KB each) the fetched
+`sourceCode` was byte- and MD5-identical to the text sent, including two pushes sent *without* a
+final newline and stored without one. The "deployed block is one byte shorter" we chased on
+2026-09-09 was our own read: an agent that reads a large file in chunks can drop the final
+newline (or a blank line at a chunk boundary) before transmission. A comparison that normalises
+the trailing newline hides exactly that class of error — so do not normalise anything; a mismatch
+means re-send, whatever the byte.
 
 **One file, two blocks, two datasource pairs.** When the same source is deployed to two pages, the
 local file holds ONE page's `datasource.define()` pair. Push it as-is to that block; for the other,
@@ -152,35 +155,40 @@ default permissions (see the next section for why that can be a security problem
 the restoration). If page-level visibility is the access control in your app, record that decision
 so nobody chases the reset after every round; if it is not, re-tighten and read back.
 
-### The array-argument serialization quirk, and why it is a security issue
+### The array-argument rejection, and why it is a security issue
 
-**Several tools on this server take an array argument, and some MCP clients serialize it as a JSON
-*string* instead.** The API then rejects it with a Jackson error before it reaches any business logic:
+**Several workspace-server tools take an array argument, and a call that sends it as a JSON *string*
+is rejected** by Jackson before it reaches any business logic:
 
 ```
 Cannot deserialize value of type `java.util.ArrayList<java.util.Map<String,Object>>`
 from String value (token `JsonToken.VALUE_STRING`)
 ```
 
-Root cause: the server advertises an **empty schema** for its tools (`{"type":"object"}`, no property
-definitions), so a client has no type information to serialize against. Confirmed 2026-09-09 on:
-
 | Tool | Array argument | Fallback if it fails |
 |---|---|---|
 | `update_vibe_coding_block_code_search_replace` | `operations` | Use `update_vibe_coding_block_code` (full replace) |
 | `set_vibe_coding_block_action_visibility` | `updates` | **NONE — a human must fix it in Studio** |
 
-It is intermittent, and that is the trap: on 2026-09-09 both tools accepted the array early in a
-session and rejected it an hour later, same shapes, same session. Do not conclude from one success
-that the path is reliable for the rest of your work.
+**Where the string comes from — corrected 2026-09-10.** The first write-up of this (2026-09-09)
+blamed the server for advertising an empty schema. The transcripts say otherwise: the workspace
+server's schema declares both parameters as `type: array`, all 13 rejected calls had sent a JSON
+string, and all 84 successful calls to the same two tools had sent a real array — same day, same
+shapes, different payload type. The stringification happened on the client side, most likely on
+calls made while the tool definitions had not been loaded into the model's context (deferred
+schemas), so there was no type to serialise against. **Load the tool's schema before calling it,
+and pass arrays as arrays.** (Empty schemas are real on Softr's *per-application* MCP servers —
+every tool there is advertised as `{"type":"object"}` with a name-only description — but the
+workspace server is not affected.)
 
-**Why the second row is a security problem, not an inconvenience.** Every code push resets the block's
-auto-registered Actions to Softr's defaults, and the default for a `genericActions` **ADD_RECORD is
-`ALL_USERS`** — writable by logged-OUT visitors. The documented remedy is to re-tighten with
-`set_vibe_coding_block_action_visibility`. When that call is the one that fails, a routine cosmetic push
-silently leaves public write access on the block, and nothing in the push result says so: the push
-itself returns `errors: null, warnings: null`. Verified live 2026-09-09 — one push left four ADD_RECORD
-actions open across two blocks.
+**Why the second row is a security problem, not an inconvenience.** Every code push resets the
+block's auto-registered Actions to Softr's defaults, and the default for a `genericActions`
+**ADD_RECORD is `ALL_USERS`** — writable by logged-OUT visitors — while UPDATE_RECORD and
+DELETE_RECORD default to `LOGGED_IN_USERS` in the same response. The documented remedy is to
+re-tighten with `set_vibe_coding_block_action_visibility`. When that call is the one that fails, a
+routine cosmetic push silently leaves public write access on the block, and nothing in the push
+result says so: the push itself returns `errors: null, warnings: null`. Verified live 2026-09-09 —
+one push left four ADD_RECORD actions open across two blocks.
 
 **So treat permission restoration as a step that must be VERIFIED, never assumed:**
 

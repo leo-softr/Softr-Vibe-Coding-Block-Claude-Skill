@@ -89,7 +89,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - Static block: no hardcoded user-visible copy — every string/image/link is an editable setting (see [references/editable-settings.md](references/editable-settings.md#granularity-doctrine-settings-first-static-blocks))
    - Array-setting rows keyed by **index**, never by a builder-editable field value
    - Media settings that may start empty (`src: ""`) gated with a conditional render or placeholder — never an unconditional `<img src={setting.src}>`
-   - **Deploying through the MCP:** `errors: null` on a push is not proof — fetch the block's `sourceCode` back and byte-compare it to the file you sent (trailing newline normalised, nothing else), and prove deployed == disk *before* editing so a Studio-side change is never overwritten. Protocol in [references/softr-mcp.md → Verifying a push](references/softr-mcp.md#verifying-a-push--the-deployed-source-is-the-only-proof)
+   - **Deploying through the MCP:** `errors: null` on a push is not proof — fetch the block's `sourceCode` back and byte-compare it to the file you sent, trailing newline included (Softr stores exactly what it receives; the one-byte drift we once blamed on it was a chunked read on our side), and prove deployed == disk *before* editing so a Studio-side change is never overwritten. Protocol in [references/softr-mcp.md → Verifying a push](references/softr-mcp.md#verifying-a-push--the-deployed-source-is-the-only-proof)
 
 ## What to Clarify
 
