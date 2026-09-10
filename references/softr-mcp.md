@@ -101,6 +101,57 @@ components, adding a hook — where being sure of "the exact current text" of a 
 is harder than being sure of the whole file. Also use it when the local file is the source of truth and
 has drifted from the deployed block in ways you have not enumerated.
 
+### Verifying a push — the deployed source is the only proof
+
+`update_vibe_coding_block_code` returning `errors: null, warnings: null` proves the code **compiled**.
+It does not prove the block now holds the code you meant to send. Verified 2026-09-09: a push of a
+67KB block came back clean and had silently dropped one blank line at a read-chunk boundary — valid
+JavaScript, so the compiler had nothing to say. Only a byte comparison caught it. Treat every push as
+unverified until you have pulled the source back down and compared it.
+
+**The protocol, per block:**
+
+1. **Before editing, prove deployed == disk.** Call `get_vibe_coding_block_code`, extract
+   `sourceCode`, and compare it byte-for-byte to your local mirror. If they differ, someone changed
+   the block in Studio since your last push — stop and reconcile; do not overwrite work you have not
+   seen. (Large results are persisted to a file by most clients rather than returned inline; compare
+   from that file with a script, never by eye.)
+2. Edit the local file. Run a parser and `no-undef` lint on it first — `node --check` does **not**
+   accept a `.jsx` extension, so use esbuild (`esbuild file.jsx --loader:.jsx=jsx --jsx=automatic
+   --log-level=error --outfile=/dev/null`) plus eslint with `@babel/eslint-parser`. The bugs that
+   actually bite Softr blocks are semantic — `useRecordUpdate({ select: … })` instead of `fields:`,
+   an invented identifier — and the push is the first thing that reports them.
+3. Push the **entire** file.
+4. **Fetch it back and compare again.** Identical, or you are not done: diff, fix, re-push.
+
+**Tolerate exactly one difference: the trailing newline.** Softr sometimes strips the file's final
+`\n` on save and sometimes keeps it — stripped on every push on 2026-09-09, kept on every push on
+2026-09-10, same app, same tools. A comparison that demands byte equality will report a phantom
+mismatch on some days; one that ignores *all* whitespace will miss the dropped-blank-line case above.
+Compare with the trailing newline normalised and nothing else.
+
+**One file, two blocks, two datasource pairs.** When the same source is deployed to two pages, the
+local file holds ONE page's `datasource.define()` pair. Push it as-is to that block; for the other,
+build the swapped text in a scratch location, push that, and verify each block against its own
+expectation (disk for the first, disk-with-swap for the second). Never save the swapped copy over
+the local mirror — the mirror records which page it belongs to, and the block's header comment
+records the other page's pair. Search-replace would avoid the swap altogether
+([above](#which-edit-tool-full-replace-vs-targeted-search-replace)) — when the client can send its
+array argument ([below](#the-array-argument-serialization-quirk-and-why-it-is-a-security-issue)).
+
+**Do not read a 100KB block into a model's context to push it.** The full-replace tool takes the
+whole file as a string parameter, so the source has to pass through whatever is making the call. A
+large multi-block deploy is safer farmed out one file per subagent — a fresh context per file means
+no compaction can land mid-file — and the byte comparison is what makes that delegation safe, not
+trust in the agent. The steps that need judgement are the *edit* and the *review of the diff*; the
+fetch, the compare and the push itself are mechanical, and can run on the cheapest tier available
+without lowering the bar, because a wrong result fails loudly rather than plausibly.
+
+**What a push also resets.** Every code push puts the block's derived Actions back on Softr's
+default permissions (see the next section for why that can be a security problem and how to verify
+the restoration). If page-level visibility is the access control in your app, record that decision
+so nobody chases the reset after every round; if it is not, re-tighten and read back.
+
 ### The array-argument serialization quirk, and why it is a security issue
 
 **Several tools on this server take an array argument, and some MCP clients serialize it as a JSON

@@ -185,7 +185,7 @@ softr-vibe-coding/
 │   │                                 # Scripting Extension, cross-table cascades,
 │   │                                 # batch update gotchas, field-ID discipline,
 │   │                                 # Airtable formulas
-│   ├── softr-mcp.md                  # Official Softr MCP server — vibe coding block
+│   ├── softr-mcp.md                  # Official Softr MCP server — vibe coding block (+ push verification protocol)
 │   │                                 # tools (create/edit/version/deploy), integrations
 │   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
 │   │                                 # Softr DB schema + record tools incl. deletes,
