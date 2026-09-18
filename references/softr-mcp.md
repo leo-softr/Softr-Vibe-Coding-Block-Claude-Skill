@@ -13,10 +13,10 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [What it covers](#what-it-covers)
 - [Connection and auth](#connection-and-auth)
 - [Permissions model](#permissions-model)
-- [Vibe coding block tools](#vibe-coding-block-tools)
+- [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints)
 - [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
-- [Application management tools](#application-management-tools)
+- [Application management tools](#application-management-tools) — incl. [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
 - [Softr Database tools](#softr-database-tools)
 - [Workflows](#workflows)
@@ -96,6 +96,23 @@ not name, so **each block keeps its own pair and the swap step disappears entire
 2026-09-09 across a report block deployed to two pages). It is also the safer option on large files:
 retransmitting ~100KB verbatim to change one class string is its own corruption risk.
 
+**Search-replace on a 100KB+ block — the working recipe (verified live 2026-09-18).** Sent a real
+array of `{ search, replace }` objects (not a JSON string — see
+[the array-argument rejection](#the-array-argument-rejection-and-why-it-is-a-security-issue)), the
+tool patches large blocks reliably, and nothing but the fragments passes through the model's
+context. Keep the local mirror in step mechanically rather than by hand:
+
+1. Prove deployed == disk first ([below](#verifying-a-push--the-deployed-source-is-the-only-proof)).
+2. Write the ops once, as data. Send them to the tool, and apply the **identical** ops to the local
+   mirror with a script that asserts each `search` occurs exactly once before replacing it.
+3. Several rounds of ops are fine — **byte-verify once at the end**: fetch `sourceCode`, compare to
+   the mirror, and a mismatch means an op landed differently on one side.
+
+One encoding trap: JSON `\uXXXX` escapes inside the ops are **decoded to the real characters** on
+Softr's side (`"—"` is stored as `—`). The mirror must therefore hold raw UTF-8 — apply the
+ops to it *after* JSON-decoding them, never as the escaped text, or the final byte comparison
+fails on every non-ASCII character.
+
 **Reach for the full replace when the change is structural** — reordering JSX, moving logic between
 components, adding a hook — where being sure of "the exact current text" of a dozen scattered fragments
 is harder than being sure of the whole file. Also use it when the local file is the source of truth and
@@ -121,7 +138,9 @@ unverified until you have pulled the source back down and compared it.
    --log-level=error --outfile=/dev/null`) plus eslint with `@babel/eslint-parser`. The bugs that
    actually bite Softr blocks are semantic — `useRecordUpdate({ select: … })` instead of `fields:`,
    an invented identifier — and the push is the first thing that reports them.
-3. Push the **entire** file.
+3. Push the **entire** file — or, for a targeted patch on a large block, send search-replace ops
+   and apply the identical ops to the mirror
+   ([recipe above](#which-edit-tool-full-replace-vs-targeted-search-replace)).
 4. **Fetch it back and compare again.** Identical, or you are not done: diff, fix, re-push.
 
 **Compare byte for byte, trailing newline included.** Softr stores exactly what it receives: across
@@ -140,7 +159,7 @@ expectation (disk for the first, disk-with-swap for the second). Never save the 
 the local mirror — the mirror records which page it belongs to, and the block's header comment
 records the other page's pair. Search-replace would avoid the swap altogether
 ([above](#which-edit-tool-full-replace-vs-targeted-search-replace)) — when the client can send its
-array argument ([below](#the-array-argument-serialization-quirk-and-why-it-is-a-security-issue)).
+array argument ([below](#the-array-argument-rejection-and-why-it-is-a-security-issue)).
 
 **Do not read a 100KB block into a model's context to push it.** The full-replace tool takes the
 whole file as a string parameter, so the source has to pass through whatever is making the call. A
@@ -211,10 +230,15 @@ one push left four ADD_RECORD actions open across two blocks.
    block the publish.** It is not your app, and the person whose app it is needs the finding and the
    severity, not a veto.
 
-   One caveat worth stating: page visibility and action permissions are *separate* gates, and whether
-   Softr enforces page VIEW on the action endpoint itself is unverified here. The reason to treat a
-   gated page as low-severity is the practical difficulty and low blast radius, not a proof that the
-   action is unreachable. Say that plainly rather than implying the action is safe.
+   One caveat worth stating: page visibility and action permissions are *separate* gates. Page VIEW
+   **is** enforced on the block's datasource **records** endpoint (verified live 2026-09-18 — a
+   viewer who cannot view the page gets a 403 whose message names "block/action visibility rules";
+   see [below](#what-the-server-enforces-on-a-blocks-data-endpoints)). The *action* (write) endpoint
+   was not exercised separately; the message wording suggests the same gate covers it, but that part
+   is inference. So the reason to treat a gated page as low-severity is still the practical
+   difficulty and low blast radius — and note that "gated to logged-in users" keeps out anonymous
+   visitors only: any logged-in user can view that page, and therefore reach its endpoints. Say that
+   plainly rather than implying the action is safe.
 
    **Calibration matters.** This guidance read "do not publish" in v2.5.1 and immediately fired at
    maximum severity on a logged-in-gated app where the real exposure was junk records. A warning that
@@ -227,6 +251,34 @@ block's data source connections. Restoring an older block version is not a subst
 reverts the code along with the permissions, undoing the change you just pushed.
 
 Both edit paths recompile, so both reset Action permissions either way (Hard Constraint 21).
+
+### What the server enforces on a block's data endpoints
+
+*Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
+captured from the app iframe).* A block's data lives behind per-connection endpoints —
+`/blocks/<blockId>/datasources/<dataSourceId>/records` for lists, `/records/<id>` for one record —
+and these are the gates that actually exist on them:
+
+| Gate | Enforced server-side? |
+|---|---|
+| **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
+| **The connection's Source conditions** (Source tab / `set_vibe_coding_block_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate** |
+| A `where` filter in the block's code | No — it is a request parameter the caller controls |
+| Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
+
+The consequence to design around: **on a page any logged-in user may view, every datasource
+connected to its blocks is readable by any logged-in user who crafts the request** — all rows the
+Source conditions allow, all fields the block's read selects name. A per-record access check in
+React ("is this viewer a party to this record?") shapes the UI; it is not access control. When rows
+must be private per user, put it in the Source conditions (e.g. a logged-in-user condition) or on a
+page only the right group can view. When a field must be private, a second connection of the table
+keeps it out of every ordinary browser's payload — but not away from a crafted request by someone
+who may view the page; for that it has to live on a page (or in a group-gated block) the viewer
+cannot see. (The verified 403 case was page VIEW; the message's "block/action visibility rules"
+wording suggests block visibility is checked the same way, which is inference.)
+
+This is also what makes the open-`ADD_RECORD` finding above severity-dependent on the page's VIEW
+permission rather than uniformly critical.
 
 ## Adopting Studio-AI-generated code
 
@@ -267,6 +319,37 @@ Combined with the database tools (`create_database` / `create_table` / `create_f
 **Etiquette from the server's own instructions:** after changing a block, link the page as `https://studio.softr.io/applications/{applicationId}/pages/{pageId}`; offer `preview_app` or `publish_app`, but **only publish when the user asks**.
 
 > **preview_app links are auth tokens.** Per the server's own instructions, a preview link **signs its opener in as the user who requested it** and lasts about a day. Give it only to that user, and mint a fresh one with another `preview_app` call rather than re-sending an old link. Never paste a preview link into a shared channel.
+
+### Testing as any app user without logins — the "Preview as" switcher
+
+*Verified live 2026-09-18.* The `preview_app` link does not open the app directly: it opens a
+**toolbar shell** with a **"Preview as" user switcher**, and runs the draft app in an **iframe**
+whose URL carries `?autoUser=true`. That is a complete role-testing rig — every user group, no
+passwords, no test accounts to create:
+
+- The switcher is a **Choices.js** select listing the app's users. Picking one raises a
+  confirmation modal ("Ok, I understand"); after confirming, the app runs as that user, and the
+  choice persists per browser.
+- **With the Browser pane visible**, click through it like a person would.
+- **With the pane hidden, drive it by script** in the shell page: dispatch `mouseover` then
+  `mousedown` on `.choices__item--choice[data-value="<email>"]` (Choices.js acts on
+  `mousedown`, not `click`), then click
+  `#userConfirmationModal button.submit-btn`.
+- **To see what a block really sends and receives**, set `iframe.src` to the page under test and
+  wrap `iframe.contentWindow.fetch` immediately afterwards, recording each request body and
+  response. This is how the union-of-selects, `pageContext: null` and `enabled: false` findings in
+  [../datasources/](../datasources/) were established — read the wire, not the rendered UI.
+- Blocks render in shadow roots inside that iframe: read the DOM through
+  `iframe.contentDocument` and each block host's `shadowRoot`, not `document.querySelector`.
+
+> **The preview is wired to the LIVE datasource.** Anything clicked there — a Save, a status
+> change, a form submit — writes real records, as the previewed user. Keep preview sessions to
+> read-only checks unless the record is a marked test record, and never run a write path "just to
+> see" against client data.
+
+Limits: a page gated to a user group nobody belongs to cannot be previewed until someone is in the
+group, and these selectors are Softr's shell internals — observed, not documented, so re-inspect
+the shell if a selector stops matching rather than assuming the feature is gone.
 
 ## Browsing integrations (external data sources)
 

@@ -64,6 +64,97 @@ var ds = datasource.define({ people: "74d2cbfd-…" });
 The error text is explicit, so this one fails fast rather than silently — but it's an easy
 reflex to hoist "magic strings" into named constants, and that reflex is wrong here.
 
+## `select:` must be a plain module-scope identifier
+
+*Verified live 2026-09-18 (Softr Database; probe block + network capture in a draft preview).*
+
+With more than one connection, Softr has to attribute every `q.select` to the connection it is
+used with. The observed behaviour says it does that statically, from the identifier you pass as
+`select:` (the mechanism is inferred; the outcome below is what was captured). An expression
+breaks the attribution:
+
+```jsx
+// WRONG — compiles, runs, and the query returns records with `fields: {}`. No error.
+var order = useRecord({ from: ds.orders, select: isAdmin ? adminSelect : publicSelect, recordId: id });
+
+// CORRECT — one module-scope identifier per hook
+var orderSelect = q.select({ title: "FIELD_ID1", status: "FIELD_ID2" });
+var order = useRecord({ from: ds.orders, select: orderSelect, recordId: id });
+```
+
+Treat an inline `q.select({...})` written inside the hook options the same way: hoist it to
+module scope and pass the identifier (the pattern at the top of this file already does). The
+same goes for a mutation hook's `fields:`.
+
+In a **single-datasource** block the same ternary *works* — there is nothing to attribute — but
+it behaves as a **union** of both branches, not a choice between them. Which is the next rule.
+
+## One connection = one read payload (the union of its selects)
+
+*Verified live 2026-09-18.*
+
+The records endpoint is per block + connection —
+`/blocks/<blockId>/datasources/<dataSourceId>/records` — and it returns the **UNION of every field
+named by any READ `q.select` attributed to that connection**. Two selects on one connection do
+NOT produce two payloads: every read hook on that connection gets all the fields, for every
+viewer.
+
+**So "request the private field only for admins" is not privacy.** A second select, or a ternary
+between a public and an admin select, still ships the private field to every browser that loads
+the block — it is simply not rendered. Anyone can read it in the network tab.
+
+What does *not* join the union: a mutation hook's `fields:` select. Write-only fields stay out of
+the read payload.
+
+**Remedy.** Connect the **same table a second time** — Softr allows it, and the second connection
+gets its own `dataSourceId` — and read the private field only through that connection, from a
+hook that non-privileged browsers never run:
+
+```jsx
+var ds = datasource.define({
+  orders: "11111111-…",        // everyone: public fields only
+  ordersAdmin: "22222222-…",   // same table, second connection: the private fields
+});
+
+var orderSelect = q.select({ title: "FIELD_ID1", status: "FIELD_ID2" });
+var orderAdminSelect = q.select({ internalNotes: "FIELD_ID9" });
+
+// Mounted by Block() ONLY when the viewer is an admin — so a non-admin browser never
+// issues the request. (`useRecord` honours `enabled: false`; `useRecords` does NOT —
+// see reading.md — which is why the gate is the mount, not an option.)
+function AdminNotes({ recordId }) {
+  var admin = useRecord({ from: ds.ordersAdmin, select: orderAdminSelect, recordId: recordId, enabled: !!recordId });
+  // …
+}
+```
+
+Or put the private field in a separate block whose visibility is group-gated.
+
+Know what this buys you. Not *rendering* the hook keeps the field out of ordinary browsers, but
+the endpoint still exists: page VIEW permission is enforced on it (a viewer who cannot view the
+page gets a 403), yet on a page any logged-in user may view, **every connected datasource is
+readable by any logged-in user who crafts the request**. A connection's **Source conditions are
+the only server-side ROW gate**; the only server-side gate on the *field* is a page or block the
+viewer cannot see. See [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
+
+Alias → field attribution is per connection, so two selects on different connections may reuse
+an alias name (`customer` on both) without colliding — including in `where` filters.
+
+## Mutation Actions register per TABLE, not per connection
+
+*Verified live 2026-09-18.*
+
+The second connection above is for **reads**. Actions are filed per table:
+
+- Several `useRecordUpdate` hooks on one table merge into **ONE `UPDATE_RECORD` action** whose
+  field list is the union of their `fields:` selects.
+- A hook pointed at the *second* connection of a table (`from: ds.ordersAdmin`) was still filed
+  under the **first** connection's `dataSourceId`.
+
+So **point every write at the table's first connection**, and expect one action per table and
+operation in `get_vibe_coding_block_settings` / the Actions tab — that is the row you re-tighten
+after each push. Details in [writing.md](writing.md#actions-register-per-table-not-per-hook-or-connection).
+
 ## Getting the datasource ids — ask for CODE, never for a value
 
 The id is a plain **UUID**. It is *not* the underlying table id (`tbl…` in Airtable), and not

@@ -82,11 +82,12 @@ useRecords({
 ## Single Record (detail pages)
 
 ```jsx
-var recordId = useCurrentRecordId();
-var result = useRecord({ recordId: recordId, select: select });
+var recordId = useCurrentRecordId();   // the URL's recordId — can be null
+var result = useRecord({ recordId: recordId, select: select, enabled: !!recordId });
+var record = result.data && result.data.id === recordId ? result.data : null;
 ```
 
-`recordId` may be omitted when the block's Studio data binding supplies the record context (verified by deployed block, July 2026) — see [reading.md](../datasources/reading.md#userecord----fetch-a-single-record).
+There is **no detail-page auto-scoping** (verified live 2026-09-18): `useRecords({ count: 1 })` returns the table's FIRST row, and a null-id `useRecord` falls back to a list call — hence `enabled: !!recordId` (honoured by `useRecord`; **ignored by `useRecords`**) and the `data.id` check. The older "recordId may be omitted when Studio supplies the record context" note is qualified in [reading.md](../datasources/reading.md#userecord----fetch-a-single-record).
 
 ## Current User
 

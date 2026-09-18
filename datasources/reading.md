@@ -5,11 +5,11 @@ Fetching, filtering, sorting, pagination, metrics, charts, and current user.
 ## Table of Contents
 
 - [Query Builder](#query-builder)
-- [useRecords -- Fetch a Paginated List](#userecords----fetch-a-paginated-list)
-- [useRecord -- Fetch a Single Record](#userecord----fetch-a-single-record)
+- [useRecords -- Fetch a Paginated List](#userecords----fetch-a-paginated-list) — incl. [`enabled: false` is ignored](#userecords-ignores-enabled-false)
+- [useRecord -- Fetch a Single Record](#userecord----fetch-a-single-record) — the detail-page pattern; no auto-scoping
 - [useLinkedRecords -- Fetch Linked/Related Options](#uselinkedrecords----fetch-linkedrelated-options)
 - [useFieldOptions -- Fetch Single/Multi-Select Choices](#usefieldoptions----fetch-singlemulti-select-choices)
-- [Filtering](#filtering)
+- [Filtering](#filtering) — incl. [server-side linked-record filters](#filtering-by-a-linked-record-server-side)
 - [Sorting](#sorting)
 - [Current User](#current-user)
 - [Metrics](#metrics)
@@ -29,6 +29,15 @@ var select = q.select({
 });
 ```
 
+**Declare every `q.select` at module scope and pass it by identifier** (verified live 2026-09-18).
+In a multi-datasource block a `select:` that is a ternary (`select: a ? X : Y`) cannot be
+attributed to a connection and the query returns `fields: {}` with no error; treat an inline
+`q.select({...})` inside hook options the same way and hoist it. And a connection's read payload
+is the **union** of every read select on it — a second or conditional select never narrows what
+the browser receives, so it is not a privacy tool. Both rules, with the remedy, in
+[multi-datasource.md](multi-datasource.md#select-must-be-a-plain-module-scope-identifier).
+(The short inline `q.select` snippets below are single-datasource illustrations.)
+
 ## useRecords -- Fetch a Paginated List
 
 ```jsx
@@ -39,7 +48,7 @@ var result = useRecords({
   count: 6,           // records per page (default 6, max 100)
   where: q.text("name").contains("Alice"),  // optional filter
   orderBy: q.desc("createdAt"),             // optional sort
-  enabled: true,                            // optional, defer loading
+  enabled: true,                            // accepted, but `false` is IGNORED — see below
 });
 
 var data = result.data;
@@ -66,6 +75,33 @@ objects.
 
 A block can connect to **several data sources** and call `useRecords` once per source — declare them with `datasource.define()` and pass `from:` on every hook. See [multi-datasource.md](multi-datasource.md). (This replaces the old one-table-per-block limit; blocks no longer need an invisible helper block just to read a second table.)
 
+### `useRecords` ignores `enabled: false`
+
+*Verified live 2026-09-18 (network capture).* `useRecords({ ..., enabled: false })` **fetches
+anyway** — with a literal `false` and with a variable alike. `useRecord` is different: it honours
+`enabled: false` and issues no request. (`useLinkedRecords`, `useMetric` and `useChartData` were
+not probed — don't assume either behaviour for them.)
+
+So `enabled` cannot make a list query conditional, and it cannot keep a query away from viewers
+who should not run it. Two things that do work:
+
+```jsx
+// 1. Gate by MOUNT — put the hook in a child component and render it only when needed.
+function CommentsSection({ orderId }) {
+  var comments = useRecords({ from: ds.comments, select: commentSelect, count: 50,
+    where: q.array("order").hasAllOf([orderId]) });
+  // …
+}
+// in Block():  {canSeeComments && <CommentsSection orderId={recordId} />}
+
+// 2. Keep the hook mounted but give it a match-nothing `where` until it should load.
+var rows = useRecords({ select: select, count: 50,
+  where: q.text("email").is(email || "__no_match__") });
+```
+
+Option 1 is the only one that sends no request at all; option 2 still calls the endpoint and gets
+zero rows back. Remember the child must be defined at **module scope** (SKILL.md Self-validate).
+
 ### Loading All Records (Auto-Pagination)
 
 ```jsx
@@ -85,14 +121,45 @@ useEffect(function() {
 ```jsx
 import { useRecord, useCurrentRecordId, q } from "@/lib/datasource";
 
-var recordId = useCurrentRecordId(); // resolves from URL context, can be null
+var detailSelect = q.select({ title: "FIELD_ID1", description: "FIELD_ID2" });
+
+var recordId = useCurrentRecordId(); // the URL's `recordId` param — can be null
 var result = useRecord({
-  select: q.select({ title: "FIELD_ID1", description: "FIELD_ID2" }),
+  select: detailSelect,
   recordId: recordId,
+  enabled: !!recordId,               // honoured by useRecord: no id → no request
 });
+
+var record = result.data && result.data.id === recordId ? result.data : null; // trust only a matching id
 ```
 
-**`recordId` can be omitted when Softr Studio supplies the record context.** `useRecord({ select })` with no `recordId` loads the record the block is bound to via its data-source binding in Studio — verified by deployed block, July 2026 (an Airtable-backed stats block rendered live values this way). Keep `useCurrentRecordId()` + explicit `recordId` as the pattern for URL-driven detail pages (`/page?recordId=...`). When editing an existing **working** block that already omits `recordId`, leave the call shape as-is: adding an explicit `recordId` from `useCurrentRecordId()` can change behavior on pages whose URL carries no `recordId` param. Corollary for reviews: a recordId-less `useRecord` is NOT by itself a defect — check whether the block is deployed and loading data before flagging it.
+**There is NO detail-page auto-scoping (verified live 2026-09-18, Softr Database, network
+capture).** The runtime sends `pageContext: null` with the block's data requests — nothing tells
+the server which record the page is "about". Consequences:
+
+- `useRecords({ count: 1 })` on a detail page returns the **FIRST row of the table**, not the
+  URL's record. It looks right on the first record you test and wrong on every other.
+- `useCurrentRecordId()` **does** return the URL's `recordId`, and
+  `useRecord({ from, select, recordId })` fetches exactly that record (it hits `/records/<id>`).
+  That is the detail-page pattern — the only one.
+- `useRecord` with a **null / missing id falls back to a list call** and hands back whatever that
+  returns. So always pass `enabled: !!recordId` (`useRecord` honours `enabled: false` — no
+  request is made) and verify `data.id === recordId` before rendering or, worse, writing.
+
+**A recordId-less `useRecord` — what the older note here meant, and its limits.** This file used
+to say that `useRecord({ select })` with no `recordId` "loads the record the block is bound to
+via its data-source binding in Studio" (seen on one deployed Airtable-backed stats block, July
+2026, which rendered live values that way). Read that in the light of the capture above: no
+record context is sent, and a null-id `useRecord` falls back to a list call — so the likeliest
+explanation of the July block is that it was showing the list fallback's row, which is the
+"right" record only when the connection's Source conditions/sort leave exactly that row first.
+(That reading is an inference: the Airtable block was not re-probed, and the 2026-09-18 capture
+was on Softr Database.) Either way it is not a binding you can rely on, and never the way to
+build a detail page. The review corollary
+survives in a narrower form: a recordId-less `useRecord` in a **working, deployed** block is not
+by itself proof of a defect — check what it actually loads (and for which viewers) before
+flagging it, and when editing such a block, know that adding an explicit `recordId` changes what
+it loads on pages whose URL carries no `recordId` param.
 
 ## useLinkedRecords -- Fetch Linked/Related Options
 
@@ -187,6 +254,39 @@ where: q.and(
     q.text("notes").isNotEmpty()
   )
 )
+```
+
+### Filtering by a linked record (server-side)
+
+*Verified live 2026-09-18 (Softr Database, network capture).* A linked-record field filters on
+the server with the array builder and the linked record's id — no need to load the whole child
+table and filter client-side:
+
+```jsx
+var commentSelect = q.select({ order: "LINK_FIELD_ID", body: "FIELD_ID2" });
+
+var comments = useRecords({
+  from: ds.comments,
+  select: commentSelect,
+  count: 50,
+  where: q.array("order").hasAllOf([orderId]),   // "order" = the link field's ALIAS
+});
+```
+
+On the wire the alias is resolved to the field id:
+`{ subject: <fieldId>, type: "ARRAY", operator: "HAS_ALL_OF", value: [orderId] }`. Alias → field
+attribution is **per datasource**, so two selects on different connections may use the same alias
+name for different fields and each filter still resolves against its own connection.
+
+`orderId` must be a real id when the hook runs — `useRecords` cannot be switched off with
+`enabled: false` ([above](#userecords-ignores-enabled-false)), so mount this query in a child
+component that only renders once the parent record has loaded.
+
+**Reading the link back:** a linked field can arrive as a **single `{ id, label }` object**, not
+only as an array of them. Normalise before you `.map()` or compare ids:
+
+```jsx
+var links = Array.isArray(v) ? v : (v ? [v] : []);
 ```
 
 ## Sorting

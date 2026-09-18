@@ -31,6 +31,29 @@ implication: do the Actions-tab tightening pass only AFTER the last redeploy of 
 re-check every tightened block after any future redeploy. Hit across a 15-block production
 deployment; treat it as standing platform behavior, not a one-off.
 
+### Actions register per TABLE, not per hook or connection
+
+*Verified live 2026-09-18 (Softr Database; probe block + network capture in a draft preview).*
+
+- **Several `useRecordUpdate` hooks on one table merge into ONE `UPDATE_RECORD` action** whose
+  field list is the UNION of all their `fields:` selects. Splitting a table's writes across hooks
+  ("one hook for the status, one for the admin-only fields") does not produce separately
+  permissionable actions — there is one action, and one visibility setting, per table and operation.
+  (What follows from that, deduced rather than separately tested: two user groups needing
+  different write rights on the same table cannot be expressed inside one block — use a second,
+  group-gated block, or a Softr Workflow that does the privileged write.)
+- **When the same table is connected twice** (the private-field pattern in
+  [multi-datasource.md](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)),
+  a mutation hook pointed at the SECOND connection was still filed under the FIRST connection's
+  `dataSourceId`. **Point writes at the table's first connection** and keep the second one
+  read-only, so the code says what the platform does.
+- A mutation hook's `fields:` select does **not** join the connection's read union — write-only
+  fields are not shipped to the browser by the records endpoint.
+
+Practical upshot for the post-push permission pass (see
+[softr-mcp.md](../references/softr-mcp.md#the-array-argument-rejection-and-why-it-is-a-security-issue)):
+expect one row per table + operation, and re-tighten that row.
+
 The `enabled` boolean on a mutation hook is a combined signal — it's `true` only when BOTH conditions are met:
 
 1. **The Action was successfully derived from the code** (parser side). Causes of failure here:

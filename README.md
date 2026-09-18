@@ -169,7 +169,7 @@ Create a contact form that creates records in our Airtable Contacts table
 softr-vibe-coding/
 ├── SKILL.md                          # Main skill
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 21 hard constraints
+│                                     # components, settings, 27 hard constraints
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
@@ -191,7 +191,10 @@ softr-vibe-coding/
 │   │                                 # Softr DB schema + record tools incl. deletes,
 │   │                                 # app management/scaffolding, Workflows suite
 │   │                                 # (26 tools, 418-node catalog), per-application
-│   │                                 # MCP servers, auth, permissions
+│   │                                 # MCP servers, auth, permissions; what the server
+│   │                                 # enforces on block data endpoints, "Preview as"
+│   │                                 # role testing, search-replace on 100KB+ blocks
+│   │                                 # (Sep 18 2026)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -239,9 +242,14 @@ softr-vibe-coding/
     ├── overview.md                   # Comparison matrix, selection guide
     ├── shared-patterns.md            # Index → multi-datasource, reading, writing, fields
     ├── multi-datasource.md           # Several data sources in ONE block: datasource.define(),
-    │                                 #   the from: parameter, getting the datasource UUIDs
+    │                                 #   the from: parameter, getting the datasource UUIDs,
+    │                                 #   select: as a module-scope identifier, the union-of-
+    │                                 #   selects read payload (a conditional select is not
+    │                                 #   privacy), Actions per table (Sep 18 2026)
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
-    │                                 # metrics, charts, current user
+    │                                 # metrics, charts, current user; no detail-page
+    │                                 # auto-scoping, useRecords ignores enabled:false,
+    │                                 # server-side linked-record filters (Sep 18 2026)
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes
     ├── fields.md                     # getFieldValue(), field type shapes, record

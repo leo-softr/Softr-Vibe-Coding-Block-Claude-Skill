@@ -69,6 +69,10 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
 
 6. **Self-validate before delivering.** Before presenting the code as complete, verify. (Data-hook items apply only to data-connected blocks; static marketing blocks swap in the checklist deltas from [references/static-blocks.md](references/static-blocks.md#workflow-deltas).)
    - Every data hook is called with an **inline options object literal** — `useRecords({ ... })` written through a variable or wrapper function fails to compile (verified live 2026-08-25). Share `q.select` mappings between hooks, never whole options objects
+   - Multi-datasource block: every `select:` / `fields:` value is a **plain module-scope identifier** — no ternary, no inline `q.select({...})` inside the hook options (the query returns `fields: {}`; Hard Constraint 24)
+   - Detail page: the record is fetched with `useRecord({ select, recordId, enabled: !!recordId })` using `useCurrentRecordId()`, and the code checks `data.id === recordId` before rendering — never `useRecords({ count: 1 })`, which returns the table's FIRST row (Hard Constraint 25)
+   - No list query relies on `enabled: false` — `useRecords` fetches anyway; conditional list queries live in a child component mounted only when needed, or carry a match-nothing `where` (Hard Constraint 26)
+   - No field is "hidden" from some viewers by a conditional / second `select` on the same connection — the browser receives the union of every read select on that connection (Hard Constraint 23)
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
    - Container + content wrappers present (`<div className="container py-0"><div className="content">`) — OR a deliberate full-bleed layout recorded in the `// BLOCK PLACEMENT:` comment (see "Block Placement & Page Spacing")
@@ -556,7 +560,7 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     restore worked. Softr's default for a `genericActions` ADD_RECORD is `ALL_USERS`, i.e. writable by
     logged-OUT visitors, and the MCP call that re-tightens it (`set_vibe_coding_block_action_visibility`)
     can itself fail with no fallback (see the array-argument quirk in
-    [references/softr-mcp.md](references/softr-mcp.md#the-array-argument-serialization-quirk-and-why-it-is-a-security-issue)).
+    [references/softr-mcp.md](references/softr-mcp.md#the-array-argument-rejection-and-why-it-is-a-security-issue)).
     A push that returns `errors: null` can still have left public write access on the block.
     **If any action is still `ALL_USERS`, report it WITH its severity and let the builder decide.**
     Check the page's own VIEW permission first (`get_page_permissions`): a page gated to logged-in
@@ -574,6 +578,31 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     are shared, and promise nothing beyond them (the class strings usually differ in layout and padding,
     and do not need to match). The same rule governs repeated page chrome -- see **Block Placement &
     Page Spacing**.
+23. **One connection = one read payload; a conditional select is not privacy** -- the records
+    endpoint is per block + connection and returns the UNION of every field named by any READ
+    `q.select` on that connection, to every viewer. A second or ternary select "only for admins"
+    hides nothing. Put a private field on a **second connection of the same table** (allowed) read
+    only by a hook non-privileged browsers never run, or in a group-gated block. Page VIEW permission
+    is enforced on these endpoints, but on a page any logged-in user may view, every connected
+    datasource is readable by any logged-in user who crafts the request -- Source conditions are the
+    only server-side ROW gate. Verified live 2026-09-18. See
+    [datasources/multi-datasource.md](datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects).
+24. **Multi-datasource: `select:` is a plain module-scope identifier** -- a ternary
+    (`select: a ? X : Y`) cannot be attributed to a connection and the query returns `fields: {}`, no
+    error. Treat an inline `q.select({...})` inside hook options the same way: hoist it. Verified
+    live 2026-09-18.
+25. **No detail-page auto-scoping** -- the runtime sends `pageContext: null`;
+    `useRecords({ count: 1 })` returns the table's FIRST row, not the URL's record. Fetch detail
+    records with `useRecord({ select, recordId, enabled: !!recordId })` (`useCurrentRecordId()` does
+    return the URL's `recordId`) and verify `data.id === recordId` -- a null id falls back to a list
+    call. Verified live 2026-09-18. See [datasources/reading.md](datasources/reading.md#userecord----fetch-a-single-record).
+26. **`useRecords` ignores `enabled: false`** -- literal or variable, it fetches anyway. `useRecord`
+    honours it. Make a list query conditional by mounting it in a child component only when needed,
+    or with a match-nothing `where`. Verified live 2026-09-18.
+27. **Mutation Actions register per TABLE, not per connection** -- several `useRecordUpdate` hooks on
+    one table merge into ONE UPDATE_RECORD action (field list = the union), filed under the table's
+    FIRST connection even when a hook points at a second one. Point writes at the first connection.
+    Verified live 2026-09-18. See [datasources/writing.md](datasources/writing.md#actions-register-per-table-not-per-hook-or-connection).
 
 ## Style Conventions
 
