@@ -169,7 +169,7 @@ Create a contact form that creates records in our Airtable Contacts table
 softr-vibe-coding/
 ├── SKILL.md                          # Main skill
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 27 hard constraints
+│                                     # components, settings, 28 hard constraints
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
@@ -223,6 +223,13 @@ softr-vibe-coding/
 │   │                                 # MCP/CLI install (@latest npx + browser step),
 │   │                                 # extract → poll → findings → generate → write
 │   │                                 # flow, DESIGN.md anatomy, drift QA
+│   ├── printing.md                   # Printing from a block: ALWAYS a new window
+│   │                                 # with its own document (never window.print()
+│   │                                 # on the page, never an in-page print view) —
+│   │                                 # escaped HTML builder, pop-up-safe open from
+│   │                                 # the click, print once stylesheets, fonts and
+│   │                                 # images load, ?print=1 deep link, paper layout
+│   │                                 # (Sep 30 2026)
 │   ├── quick-reference.md            # Syntax cheat sheet
 │   │                                 # Imports, hook signatures, mutation shapes,
 │   │                                 # field mapping, component skeleton

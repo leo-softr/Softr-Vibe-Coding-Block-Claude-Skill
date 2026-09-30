@@ -91,6 +91,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - No hardcoded domains in links -- use relative paths (`/page?recordId=...`); same-page anchors written relative too (`/#section`)
    - **No `<select>` and no shadcn `<Select>`** — both break inside a block's shadow DOM (native hands the list to the OS; shadcn portals outside the shadow root and arrives unstyled). Use the `Combo` pattern in [references/searchable-dropdown.md](references/searchable-dropdown.md) — **searchable by default** for every framed filter or form field whatever the option count; `bare` inline editors are click-only; `searchable={false}` only on a short fixed enum the user is setting (a status, a location, a group-by)
    - No clipping class (`overflow-hidden`, `overflow-*-auto`, `truncate`, `line-clamp-*`) on any element that contains a `Combo` — its panel is absolutely positioned in local DOM, so a clipping `<td>` cuts the menu to the row's height; bound an over-wide chip at the chip (`min-w-0 truncate`), and never `scrollIntoView` inside the panel. See [references/searchable-dropdown.md](references/searchable-dropdown.md#the-four-things-that-will-bite-you), item 4
+   - Any **Print** control opens a **new window with its own document** — `window.open` straight from the click, an escaped standalone HTML printout written into it, `print()` once its stylesheets, fonts and images are in, the button disabled until the data has fully loaded. No `window.print()` on the Softr page, no in-page print view (Hard Constraint 28). See [references/printing.md](references/printing.md)
    - Static block: no hardcoded user-visible copy — every string/image/link is an editable setting (see [references/editable-settings.md](references/editable-settings.md#granularity-doctrine-settings-first-static-blocks))
    - Array-setting rows keyed by **index**, never by a builder-editable field value
    - Media settings that may start empty (`src: ""`) gated with a conditional render or placeholder — never an unconditional `<img src={setting.src}>`
@@ -175,6 +176,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Debugging a broken block, checking patterns before delivery, full violation catalog | [references/anti-patterns.md](references/anti-patterns.md) |
 | Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
 | Any **dropdown / picker / combobox** in a block — why shadcn `<Select>` and native `<select>` both fail inside the shadow DOM, the `composedPath()` click-outside, sorting A→Z inside the component, multi-token filtering, **searchable by default** regardless of option count (`bare` inline editors click-only; `searchable={false}` only for a short fixed enum being set), the `bare` inline-editor variant | [references/searchable-dropdown.md](references/searchable-dropdown.md) |
+| **Printing** anything from a block — always a new window/tab holding its own document, never `window.print()` on the page or an in-page print view: the escaped HTML builder, pop-up-safe opening from the click, print-when-ready (stylesheets, fonts and images, capped), Print disabled until the data has loaded, the `?print=1` deep link from another page, paper layout (shared `<colgroup>`, `vertical-align: middle`, tick boxes) | [references/printing.md](references/printing.md) |
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 | The official **Softr MCP server** — Softr DB schema + full record/table/field/database CRUD (deletes included), field-level browsing of connected Airtable / Google Sheets / Notion / Supabase integrations, **creating, editing, versioning, and deploying Vibe Coding blocks directly** (`get_vibe_coding_docs`, `create_vibe_coding_block`, ...), app management/scaffolding, the **Softr Workflows** suite (26 tools, 418-node catalog), and **per-application MCP servers** | [references/softr-mcp.md](references/softr-mcp.md) |
@@ -604,6 +606,14 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     one table merge into ONE UPDATE_RECORD action (field list = the union), filed under the table's
     FIRST connection even when a hook points at a second one. Point writes at the first connection.
     Verified live 2026-09-18. See [datasources/writing.md](datasources/writing.md#actions-register-per-table-not-per-hook-or-connection).
+28. **Print in a new window, never on the page [house]** -- A Print control opens a new window
+    (`window.open("", "_blank", …)`, synchronously in the click handler; a toast if it returns
+    `null`) and writes a standalone, escaped HTML printout into it, printed once its stylesheets,
+    fonts and images are in. Never `window.print()` on the Softr page: a block is page content in
+    a shadow root, so the page prints Softr's header, footer and every sibling block, and hiding
+    them takes global CSS across Softr's page structure as well as print CSS in the block. Never
+    an in-page "print view" either (Leo rejected it by name). Verified live 2026-09-30. See
+    [references/printing.md](references/printing.md).
 
 ## Style Conventions
 
