@@ -197,8 +197,15 @@ shapes, different payload type. The stringification happened on the client side,
 calls made while the tool definitions had not been loaded into the model's context (deferred
 schemas), so there was no type to serialise against. **Load the tool's schema before calling it,
 and pass arrays as arrays.** (Empty schemas are real on Softr's *per-application* MCP servers —
-every tool there is advertised as `{"type":"object"}` with a name-only description — but the
-workspace server is not affected.)
+every tool there is advertised as `{"type":"object"}` with a name-only description.)
+
+**Correction, 2026-09-30: the workspace server's tools can arrive schema-less too.** In one
+session every workspace tool loaded through ToolSearch showed only `{"type":"object"}` with a
+name-only description, and a `search_replace` call written with a real array was still sent as a
+string and rejected with the error above. Nothing was written, so the failure is safe, but no
+amount of care on the caller's side gets an array through a schema-less tool. Look at the
+loaded schema before relying on an array argument: if it has no `properties`, go straight to the
+fallback in the table — a full replace, one file per subagent for a large block, byte-verified.
 
 **Why the second row is a security problem, not an inconvenience.** Every code push resets the
 block's auto-registered Actions to Softr's defaults, and the default for a `genericActions`

@@ -154,6 +154,18 @@ shadow root, checked in Chromium on 2026-09-30 on a test page — not yet in a d
 Rule 2 does not rescue a clipped cell. The cell is the height of its row, so neither side has
 room, the list falls to its 120px floor and is clipped anyway. Rule 1 is not optional.
 
+**The same box decides which edge the panel hangs from.** A panel hung from the trigger's left
+edge with `width: max-content` runs past the right edge of a table's scroll box when the trigger
+sits in the last column. In ROSIE the Location menu ran about 15px over, and the old
+`scrollIntoView` then slid the whole table sideways to reveal it. Measure the box's left and right
+edges as well (padding box, tested on `overflowX`), and when the room to the right of the trigger
+is short (under ~300px) and there is more to the left, anchor the panel with `right: 0` instead of
+`left: 0` and cap its `maxWidth` to the room on that side. Rows are a fixed height in this
+component, so the fit test can also count the real rows instead of assuming a full list, and a
+four-option menu near an edge stops flipping for room it will never use. ROSIE's
+`Shared/combo.jsx` (2026-09-30) is the worked version: one `comboClipBox` returning all four
+edges, one `comboPlacement` returning `{ up, right, listMax, maxW }`, deployed in twelve blocks.
+
 **Rule 3 — keep the active row visible by scrolling the list, never with `scrollIntoView`.**
 `scrollIntoView` scrolls *every* scrollable ancestor until the element shows, and an
 `overflow: hidden` box is still scrollable from script. In a clipped cell it scrolls the
