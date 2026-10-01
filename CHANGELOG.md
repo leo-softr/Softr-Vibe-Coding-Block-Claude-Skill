@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.11.1] - 2026-10-01
+- Correct four 2.11.0 statements after an independent fact-check of the transcripts
+
 ## [2.11.0] - 2026-10-01
 - Track Softr's 2026-10-01 MCP release: renamed tools, sourceSha256 push checks, stub-tool root cause
 
