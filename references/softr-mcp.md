@@ -293,6 +293,8 @@ definition says, check that `sourceCode` came back `null`.
    result to a file rather than returning it inline, so compare from that file with a script, never
    by eye.
 
+Matching hashes prove what Softr stored, not how the block behaves: for that, check it in a fresh preview with saves blocked, per [browser-checks.md](browser-checks.md).
+
 **Hash the exact bytes, trailing newline included.** Softr stores exactly what it receives: across
 112 push→fetch pairs between 2026-09-09 and 2026-09-30 the fetched
 `sourceCode` was byte- and MD5-identical to the text sent, including two pushes sent *without* a

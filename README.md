@@ -197,6 +197,12 @@ softr-vibe-coding/
 │   │                                 # (Sep 18 2026); Oct 1 2026: tool rename map,
 │   │                                 # push verification by sourceSha256, stub tools
 │   │                                 # after a resume, update_field/update_table fixes
+│   ├── browser-checks.md             # Checking a pushed block in a browser with
+│   │                                 # the agent-browser CLI (ask before installing):
+│   │                                 # preview cookie, shadow-DOM refs grepped in the
+│   │                                 # shell, eval measurements, the records-trigger
+│   │                                 # write guard proven before any click, what a
+│   │                                 # click sent, screenshots to disk (Oct 1 2026)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
