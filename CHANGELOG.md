@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.11.0] - 2026-10-01
+- Track Softr's 2026-10-01 MCP release: renamed tools, sourceSha256 push checks, stub-tool root cause
+
 ## [2.10.0] - 2026-09-30
 - Add the print-in-a-new-window rule and references/printing.md (verified live 2026-09-30)
 - Add right-edge placement and the schema-less workspace-tool correction (2026-09-30)
