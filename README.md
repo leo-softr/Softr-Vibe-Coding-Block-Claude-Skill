@@ -195,8 +195,8 @@ softr-vibe-coding/
 │   │                                 # enforces on block data endpoints, "Preview as"
 │   │                                 # role testing, search-replace on 100KB+ blocks
 │   │                                 # (Sep 18 2026); Oct 1 2026: tool rename map,
-│   │                                 # push verification by sourceSha256, stub-tool
-│   │                                 # root cause, update_field/update_table fixes
+│   │                                 # push verification by sourceSha256, stub tools
+│   │                                 # after a resume, update_field/update_table fixes
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,

@@ -35,13 +35,13 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 | Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
 | Vibe coding blocks | Create and edit blocks, manage settings, visibility, versions, data source connections | https://docs.softr.io/mcp/vibe-coding |
 | Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
-| Workflows | Build, wire, test, and publish workflows — 26 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
+| Workflows | Build, wire, test, and publish workflows — 28 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
 
 `workspace_list` is often the first call — it turns "my Sales workspace" into the workspace ID every other tool needs. The server's own instructions now start from `application_list` (applications and their workspace IDs) and `database_list` (databases), and keep `workspace_list` for turning a workspace name into an ID.
 
 ## Tool names — the 2026-10-01 rename
 
-On 2026-10-01 Softr renamed every workspace-server tool outside Workflows to **area first, then verb**:
+On 2026-10-01 Softr renamed the workspace-server tools outside Workflows to **area first, then verb**:
 `vibe_coding_block_*`, `application_*` (pages are `application_page_*`), `database_*`,
 `integration_*` and `workspace_*`. 79 tools were renamed and one was added
 (`application_update_pwa_settings`); the 28 Workflows tools and `get_workspace_integrations` kept their names. The
@@ -264,9 +264,10 @@ unverified until the deployed source is proven identical to your file.
 search-replace) and `vibe_coding_block_get_code` carry `sourceSha256` and `sourceBytes`: the SHA-256
 of the UTF-8 source Softr persisted, and its length in bytes. A failed compile stores nothing and
 reports neither field. With `includeCode: false`, `vibe_coding_block_get_code` returns the digest and
-`sourceCode: null`. Verified live 2026-10-01: a deployed block's `sourceSha256` equalled
-`shasum -a 256` of the file last pushed to it, and the read came back at about 1 KB for a 15 KB
-block. (The digest on push results is per Softr's release notes; no push of ours has shown it yet.)
+`sourceCode: null`. Verified live 2026-10-01: a deployed block's `sourceSha256` equalled the SHA-256
+of the exact source last pushed to it (taken from the push call), and the read came back at about
+1 KB for a 15 KB block. The same check showed that block's local mirror had picked up three comment
+edits since that push, which is exactly what step 1 below exists to catch. (The digest on push results is per Softr's release notes; no push of ours has shown it yet.)
 Right after that release our client's copy of the tool definition did not declare `includeCode`, so
 the argument went out as the string `"false"` and the server still honoured it. Whatever the loaded
 definition says, check that `sourceCode` came back `null`.
@@ -293,7 +294,7 @@ definition says, check that `sourceCode` came back `null`.
    by eye.
 
 **Hash the exact bytes, trailing newline included.** Softr stores exactly what it receives: across
-58 push→fetch pairs between 2026-08-26 and 2026-09-10 (14 blocks, 16–161 KB each) the fetched
+112 push→fetch pairs between 2026-09-09 and 2026-09-30 the fetched
 `sourceCode` was byte- and MD5-identical to the text sent, including two pushes sent *without* a
 final newline and stored without one. The "deployed block is one byte shorter" we chased on
 2026-09-09 was our own read: an agent that reads a large file in chunks can drop the final
@@ -347,19 +348,23 @@ from String value (token `JsonToken.VALUE_STRING`)
 | `vibe_coding_block_update_code_search_replace` | `operations` | Start a fresh session (below) | Use `vibe_coding_block_update_code` (full replace) |
 | `vibe_coding_block_set_action_visibility` | `updates` | Start a fresh session (below) | **NONE — a human must fix it in Studio** |
 
-**Where the string comes from — root cause found 2026-10-01: tool stubs in a resumed session.**
-When Claude Code resumes a session, MCP connector tools it already knew can come back as **stubs**:
-the description is just the tool name and the input schema is `{"type":"object"}`, with no
-properties. They stay stubs until the connector delivers its definitions again, which a fresh session
-does (so did reconnecting the connector, once). A stub declares no types, so an array argument
-goes out as a JSON string and Softr rejects it. Nothing is written, so the failure is safe, but no
-amount of care on the caller's side gets an array through a stub. The evidence, from the complete
-transcripts of one build:
+**Where the string comes from: tool stubs on the client side (found 2026-10-01).** In the sessions
+we examined, our client (Claude Code) at times held the Softr tools as **stubs**: the description is
+just the tool name and the input schema is `{"type":"object"}`, with no properties. A stub declares
+no types, so an array argument goes out as a JSON string and Softr rejects it. Nothing is written,
+so the failure is safe, but no amount of care on the caller's side gets an array through a stub.
+The evidence, from the complete transcripts of one build:
 
 - On 2026-09-09 every successful array call came before that session was resumed, and every
   rejected one came after.
-- On 2026-09-30, in a resumed session, every Softr tool definition the client recorded was a stub.
-- A fresh session on 2026-10-01 loaded the full definitions.
+- On 2026-09-30, after the session was picked up again, every Softr tool definition the client
+  recorded was a stub: in the session itself and in all 47 subagents it spawned. A live tool-list
+  update from the server that day did not change that.
+- Only two things ever replaced the stubs with real definitions: re-adding the connector (once) and
+  a fresh session (2026-10-01).
+- Not every pick-up produced stubs: a session picked up on the morning of 2026-09-09 held real
+  definitions. So the trigger is not fully understood. The stubs most likely come from our side
+  rather than Softr's server, since a fresh session got full definitions from the same server.
 
 This replaces two earlier explanations in this file: that the model "had not loaded the tool
 definitions" (2026-09-10), and that the workspace server's tools "can arrive schema-less"
@@ -370,7 +375,8 @@ publish full schemas.
 
 **The rule:** before any array-argument call, look at the tool's loaded definition (ToolSearch shows
 it). If the description is just the tool name and there are no `properties`, do not make the call:
-start a fresh session first. That matters most for `vibe_coding_block_set_action_visibility`, which
+start a fresh top-level session first. A subagent is not a fresh session; it inherits the stubs.
+That matters most for `vibe_coding_block_set_action_visibility`, which
 has no fallback. For a code edit, a full replace is an acceptable stopgap: one file per subagent for
 a large block, hash-verified.
 
@@ -378,8 +384,8 @@ a large block, hash-verified.
 block's auto-registered Actions at Softr's default permissions. Per Softr (2026-10-01), the default
 for **ADD_RECORD follows the block's own visibility**. On a block everyone can see, it comes back
 `ALL_USERS`, writable by logged-OUT visitors. UPDATE_RECORD and DELETE_RECORD are always reset to
-`LOGGED_IN_USERS`. That is what we saw on 2026-09-09, when one push left four ADD_RECORD actions
-open across two blocks. The remedy is to re-apply the permissions with
+`LOGGED_IN_USERS`. That is what we saw on 2026-09-09, when one round of pushes (two saves, one per
+block) left four ADD_RECORD actions open across two blocks and every restore call was rejected. The remedy is to re-apply the permissions with
 `vibe_coding_block_set_action_visibility`. When that call is the one that fails, a routine cosmetic
 push silently leaves public write access on the block. Nothing in the push result says so: the push
 itself returns `errors: null, warnings: null`.
@@ -522,8 +528,8 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   blocks yet. Softr has said placement will come later. Until then, a human drags it into place in
   Studio. Say so when you hand the block over.
 - **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
-  version's `createdAt` are ISO-8601 UTC with millisecond precision on both server kinds (verified
-  on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
+  version's `createdAt` are ISO-8601 UTC with millisecond precision, studio-side and tables-side
+  alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
   no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
   read any older logged value as UTC, never as local time.
 
@@ -602,7 +608,7 @@ For Softr's native databases the MCP goes far beyond browsing: `database_get_fie
 
 **Call economy (from the server's own instructions):** `database_get_table` returns a table's metadata AND all its field definitions in one call; `database_list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both — and re-fetch only after you changed the table's fields yourself.
 
-**`database_get_field_reference` (was `get_schema`).** It describes the whole product, not one table: it takes no table ID and returns the same content every time. Live-confirmed 2026-08-31: `readOnlyFieldTypes` = AUTONUMBER, COUNT, CREATED_AT, CREATED_BY, FORMULA, LOOKUP, RECORD_ID, ROLLUP, UPDATED_AT, UPDATED_BY. On 2026-10-01 the list was the same without COUNT, which no longer appears in either the read-only list or the field types. The `LINKED_RECORD` value example is `["record-id-1", "record-id-2"]` — independently corroborating the verified string-array write shape in [../datasources/softr-database.md](../datasources/softr-database.md). On 2026-10-01 it listed `allowMultipleEntries` among the available options of SELECT and LINKED_RECORD. Operator families include relative-date `IS_WITHIN` / `IS_NOT_WITHIN` ("last 7 days"), ternary `IS_BETWEEN` / `IS_NOT_BETWEEN`, and `AND`/`OR` composites. **Schema-drift caution:** this reference and the [per-application servers'](#per-application-mcp-servers) `get_schema` have drifted. The per-app catalog lists creatable types the workspace one omits: ADDRESS, PROGRESS, TIME, DATE_RANGE and BUTTON were still absent from the workspace reference on 2026-10-01, although, per Softr, the workspace server returns fields of those types. The operator NAMES differed too (workspace `GREATER_THAN` / `DOES_NOT_CONTAIN` vs per-app `GT` / `DOES_NOT_CONTAINS`, observed 2026-08-31); per Softr the per-app names were realigned on 2026-09-09, which we have not re-checked. Do not assume a filter payload is portable between the two kinds: call the reference of the server you are actually using.
+**`database_get_field_reference` (was `get_schema`).** It describes the whole product, not one table: it takes no table ID and returns the same content every time. Live-confirmed 2026-08-31 (and in reads of 2026-08-26 and 2026-09-09): `readOnlyFieldTypes` = AUTONUMBER, COUNT, CREATED_AT, CREATED_BY, FORMULA, LOOKUP, RECORD_ID, ROLLUP, UPDATED_AT, UPDATED_BY. On 2026-10-01 the list was the same without COUNT, which no longer appears in either the read-only list or the field types. The `LINKED_RECORD` value example is `["record-id-1", "record-id-2"]` — independently corroborating the verified string-array write shape in [../datasources/softr-database.md](../datasources/softr-database.md). On 2026-10-01 it listed `allowMultipleEntries` among the available options of SELECT and LINKED_RECORD. Operator families include relative-date `IS_WITHIN` / `IS_NOT_WITHIN` ("last 7 days"), ternary `IS_BETWEEN` / `IS_NOT_BETWEEN`, and `AND`/`OR` composites. **Schema-drift caution:** this reference and the [per-application servers'](#per-application-mcp-servers) `get_schema` have drifted. The per-app catalog lists creatable types the workspace one omits: ADDRESS, PROGRESS, TIME, DATE_RANGE and BUTTON were still absent from the workspace reference on 2026-10-01, although, per Softr, the workspace server returns fields of those types. The operator NAMES differed too (workspace `GREATER_THAN` / `DOES_NOT_CONTAIN` vs per-app `GT` / `DOES_NOT_CONTAINS`, observed 2026-08-31); per Softr the per-app names were realigned on 2026-09-09, which we have not re-checked. Do not assume a filter payload is portable between the two kinds: call the reference of the server you are actually using.
 
 Known limits and behaviors (per official docs):
 
@@ -694,7 +700,7 @@ A separate product class from the workspace server (live-observed 2026-08-31 on 
 
 **Tools (12):** `list_tables`, `describe_table`, `get_schema`, `get_records`, `get_record`, `get_linked_records`, `get_current_user`, `create_record`, `update_record`, `delete_record`, `batch_update_records`, `batch_delete_records`. These are this server's own names, last enumerated by us in late August 2026; the 2026-10-01 rename of the workspace server did not touch them.
 
-**If the tool definitions arrive empty, do not conclude the server sent them that way.** Every definition of these tools our client ever recorded had a name-only description and an `{"type":"object"}` schema, the same signature as the stubs described [above](#the-array-argument-rejection-and-why-it-is-a-security-issue). Unlike the workspace stubs, these were stubs even at times when the same client held real workspace definitions, so their cause is not settled. Per Softr, these servers publish full schemas and descriptions. A tool with no arguments (`list_tables`, `get_schema`, `get_current_user`) works either way; before relying on one that takes arguments, start a fresh session and check the loaded definition again.
+**If the tool definitions arrive empty, do not conclude the server sent them that way.** Every definition of these tools our client ever recorded had a name-only description and an `{"type":"object"}` schema, the same signature as the stubs described [above](#the-array-argument-rejection-and-why-it-is-a-security-issue). Unlike the workspace stubs, these were stubs even at times when the same client held real workspace definitions, so their cause is not settled. Per Softr, these servers publish full schemas and descriptions. A tool with no arguments (`list_tables`, `get_schema`, `get_current_user`) works either way; before relying on one that takes arguments, start a fresh top-level session and check the loaded definition again.
 
 **Live-observed semantics:**
 

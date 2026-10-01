@@ -570,8 +570,9 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     everyone can see it comes back `ALL_USERS`, i.e. writable by logged-OUT visitors (UPDATE/DELETE
     reset to logged-in users). The MCP call that re-tightens it (`vibe_coding_block_set_action_visibility`)
     can itself fail with no fallback. It fails when the client holds only a stub of the tool
-    (name-only description, no properties), which happens after a session resume, so check the
-    loaded definition and start a fresh session if it is a stub (see
+    (name-only description, no properties), which has happened after a session was resumed. Check
+    the loaded definition; if it is a stub, start a fresh top-level session (a subagent inherits the
+    stubs) (see
     [references/softr-mcp.md](references/softr-mcp.md#the-array-argument-rejection-and-why-it-is-a-security-issue)).
     A push that returns `errors: null` can still have left public write access on the block.
     **If any action is still broader than intended, report it WITH its severity and let the builder decide.**
