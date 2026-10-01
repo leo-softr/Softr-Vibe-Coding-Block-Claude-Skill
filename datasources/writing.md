@@ -377,10 +377,12 @@ and schema work, and **none of them raises an error**.
    enforcement only fires on the next write. If one side must hold many links, both sides
    must allow multiple entries; enforce any one-parent rule in the UI, not the schema.
 
-2. **`allowMultipleEntries` is a TOP-LEVEL field property, not part of `options`.** The
-   workspace MCP's `update_field` silently ignores it when nested inside `options` — the
-   call succeeds and changes nothing. A Tables API `PUT /fields/{id}` with the property at
-   top level works.
+2. **In a Tables API field PUT, `allowMultipleEntries` is a TOP-LEVEL field property, not part
+   of `options`.** A `PUT /fields/{id}` with the property at top level works. Do not reach for the
+   MCP's old `update_field` here: per Softr, until 2026-10-01 it wrote `allowMultipleEntries: false`
+   on every call whatever it was sent, which is what looked like "ignored" when we tested it. Since
+   then `database_update_field` takes the setting **inside `options`** and keeps it when you leave
+   it out (per Softr; not yet re-tested by us).
 
 3. **A Tables API field PUT that omits `options.inverseLinkFieldId` SEVERS the inverse
    pairing** — it comes back `null` and the two sides stop mirroring each other. Always
@@ -547,7 +549,7 @@ Details that matter in practice:
 - A bulk import of images from another system (Airtable, a vendor CDN, a CSV of image links) is therefore
   a plain loop of record writes with no download-and-re-upload stage.
 
-_Write shape verified live 2026-08-26 on Softr Database via the MCP `update_record`: a 20,990-byte
+_Write shape verified live 2026-08-26 on Softr Database via the workspace MCP's `update_record` (now `database_update_record`): a 20,990-byte
 `image/jpeg` behind an extensionless ImageKit URL came back as a Softr-hosted S3 object of identical size
 and type, with small/medium/large thumbnails generated. Copy-not-link confirmed. The in-block
 `useRecordUpdate` / `createRecord` path takes the same shape, but external-URL ingestion was not separately

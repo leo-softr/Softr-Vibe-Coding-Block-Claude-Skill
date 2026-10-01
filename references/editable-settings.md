@@ -2,7 +2,7 @@
 
 Editable settings are the hooks from `@/lib/editable-settings` that surface a block's content in Studio's **Content → Settings** pane, so builders (and clients) edit text, images, links, and lists **without re-prompting or touching code**. Softr's own pitch: "make simple text and image edits directly without re-prompting." This file is the deep-dive; SKILL.md keeps the compact signatures.
 
-**Provenance discipline.** Every behavior below is tagged either **[official]** (in Softr's Vibe Coding Developer Guide, re-fetchable via the MCP's `get_vibe_coding_docs`) or **[verified-undocumented]** (absent from the official guide but proven working — source and date given). Keep the tags when editing this file: they're what stops a future docs-based review from false-positiving working code (the same failure class as the useRecord-via-Studio-binding incident), and what tells you which behaviors could silently change under you since Softr never promised them.
+**Provenance discipline.** Every behavior below is tagged either **[official]** (in Softr's Vibe Coding Developer Guide, re-fetchable via the MCP's `vibe_coding_block_get_docs`) or **[verified-undocumented]** (absent from the official guide but proven working — source and date given). Keep the tags when editing this file: they're what stops a future docs-based review from false-positiving working code (the same failure class as the useRecord-via-Studio-binding incident), and what tells you which behaviors could silently change under you since Softr never promised them.
 
 ## Contents
 

@@ -194,7 +194,9 @@ softr-vibe-coding/
 │   │                                 # MCP servers, auth, permissions; what the server
 │   │                                 # enforces on block data endpoints, "Preview as"
 │   │                                 # role testing, search-replace on 100KB+ blocks
-│   │                                 # (Sep 18 2026)
+│   │                                 # (Sep 18 2026); Oct 1 2026: tool rename map,
+│   │                                 # push verification by sourceSha256, stub-tool
+│   │                                 # root cause, update_field/update_table fixes
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -316,7 +318,7 @@ The skill enforces these automatically, but good to know (verified live against 
 - Create payloads are **flat**; update payloads are `{ recordId, fields: {...} }` — asymmetric by design
 - `mutateAsync` is fully supported — it's the tool for sequential multi-row saves
 - SELECT fields write by option **label string**; linked records write as arrays of record-id strings
-- Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy, and note there is **no cosmetic-edit exemption**: an edit that changes only a comment resets them too. **Always read the permissions back to confirm** — the default for a create action is `ALL_USERS` (publicly writable), and the MCP call that re-tightens it can fail with no fallback
+- Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy, and note there is **no cosmetic-edit exemption**: an edit that changes only a comment resets them too. **Always read the permissions back to confirm** — a create action defaults to the block's own visibility, so on a block everyone can see it comes back publicly writable, and the MCP call that re-tightens it can fail with no fallback
 - **Blocks cannot import each other**, so two blocks that must look alike will drift — each one looks correct in isolation while the set does not. Repeated page chrome (back button, title, primary action) must sit at the same offset on every page, and a loading skeleton must track the REST state of whatever it stands in for
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
 - Must use `export default function Block()`

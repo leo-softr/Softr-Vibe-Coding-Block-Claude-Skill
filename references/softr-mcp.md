@@ -8,9 +8,12 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 
 > Historical note: this file was previously named `softr-database-mcp.md` and described a databases-only server with granular scopes. That server has since grown into the workspace-wide MCP documented here; the old "does NOT cover external sources" limitation is gone (see [Integrations](#browsing-integrations-external-data-sources)).
 
+> **The workspace server's tools were renamed on 2026-10-01** — noun first: `get_vibe_coding_block_code` is now `vibe_coding_block_get_code`, `publish_app` is `application_publish`, `get_schema` is `database_get_field_reference`. This file uses the new names throughout. Notes, prompts or scripts written before then use the old ones; translate them with the [old → new map](#tool-names--the-2026-10-01-rename). The Workflows tools kept their names, and the per-application servers are a separate tool set — `list_tables`, `get_record`, `update_record` and `get_schema` there are NOT the old workspace tools.
+
 ## Contents
 
 - [What it covers](#what-it-covers)
+- [Tool names — the 2026-10-01 rename](#tool-names--the-2026-10-01-rename)
 - [Connection and auth](#connection-and-auth)
 - [Permissions model](#permissions-model)
 - [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints)
@@ -34,7 +37,122 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 | Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
 | Workflows | Build, wire, test, and publish workflows — 26 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
 
-`list_workspaces` is often the first call — it turns "my Sales workspace" into the workspace ID every other tool needs.
+`workspace_list` is often the first call — it turns "my Sales workspace" into the workspace ID every other tool needs. The server's own instructions now start from `application_list` (applications and their workspace IDs) and `database_list` (databases), and keep `workspace_list` for turning a workspace name into an ID.
+
+## Tool names — the 2026-10-01 rename
+
+On 2026-10-01 Softr renamed every workspace-server tool outside Workflows to **area first, then verb**:
+`vibe_coding_block_*`, `application_*` (pages are `application_page_*`), `database_*`,
+`integration_*` and `workspace_*`. 79 tools were renamed and one was added
+(`application_update_pwa_settings`); the 28 Workflows tools and `get_workspace_integrations` kept their names. The
+map below was checked against the tool lists the server delivered on 2026-09-30 (old) and 2026-10-01 (new).
+
+Most new names are the old words reordered. These are the ones you would not guess:
+
+| Old | New |
+|---|---|
+| `get_schema` | `database_get_field_reference` |
+| `aggregate_data` | `database_aggregate_records` |
+| `get_access_control` | `application_get_access_overview` |
+| `search_databases` | `database_search` |
+| `list_integrations` (earlier `list_data_sources`) | `integration_list` |
+| `list_data_source_databases` / `_schemas` / `_tables` / `_table_fields` | `integration_list_databases` / `_schemas` / `_tables` / `_table_fields` |
+| `get_page`, `get_block`, `list_pages`, `create_page`, `get_page_permissions` | `application_page_get`, `application_page_get_block`, `application_page_list`, `application_page_create`, `application_page_get_permissions` |
+| `preview_app`, `publish_app` | `application_preview`, `application_publish` |
+| `create_database`, `get_database`, `list_databases`, `update_database`, `delete_database` | `database_create`, `database_get`, `database_list`, `database_update`, `database_delete` |
+
+<details>
+<summary>Full old → new map (79 tools)</summary>
+
+| Area | Old | New |
+|---|---|---|
+| Vibe coding blocks | `get_vibe_coding_docs` | `vibe_coding_block_get_docs` |
+| | `create_vibe_coding_block` | `vibe_coding_block_create` |
+| | `delete_vibe_coding_block` | `vibe_coding_block_delete` |
+| | `get_vibe_coding_block_code` | `vibe_coding_block_get_code` |
+| | `get_vibe_coding_block_settings` | `vibe_coding_block_get_settings` |
+| | `update_vibe_coding_block_code` | `vibe_coding_block_update_code` |
+| | `update_vibe_coding_block_code_search_replace` | `vibe_coding_block_update_code_search_replace` |
+| | `update_vibe_coding_block_settings` | `vibe_coding_block_update_settings` |
+| | `set_vibe_coding_block_visibility` | `vibe_coding_block_set_visibility` |
+| | `set_vibe_coding_block_action_visibility` | `vibe_coding_block_set_action_visibility` |
+| | `list_vibe_coding_block_versions` | `vibe_coding_block_list_versions` |
+| | `restore_vibe_coding_block_version` | `vibe_coding_block_restore_version` |
+| | `duplicate_vibe_coding_block_from_version` | `vibe_coding_block_duplicate_from_version` |
+| | `connect_vibe_coding_block_data_source` | `vibe_coding_block_connect_data_source` |
+| | `disconnect_vibe_coding_block_data_source` | `vibe_coding_block_disconnect_data_source` |
+| | `set_vibe_coding_block_data_source_sort` | `vibe_coding_block_set_data_source_sort` |
+| | `set_vibe_coding_block_data_source_record_filters` | `vibe_coding_block_set_data_source_record_filters` |
+| Applications | `list_applications` | `application_list` |
+| | `get_application` | `application_get` |
+| | `create_application` | `application_create` |
+| | `set_application_name` | `application_set_name` |
+| | `set_application_subdomain` | `application_set_subdomain` |
+| | `set_application_domain` | `application_set_domain` |
+| | `set_application_login` | `application_set_login` |
+| | `configure_application_sign_up` | `application_configure_sign_up` |
+| | `configure_application_email_sender` | `application_configure_email_sender` |
+| | `update_application_data_source` | `application_update_data_source` |
+| | `get_access_control` | `application_get_access_overview` |
+| | `list_application_users` | `application_list_users` |
+| | `add_application_user` | `application_add_user` |
+| | `remove_application_user` | `application_remove_user` |
+| | `set_application_user_activation` | `application_set_user_activation` |
+| | `list_user_groups` | `application_list_user_groups` |
+| | `create_user_group` | `application_create_user_group` |
+| | `update_user_group` | `application_update_user_group` |
+| | `delete_user_group` | `application_delete_user_group` |
+| | `create_user_connection` | `application_create_user_connection` |
+| | `get_user_connection` | `application_get_user_connection` |
+| | `remove_user_connection` | `application_remove_user_connection` |
+| | `list_pages` | `application_page_list` |
+| | `get_page` | `application_page_get` |
+| | `create_page` | `application_page_create` |
+| | `get_block` | `application_page_get_block` |
+| | `get_page_permissions` | `application_page_get_permissions` |
+| | `preview_app` | `application_preview` |
+| | `publish_app` | `application_publish` |
+| | *(new)* | `application_update_pwa_settings` |
+| Databases | `list_databases` | `database_list` |
+| | `search_databases` | `database_search` |
+| | `get_database` | `database_get` |
+| | `create_database` | `database_create` |
+| | `update_database` | `database_update` |
+| | `delete_database` | `database_delete` |
+| | `get_schema` | `database_get_field_reference` |
+| | `list_tables` | `database_list_tables` |
+| | `get_table` | `database_get_table` |
+| | `create_table` | `database_create_table` |
+| | `update_table` | `database_update_table` |
+| | `delete_table` | `database_delete_table` |
+| | `list_fields` | `database_list_fields` |
+| | `create_field` | `database_create_field` |
+| | `update_field` | `database_update_field` |
+| | `delete_field` | `database_delete_field` |
+| | `list_views` | `database_list_views` |
+| | `list_records` | `database_list_records` |
+| | `search_records` | `database_search_records` |
+| | `get_record` | `database_get_record` |
+| | `create_record` | `database_create_record` |
+| | `create_records` | `database_create_records` |
+| | `update_record` | `database_update_record` |
+| | `delete_record` | `database_delete_record` |
+| | `delete_records` | `database_delete_records` |
+| | `aggregate_data` | `database_aggregate_records` |
+| Integrations | `list_integrations` | `integration_list` |
+| | `list_data_source_databases` | `integration_list_databases` |
+| | `list_data_source_schemas` | `integration_list_schemas` |
+| | `list_data_source_tables` | `integration_list_tables` |
+| | `list_data_source_table_fields` | `integration_list_table_fields` |
+| Workspace | `list_workspaces` | `workspace_list` |
+| | `list_workspace_email_senders` | `workspace_list_email_senders` |
+
+</details>
+
+**Per-application servers are a different tool set, and are not covered by this map.** Their
+`list_tables`, `get_record`, `create_record`, `update_record`, `delete_record` and `get_schema` share
+names with the old workspace tools but belong to [those servers](#per-application-mcp-servers). When
+translating an old note, check which server a call went to before renaming it.
 
 ## Connection and auth
 
@@ -70,22 +188,36 @@ For block-building work you need **Applications & Forms: Full access** (to creat
 
 ## Vibe coding block tools
 
-Before writing any block code through the MCP, call `get_vibe_coding_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree.
+Before writing any block code through the MCP, call `vibe_coding_block_get_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree.
 
 | Group | Tools |
 |---|---|
-| Create / read | `get_vibe_coding_docs`, `create_vibe_coding_block`, `get_vibe_coding_block_code`, `get_vibe_coding_block_settings` |
-| Edit code | `update_vibe_coding_block_code` (full replace), `update_vibe_coding_block_code_search_replace` (targeted edit) |
-| Settings / visibility | `update_vibe_coding_block_settings`, `set_vibe_coding_block_visibility`, `set_vibe_coding_block_action_visibility` |
-| Versions | `list_vibe_coding_block_versions`, `restore_vibe_coding_block_version`, `duplicate_vibe_coding_block_from_version` |
-| Data sources | `connect_vibe_coding_block_data_source`, `disconnect_vibe_coding_block_data_source`, `set_vibe_coding_block_data_source_sort`, `set_vibe_coding_block_data_source_record_filters` |
-| Any block | `get_block` (roster-verified 2026-08-31; presumed to read any block type, not just vibe blocks — unconfirmed by a live call on a native block) |
+| Create / read | `vibe_coding_block_get_docs`, `vibe_coding_block_create`, `vibe_coding_block_get_code`, `vibe_coding_block_get_settings` |
+| Edit code | `vibe_coding_block_update_code` (full replace), `vibe_coding_block_update_code_search_replace` (targeted edit) |
+| Settings / visibility | `vibe_coding_block_update_settings`, `vibe_coding_block_set_visibility`, `vibe_coding_block_set_action_visibility` |
+| Versions | `vibe_coding_block_list_versions`, `vibe_coding_block_restore_version`, `vibe_coding_block_duplicate_from_version` |
+| Data sources | `vibe_coding_block_connect_data_source`, `vibe_coding_block_disconnect_data_source`, `vibe_coding_block_set_data_source_sort`, `vibe_coding_block_set_data_source_record_filters` |
+| Any block | `application_page_get_block` (roster-verified 2026-08-31; presumed to read any block type, not just vibe blocks — unconfirmed by a live call on a native block) |
 
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
 
+**Which read to use** (from the tools' own descriptions, 2026-10-01):
+
+- `vibe_coding_block_get_settings` returns the block's settings, its `actions` (type, `dataSourceId`,
+  mapped fields, `permission`, `isDefaultVisibility`) and its wired `dataSources` — everything except
+  the source. It is the cheap read before any permission, sort, filter or settings change, and for
+  checking what a restore or duplicate kept.
+- `vibe_coding_block_get_code` adds the source. Its `dataSources` list is the only reliable answer to
+  "is a datasource actually wired to this block?" — the compiler never sees the wiring — and each entry's
+  `fieldReferenceKey` (`id` or `name`) says how that source's fields must be referenced in `q.select()`.
+- `vibe_coding_block_get_code` with **`includeCode: false`** skips the source text but still returns
+  `sourceSha256` and `sourceBytes` — about 1 KB however large the block is. Use it to [verify a
+  push](#verifying-a-push--the-deployed-source-is-the-only-proof) (verified live 2026-10-01).
+- Push results now report `sourceSha256` and `sourceBytes` too, for the source Softr actually stored.
+
 ### Which edit tool: full replace vs. targeted search-replace
 
-`update_vibe_coding_block_code` sends the whole file; `update_vibe_coding_block_code_search_replace`
+`vibe_coding_block_update_code` sends the whole file; `vibe_coding_block_update_code_search_replace`
 sends only the fragments that change. This is not just a bandwidth choice — it changes what can go wrong.
 
 **Reach for search-replace when ONE source file is deployed to SEVERAL blocks.** Datasource UUIDs are
@@ -105,12 +237,14 @@ context. Keep the local mirror in step mechanically rather than by hand:
 1. Prove deployed == disk first ([below](#verifying-a-push--the-deployed-source-is-the-only-proof)).
 2. Write the ops once, as data. Send them to the tool, and apply the **identical** ops to the local
    mirror with a script that asserts each `search` occurs exactly once before replacing it.
-3. Several rounds of ops are fine — **byte-verify once at the end**: fetch `sourceCode`, compare to
-   the mirror, and a mismatch means an op landed differently on one side.
+3. Several rounds of ops are fine — **verify once at the end**: compare the `sourceSha256` of the
+   last push result with the mirror's SHA-256. A mismatch means an op landed differently on one
+   side. The digest describes the source Softr stored after merging your edits, not the edits you
+   sent, which is what makes it usable here: on this path you never see the merged file yourself.
 
 One encoding trap: JSON `\uXXXX` escapes inside the ops are **decoded to the real characters** on
 Softr's side (`"—"` is stored as `—`). The mirror must therefore hold raw UTF-8 — apply the
-ops to it *after* JSON-decoding them, never as the escaped text, or the final byte comparison
+ops to it *after* JSON-decoding them, never as the escaped text, or the final comparison
 fails on every non-ASCII character.
 
 **Reach for the full replace when the change is structural** — reordering JSX, moving logic between
@@ -120,19 +254,29 @@ has drifted from the deployed block in ways you have not enumerated.
 
 ### Verifying a push — the deployed source is the only proof
 
-`update_vibe_coding_block_code` returning `errors: null, warnings: null` proves the code **compiled**.
+`vibe_coding_block_update_code` returning `errors: null, warnings: null` proves the code **compiled**.
 It does not prove the block now holds the code you meant to send. Verified 2026-09-09: a push of a
 67KB block came back clean and had silently dropped one blank line at a read-chunk boundary — valid
 JavaScript, so the compiler had nothing to say. Only a byte comparison caught it. Treat every push as
-unverified until you have pulled the source back down and compared it.
+unverified until the deployed source is proven identical to your file.
+
+**Since 2026-10-01 that proof is a hash, not a download.** Push results (create, full replace,
+search-replace) and `vibe_coding_block_get_code` carry `sourceSha256` and `sourceBytes`: the SHA-256
+of the UTF-8 source Softr persisted, and its length in bytes. A failed compile stores nothing and
+reports neither field. With `includeCode: false`, `vibe_coding_block_get_code` returns the digest and
+`sourceCode: null`. Verified live 2026-10-01: a deployed block's `sourceSha256` equalled
+`shasum -a 256` of the file last pushed to it, and the read came back at about 1 KB for a 15 KB
+block. (The digest on push results is per Softr's release notes; no push of ours has shown it yet.)
+Right after that release our client's copy of the tool definition did not declare `includeCode`, so
+the argument went out as the string `"false"` and the server still honoured it. Whatever the loaded
+definition says, check that `sourceCode` came back `null`.
 
 **The protocol, per block:**
 
-1. **Before editing, prove deployed == disk.** Call `get_vibe_coding_block_code`, extract
-   `sourceCode`, and compare it byte-for-byte to your local mirror. If they differ, someone changed
-   the block in Studio since your last push — stop and reconcile; do not overwrite work you have not
-   seen. (Large results are persisted to a file by most clients rather than returned inline; compare
-   from that file with a script, never by eye.)
+1. **Before editing, prove deployed == disk.** Call `vibe_coding_block_get_code` with
+   `includeCode: false` and compare `sourceSha256` and `sourceBytes` to `shasum -a 256 <file>` and
+   `wc -c < <file>`. If they differ, someone changed the block in Studio since your last push: fetch
+   the full source, diff it against yours and reconcile. Do not overwrite work you have not seen.
 2. Edit the local file. Run a parser and `no-undef` lint on it first — `node --check` does **not**
    accept a `.jsx` extension, so use esbuild (`esbuild file.jsx --loader:.jsx=jsx --jsx=automatic
    --log-level=error --outfile=/dev/null`) plus eslint with `@babel/eslint-parser`. The bugs that
@@ -141,9 +285,14 @@ unverified until you have pulled the source back down and compared it.
 3. Push the **entire** file — or, for a targeted patch on a large block, send search-replace ops
    and apply the identical ops to the mirror
    ([recipe above](#which-edit-tool-full-replace-vs-targeted-search-replace)).
-4. **Fetch it back and compare again.** Identical, or you are not done: diff, fix, re-push.
+4. **Compare the push result's `sourceSha256` with the hash of what you meant to deploy.**
+   Identical, or you are not done: diff, fix, re-push. If the result carries no digest (an older
+   server instance can answer during a rollout), read it with `includeCode: false`. If that has none
+   either, fall back to fetching `sourceCode` and comparing byte for byte. Most clients save a large
+   result to a file rather than returning it inline, so compare from that file with a script, never
+   by eye.
 
-**Compare byte for byte, trailing newline included.** Softr stores exactly what it receives: across
+**Hash the exact bytes, trailing newline included.** Softr stores exactly what it receives: across
 58 push→fetch pairs between 2026-08-26 and 2026-09-10 (14 blocks, 16–161 KB each) the fetched
 `sourceCode` was byte- and MD5-identical to the text sent, including two pushes sent *without* a
 final newline and stored without one. The "deployed block is one byte shorter" we chased on
@@ -154,20 +303,21 @@ means re-send, whatever the byte.
 
 **One file, two blocks, two datasource pairs.** When the same source is deployed to two pages, the
 local file holds ONE page's `datasource.define()` pair. Push it as-is to that block; for the other,
-build the swapped text in a scratch location, push that, and verify each block against its own
-expectation (disk for the first, disk-with-swap for the second). Never save the swapped copy over
+build the swapped text in a scratch location, push that, and verify each block against the hash of
+its own expected text (disk for the first, disk-with-swap for the second). Never save the swapped copy over
 the local mirror — the mirror records which page it belongs to, and the block's header comment
 records the other page's pair. Search-replace would avoid the swap altogether
 ([above](#which-edit-tool-full-replace-vs-targeted-search-replace)) — when the client can send its
 array argument ([below](#the-array-argument-rejection-and-why-it-is-a-security-issue)).
 
 **Do not read a 100KB block into a model's context to push it.** The full-replace tool takes the
-whole file as a string parameter, so the source has to pass through whatever is making the call. A
-large multi-block deploy is safer farmed out one file per subagent — a fresh context per file means
-no compaction can land mid-file — and the byte comparison is what makes that delegation safe, not
-trust in the agent. The steps that need judgement are the *edit* and the *review of the diff*; the
-fetch, the compare and the push itself are mechanical, and can run on the cheapest tier available
-without lowering the bar, because a wrong result fails loudly rather than plausibly.
+whole file as a string parameter, so the source has to pass through whatever is making the call.
+Verification no longer has to: the digest is a few hundred bytes. A large multi-block deploy is still
+safer farmed out one file per subagent — a fresh context per file means no compaction can land
+mid-file — and the hash comparison is what makes that delegation safe, not trust in the agent. The
+steps that need judgement are the *edit* and the *review of the diff*; the hashing, the compare and
+the push itself are mechanical, and can run on the cheapest tier available without lowering the bar,
+because a wrong result fails loudly rather than plausibly.
 
 **What a push also resets.** Every code push puts the block's derived Actions back on Softr's
 default permissions (see the next section for why that can be a security problem and how to verify
@@ -177,54 +327,86 @@ so nobody chases the reset after every round; if it is not, re-tighten and read 
 ### The array-argument rejection, and why it is a security issue
 
 **Several workspace-server tools take an array argument, and a call that sends it as a JSON *string*
-is rejected** by Jackson before it reaches any business logic:
+is rejected** before it reaches any business logic. Since 2026-10-01 the error names the parameter
+(wording from Softr's release notes):
+
+```
+Parameter 'updates' must be an array of objects, but a string was sent. It looks like JSON
+encoded as a string — send the value itself, not a string containing it.
+```
+
+Before that, the same rejection came back as a bare Jackson message:
 
 ```
 Cannot deserialize value of type `java.util.ArrayList<java.util.Map<String,Object>>`
 from String value (token `JsonToken.VALUE_STRING`)
 ```
 
-| Tool | Array argument | Fallback if it fails |
-|---|---|---|
-| `update_vibe_coding_block_code_search_replace` | `operations` | Use `update_vibe_coding_block_code` (full replace) |
-| `set_vibe_coding_block_action_visibility` | `updates` | **NONE — a human must fix it in Studio** |
+| Tool | Array argument | First fix | Fallback if it still fails |
+|---|---|---|---|
+| `vibe_coding_block_update_code_search_replace` | `operations` | Start a fresh session (below) | Use `vibe_coding_block_update_code` (full replace) |
+| `vibe_coding_block_set_action_visibility` | `updates` | Start a fresh session (below) | **NONE — a human must fix it in Studio** |
 
-**Where the string comes from — corrected 2026-09-10.** The first write-up of this (2026-09-09)
-blamed the server for advertising an empty schema. The transcripts say otherwise: the workspace
-server's schema declares both parameters as `type: array`, all 13 rejected calls had sent a JSON
-string, and all 84 successful calls to the same two tools had sent a real array — same day, same
-shapes, different payload type. The stringification happened on the client side, most likely on
-calls made while the tool definitions had not been loaded into the model's context (deferred
-schemas), so there was no type to serialise against. **Load the tool's schema before calling it,
-and pass arrays as arrays.** (Empty schemas are real on Softr's *per-application* MCP servers —
-every tool there is advertised as `{"type":"object"}` with a name-only description.)
+**Where the string comes from — root cause found 2026-10-01: tool stubs in a resumed session.**
+When Claude Code resumes a session, MCP connector tools it already knew can come back as **stubs**:
+the description is just the tool name and the input schema is `{"type":"object"}`, with no
+properties. They stay stubs until the connector delivers its definitions again, which a fresh session
+does (so did reconnecting the connector, once). A stub declares no types, so an array argument
+goes out as a JSON string and Softr rejects it. Nothing is written, so the failure is safe, but no
+amount of care on the caller's side gets an array through a stub. The evidence, from the complete
+transcripts of one build:
 
-**Correction, 2026-09-30: the workspace server's tools can arrive schema-less too.** In one
-session every workspace tool loaded through ToolSearch showed only `{"type":"object"}` with a
-name-only description, and a `search_replace` call written with a real array was still sent as a
-string and rejected with the error above. Nothing was written, so the failure is safe, but no
-amount of care on the caller's side gets an array through a schema-less tool. Look at the
-loaded schema before relying on an array argument: if it has no `properties`, go straight to the
-fallback in the table — a full replace, one file per subagent for a large block, byte-verified.
+- On 2026-09-09 every successful array call came before that session was resumed, and every
+  rejected one came after.
+- On 2026-09-30, in a resumed session, every Softr tool definition the client recorded was a stub.
+- A fresh session on 2026-10-01 loaded the full definitions.
 
-**Why the second row is a security problem, not an inconvenience.** Every code push resets the
-block's auto-registered Actions to Softr's defaults, and the default for a `genericActions`
-**ADD_RECORD is `ALL_USERS`** — writable by logged-OUT visitors — while UPDATE_RECORD and
-DELETE_RECORD default to `LOGGED_IN_USERS` in the same response. The documented remedy is to
-re-tighten with `set_vibe_coding_block_action_visibility`. When that call is the one that fails, a
-routine cosmetic push silently leaves public write access on the block, and nothing in the push
-result says so: the push itself returns `errors: null, warnings: null`. Verified live 2026-09-09 —
-one push left four ADD_RECORD actions open across two blocks.
+This replaces two earlier explanations in this file: that the model "had not loaded the tool
+definitions" (2026-09-10), and that the workspace server's tools "can arrive schema-less"
+(2026-09-30). Both were describing the stubs without knowing where they came from. The old remark
+that Softr's *per-application* servers advertise empty schemas is withdrawn too. Every per-app
+definition we ever recorded had the same stub signature, and Softr reports that those servers
+publish full schemas.
+
+**The rule:** before any array-argument call, look at the tool's loaded definition (ToolSearch shows
+it). If the description is just the tool name and there are no `properties`, do not make the call:
+start a fresh session first. That matters most for `vibe_coding_block_set_action_visibility`, which
+has no fallback. For a code edit, a full replace is an acceptable stopgap: one file per subagent for
+a large block, hash-verified.
+
+**Why the second row is a security problem, not an inconvenience.** Every code push rebuilds the
+block's auto-registered Actions at Softr's default permissions. Per Softr (2026-10-01), the default
+for **ADD_RECORD follows the block's own visibility**. On a block everyone can see, it comes back
+`ALL_USERS`, writable by logged-OUT visitors. UPDATE_RECORD and DELETE_RECORD are always reset to
+`LOGGED_IN_USERS`. That is what we saw on 2026-09-09, when one push left four ADD_RECORD actions
+open across two blocks. The remedy is to re-apply the permissions with
+`vibe_coding_block_set_action_visibility`. When that call is the one that fails, a routine cosmetic
+push silently leaves public write access on the block. Nothing in the push result says so: the push
+itself returns `errors: null, warnings: null`.
+
+This is the platform's behaviour, not an MCP quirk. Per Softr, Studio rebuilds the Actions the same
+way: on a Save in the code editor, an AI-assistant edit, a search-replace or a version restore. Only
+`OPEN_CHAT` and `TRIGGER_CUSTOM_WORKFLOW` actions survive a recompile intact. As of 2026-10-01 nothing
+preserves explicitly set permissions across a recompile, so every recompile needs the restore below.
 
 **So treat permission restoration as a step that must be VERIFIED, never assumed:**
 
-1. Push the code.
-2. Call `set_vibe_coding_block_action_visibility` for every action that needs tightening.
-3. **Read the permissions back with `get_vibe_coding_block_settings` and confirm each one actually
+1. **Before the push, record what was set.** `vibe_coding_block_get_settings` lists each action
+   with its `actionType`, `dataSourceId`, `permission` and `isDefaultVisibility`. Every action with
+   `isDefaultVisibility: false` was set by someone, and the push will discard it.
+2. Push the code.
+3. **Re-apply** with `vibe_coding_block_set_action_visibility`. Address each action by `actionType`,
+   plus `dataSourceId` when the block has several actions of that type. Never address one by its
+   action id, because every compile issues new ids. Each update **replaces** that action's whole
+   permission (`predefinedGroup`, plus `customGroups` and `recordCondition` where used), so send the
+   complete intended state, not a delta. These rules come from the tool's own description
+   (2026-10-01).
+4. **Read the permissions back with `vibe_coding_block_get_settings` and confirm each one actually
    changed.** A successful-looking sequence is not evidence; the failure is an argument rejection, so
    the call errors rather than lying, but an agent that batches calls can easily miss which one failed.
-4. If any action is still `ALL_USERS`, **report it and let the builder decide.** Check the page's own
-   VIEW permission first with `get_page_permissions`, because that is what sets the severity:
+5. If any action is still broader than intended (typically ADD_RECORD at `ALL_USERS`), **report it
+   and let the builder decide.** Check the page's own VIEW permission first with
+   `application_page_get_permissions`, because that is what sets the severity:
    - **Page VIEW is gated** (e.g. `LOGGED_IN_USERS`) — an anonymous visitor cannot load the page at
      all, so exploiting the open action means calling its endpoint directly, and the realistic worst
      case is junk records rather than data exposure or deletion. Housekeeping: worth fixing on the
@@ -252,10 +434,11 @@ one push left four ADD_RECORD actions open across two blocks.
    cannot distinguish housekeeping from a breach gets tuned out, and then it is worth nothing on the
    day it matters.
 
-Do not improvise around a rejection. `update_vibe_coding_block_settings` is not a substitute: its schema
-is equally empty, it writes far more than one permission, and guessing its payload risks clobbering the
-block's data source connections. Restoring an older block version is not a substitute either — it
-reverts the code along with the permissions, undoing the change you just pushed.
+Do not improvise around a rejection. `vibe_coding_block_update_settings` is not a substitute: it writes
+far more than one permission, and guessing its payload risks clobbering the block's data source
+connections. Restoring an older block version is not a substitute either. It reverts the code you just
+pushed, and per Softr a restore recompiles like any other save, so its Actions come back at the
+defaults anyway.
 
 Both edit paths recompile, so both reset Action permissions either way (Hard Constraint 21).
 
@@ -269,7 +452,7 @@ and these are the gates that actually exist on them:
 | Gate | Enforced server-side? |
 |---|---|
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
-| **The connection's Source conditions** (Source tab / `set_vibe_coding_block_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate** |
+| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate** |
 | A `where` filter in the block's code | No — it is a request parameter the caller controls |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
 
@@ -289,7 +472,7 @@ permission rather than uniformly critical.
 
 ## Adopting Studio-AI-generated code
 
-When you pull a Studio-AI-generated block via `get_vibe_coding_block_code` to adopt into a project repo as source of truth: its output renders fine but ships with predictable defects. **Functional patterns in Studio output are platform-support evidence** (it surfaces undocumented capabilities before the docs do — see SKILL.md's "Platform truth sources"); **its code hygiene is not a pattern to imitate.** Cleanup pass before committing:
+When you pull a Studio-AI-generated block via `vibe_coding_block_get_code` to adopt into a project repo as source of truth: its output renders fine but ships with predictable defects. **Functional patterns in Studio output are platform-support evidence** (it surfaces undocumented capabilities before the docs do — see SKILL.md's "Platform truth sources"); **its code hygiene is not a pattern to imitate.** Cleanup pass before committing:
 
 - **Run a formatter** — Studio output ships inconsistent indentation (observed: statements at column 0 inside a 4-space-indented component).
 - **Hoist and consolidate brand hexes** into module-scope constants; flag near-duplicate hexes as probable unintended drift (observed: `#AE5E3D` vs `#B4603D` for one terracotta in a single block).
@@ -305,31 +488,48 @@ From the official MCP docs — these hold for MCP-driven and Studio-driven edits
 
 - **A broken block can't be saved.** Code is validated before storage; on failure the block keeps its last working state and nothing is lost.
 - **A version is a snapshot of the whole block** — code, settings, visibility, AND data source connections. Setting-only changes don't create a version.
-- **Rolling back reverts more than the code.** Restoring a version also restores settings, visibility, and data source connections as they were at that point.
-- **Changing the code resets action permissions.** Any code change rebuilds the block's record actions at default visibility — restrictions to user groups must be re-applied. (This is Hard Constraint 21 in SKILL.md, now officially documented: tighten Action permissions only after the LAST redeploy.)
+- **Rolling back reverts more than the code.** Restoring a version also restores settings, visibility, and data source connections as they were at that point. Action permissions are the exception: per Softr (2026-10-01) a restore recompiles, so the restored block's Actions come back at the default permissions, not as they were.
+- **Changing the code resets action permissions.** Any code change rebuilds the block's record actions at default visibility — restrictions to user groups must be re-applied. (This is Hard Constraint 21 in SKILL.md, now officially documented: tighten Action permissions only after the LAST redeploy.) The defaults: ADD_RECORD follows the block's own visibility, while UPDATE_RECORD and DELETE_RECORD are reset to logged-in users (per Softr, 2026-10-01).
 - **A block with an unconnected data source saves without complaint**, then errors when the page loads. If a freshly created block looks broken but the code seems right, check its data source connection first.
 
 ## Application management tools
 
-The Applications area goes well beyond reads (all roster-verified 2026-08-31; behavior not individually exercised):
+The Applications area goes well beyond reads (roster as delivered 2026-10-01; behavior not individually exercised unless stated):
 
 | Group | Tools |
 |---|---|
-| Apps | `list_applications`, `get_application`, `create_application` (create a whole app via MCP), `update_application_data_source` (point/swap the app's data source), `set_application_login` |
-| App users | `add_application_user`, `remove_application_user`, `list_user_groups` |
-| Pages / blocks / permissions | `list_pages`, `get_page`, `get_page_permissions`, `get_access_control`, `get_block` |
-| Publish / preview | `preview_app`, `publish_app` |
-| Workspace | `list_workspaces`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
+| Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_update_data_source` (point/swap the app's data source), `application_update_pwa_settings` (installable-app name, short name and theme colour; new 2026-10-01) |
+| App users and groups | `application_list_users`, `application_add_user`, `application_remove_user`, `application_set_user_activation`, `application_list_user_groups`, `application_create_user_group`, `application_update_user_group`, `application_delete_user_group`, `application_create_user_connection`, `application_get_user_connection`, `application_remove_user_connection` |
+| Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions`, `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
+| Publish / preview | `application_preview`, `application_publish` |
+| Workspace | `workspace_list`, `workspace_list_email_senders`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
 
-Combined with the database tools (`create_database` / `create_table` / `create_field`) and `create_vibe_coding_block` + `publish_app`, the tool set for scaffolding a full app end to end now exists. (Existence-verified only — that pipeline hasn't been run live; treat the first full scaffold as an experiment, not a routine.)
+Combined with the database tools (`database_create` / `database_create_table` / `database_create_field`) and `vibe_coding_block_create` + `application_publish`, the tool set for scaffolding a full app end to end now exists. (Existence-verified only — that pipeline hasn't been run live; treat the first full scaffold as an experiment, not a routine.)
 
-**Etiquette from the server's own instructions:** after changing a block, link the page as `https://studio.softr.io/applications/{applicationId}/pages/{pageId}`; offer `preview_app` or `publish_app`, but **only publish when the user asks**.
+**Etiquette from the server's own instructions:** after changing a block, link the page as `https://studio.softr.io/applications/{applicationId}/pages/{pageId}`; offer `application_preview` or `application_publish`, but **only publish when the user asks**.
 
-> **preview_app links are auth tokens.** Per the server's own instructions, a preview link **signs its opener in as the user who requested it** and lasts about a day. Give it only to that user, and mint a fresh one with another `preview_app` call rather than re-sending an old link. Never paste a preview link into a shared channel.
+> **application_preview links are auth tokens.** Per the server's own instructions, a preview link **signs its opener in as the user who requested it** and lasts about a day. Give it only to that user, and mint a fresh one with another `application_preview` call rather than re-sending an old link. Never paste a preview link into a shared channel.
+>
+> **A preview link also pins the app version.** Its URL carries `&version=<n>`, so it keeps serving the version it was minted for. That is by design, not a caching bug. After every push, mint a new link before you check anything.
+
+**Reading pages and blocks:**
+
+- `application_page_get` lists a page's blocks **in page order, with no `order` field**. That field
+  was always `null` and was removed on 2026-10-01 (verified live that day; the tool's description
+  still mentions it). For a block nested in a column or tab container, the container's slots set its
+  position, not its place in the list.
+- **A block created over MCP still lands at the bottom of the page**, and no tool places or reorders
+  blocks yet. Softr has said placement will come later. Until then, a human drags it into place in
+  Studio. Say so when you hand the block over.
+- **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
+  version's `createdAt` are ISO-8601 UTC with millisecond precision on both server kinds (verified
+  on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
+  no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
+  read any older logged value as UTC, never as local time.
 
 ### Testing as any app user without logins — the "Preview as" switcher
 
-*Verified live 2026-09-18.* The `preview_app` link does not open the app directly: it opens a
+*Verified live 2026-09-18.* The `application_preview` link does not open the app directly: it opens a
 **toolbar shell** with a **"Preview as" user switcher**, and runs the draft app in an **iframe**
 whose URL carries `?autoUser=true`. That is a complete role-testing rig — every user group, no
 passwords, no test accounts to create:
@@ -360,70 +560,105 @@ the shell if a selector stops matching rather than assuming the feature is gone.
 
 ## Browsing integrations (external data sources)
 
-An integration is an external data source connected once per workspace (the builder says "integrations", the tools say "data sources" — same thing). Five read-only tools drill down from workspace to fields; each level needs an ID from the level above:
+An integration is anything connected once per workspace. **A data source is one kind of integration**: one that holds records, such as Softr's own databases (`SOFTR_TABLES`), Airtable, Google Sheets, Notion or a SQL database. A proxy-only integration (Gmail, Slack, OpenAI, …) has no records and nothing to browse. Each entry from `integration_list` carries `capabilities` (`DATA`, `PROXY`, or both) that says which kind it is, so read that rather than guessing from the type. Five read-only tools drill down from workspace to fields; each level needs an ID from the level above:
 
 ```
-list_data_sources                          workspace's integrations
-└── list_data_source_databases             a base, spreadsheet, or database
-    └── list_data_source_schemas           SQL schemas — Supabase only (usually just `postgres`)
-        └── list_data_source_tables        tables or sheets
-            └── list_data_source_table_fields   fields, types, options, primary field
+integration_list                     the workspace's integrations: id, name, type, capabilities
+└── integration_list_databases       the top level of one data source: an Airtable base, a spreadsheet,
+    │                                an Excel workbook, a Notion database, a Coda doc, a SQL database, …
+    └── integration_list_schemas     only for SUPABASE, POSTGRESQL, SQL_SERVER, SNOWFLAKE (a SQL schema),
+        │                            GOOGLE_BIGQUERY (a dataset), SMARTSUITE (a solution), CLICKUP (a space)
+        └── integration_list_tables          tables or sheets
+            └── integration_list_table_fields   fields, types, options, primary field
 ```
 
-**Only five integration types are browsable/connectable through MCP today:** Softr Databases, Airtable, Google Sheets, Notion, and Supabase. Anything else still appears in `list_data_sources` but must be connected through the block's **Source** tab in Studio, with schema discovery via the manual workflows in [../datasources/fields.md](../datasources/fields.md#field-inspector-block).
+**Which types can be browsed and connected through MCP.** Per the tools' own descriptions
+(2026-10-01): `SOFTR_TABLES`, `AIRTABLE`, `GOOGLE_SHEET`, `MICROSOFT_EXCEL`, `NOTION`, `MONDAY`,
+`SMARTSUITE`, `CLICKUP`, `CODA`, `HUBSPOT`, `SALESFORCE`, `ZOHO_CRM`, `REST_API`, `GOOGLE_BIGQUERY`, and
+the SQL vendors `SUPABASE`, `POSTGRESQL`, `MYSQL`, `MARIADB`, `SQL_SERVER`, `SNOWFLAKE` and `XANO_SQL`.
+Anything else `integration_list` returns is proxy-only. This replaces the five types (Softr Databases,
+Airtable, Google Sheets, Notion, Supabase) this file listed on 2026-08-31. Only the Softr Databases path
+has been exercised end to end by us. For the flat sources (HubSpot, Salesforce, Zoho CRM, REST API)
+the "database" and the "table" are the same object, so `integration_list_tables` echoes back what you
+picked. For Softr's own databases these tools only resolve IDs for
+`vibe_coding_block_connect_data_source`; for records, fields and aggregates use the
+[database tools](#softr-database-tools).
 
-`list_data_source_table_fields` also tells you **how fields must be referenced in `q.select()`**:
+**How fields must be referenced in `q.select()`.** Once a source is wired to a block, the
+authoritative answer is that block's own `dataSources[].fieldReferenceKey` (`id` or `name`) in
+`vibe_coding_block_get_code`. Before that, `integration_list_table_fields` tells you, and this is what
+we verified earlier:
 
 | Integration | Reference fields by |
 |---|---|
 | Airtable, Google Sheets, Notion | Name |
 | Softr Databases, Supabase | ID (for Supabase, the SQL column name) |
 
-Getting this wrong **fails silently** — the code compiles, saves, and looks right in the builder, then returns nothing at page load. If a block renders but its data is empty, check this first.
+For the types added since, read `fieldReferenceKey` rather than guessing. Getting this wrong **fails silently** — the code compiles, saves, and looks right in the builder, then returns nothing at page load. If a block renders but its data is empty, check this first.
 
 ## Softr Database tools
 
-For Softr's native databases the MCP goes far beyond browsing: `get_schema` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`delete_database`, `delete_table`, `delete_field`), `list_views`, record reads (`list_records`, `search_records`, `get_record`), record writes (`create_record`, `create_records` batch, `update_record`, `delete_record`, `delete_records` batch), and `aggregate_data` for grouped summaries.
+For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
 
-**Call economy (from the server's own instructions):** `get_table` returns a table's metadata AND all its field definitions in one call; `list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both. (Sensible extension: re-fetch only after you changed the table's fields yourself.)
+**Call economy (from the server's own instructions):** `database_get_table` returns a table's metadata AND all its field definitions in one call; `database_list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both — and re-fetch only after you changed the table's fields yourself.
 
-**get_schema, live-confirmed 2026-08-31:** `readOnlyFieldTypes` = AUTONUMBER, COUNT, CREATED_AT, CREATED_BY, FORMULA, LOOKUP, RECORD_ID, ROLLUP, UPDATED_AT, UPDATED_BY (matches this file's long-standing claim verbatim). The `LINKED_RECORD` value example is `["record-id-1", "record-id-2"]` — independently corroborating the verified string-array write shape in [../datasources/softr-database.md](../datasources/softr-database.md). Operator families include relative-date `IS_WITHIN` / `IS_NOT_WITHIN` ("last 7 days"), ternary `IS_BETWEEN` / `IS_NOT_BETWEEN`, and `AND`/`OR` composites. **Schema-drift caution:** the workspace server's `get_schema` and the [per-application servers'](#per-application-mcp-servers) `get_schema` have drifted — the per-app catalog lists creatable types the workspace one omits (ADDRESS, PROGRESS, TIME, DATE_RANGE, BUTTON), and even the operator NAMES differ between server kinds (workspace `GREATER_THAN` / `DOES_NOT_CONTAIN` vs per-app `GT` / `DOES_NOT_CONTAINS`) — so filter payloads are not portable between them. Always call `get_schema` on the server you are actually using.
+**`database_get_field_reference` (was `get_schema`).** It describes the whole product, not one table: it takes no table ID and returns the same content every time. Live-confirmed 2026-08-31: `readOnlyFieldTypes` = AUTONUMBER, COUNT, CREATED_AT, CREATED_BY, FORMULA, LOOKUP, RECORD_ID, ROLLUP, UPDATED_AT, UPDATED_BY. On 2026-10-01 the list was the same without COUNT, which no longer appears in either the read-only list or the field types. The `LINKED_RECORD` value example is `["record-id-1", "record-id-2"]` — independently corroborating the verified string-array write shape in [../datasources/softr-database.md](../datasources/softr-database.md). On 2026-10-01 it listed `allowMultipleEntries` among the available options of SELECT and LINKED_RECORD. Operator families include relative-date `IS_WITHIN` / `IS_NOT_WITHIN` ("last 7 days"), ternary `IS_BETWEEN` / `IS_NOT_BETWEEN`, and `AND`/`OR` composites. **Schema-drift caution:** this reference and the [per-application servers'](#per-application-mcp-servers) `get_schema` have drifted. The per-app catalog lists creatable types the workspace one omits: ADDRESS, PROGRESS, TIME, DATE_RANGE and BUTTON were still absent from the workspace reference on 2026-10-01, although, per Softr, the workspace server returns fields of those types. The operator NAMES differed too (workspace `GREATER_THAN` / `DOES_NOT_CONTAIN` vs per-app `GT` / `DOES_NOT_CONTAINS`, observed 2026-08-31); per Softr the per-app names were realigned on 2026-09-09, which we have not re-checked. Do not assume a filter payload is portable between the two kinds: call the reference of the server you are actually using.
 
 Known limits and behaviors (per official docs):
 
-- Record field keys are **field IDs**, not labels — `list_fields` maps between them.
+- Record field keys are **field IDs**, not labels — `database_list_fields` maps between them.
 - Computed fields (formula, lookup, rollup, count) and system fields (created/updated time and by, autonumber, record ID) are read-only; a field's type cannot be changed after creation.
-- **Deletion now exists** (supersedes the earlier "nothing can be deleted through the MCP yet" finding): `delete_record`, `delete_records` (batch), `delete_field`, `delete_table`, and `delete_database` are all in the roster (verified 2026-08-31), and per-app servers add `delete_record` + `batch_delete_records`. Roster-verified only — no destructive call was made, so which Databases permission level gates them and how cascades behave (e.g. deleting a table with linked records) are untested. Treat every delete as irreversible; no soft-delete is documented.
-- **Attachment writes take a URL and copy the file.** `create_record` / `update_record` accept
+- **Deletion now exists** (supersedes the earlier "nothing can be deleted through the MCP yet" finding): `database_delete_record`, `database_delete_records` (batch), `database_delete_field`, `database_delete_table`, and `database_delete` are all in the roster (verified 2026-08-31 under their old names), and per-app servers add `delete_record` + `batch_delete_records`. Roster-verified only — no destructive call was made, so which Databases permission level gates them and how cascades behave (e.g. deleting a table with linked records) are untested. Treat every delete as irreversible; no soft-delete is documented.
+- **Attachment writes take a URL and copy the file.** `database_create_record` / `database_update_record` accept
   `{ filename, url }` on an ATTACHMENT field with any publicly reachable URL; Softr fetches it, stores its
   own copy and generates thumbnails, so backfilling images from another system is one write per record
   with no upload step. Verified 2026-08-26 — see [../datasources/writing.md](../datasources/writing.md#attachment).
-- **`update_field` silently ignores `allowMultipleEntries` nested inside `options`** — it is a TOP-LEVEL
-  field property; the call succeeds and changes nothing (verified 2026-08-26; the write surface was
-  re-touched live 2026-09-01 and the silent-no-op failure class held — see the SELECT-choices bullet
-  below). To flip a LINKED_RECORD
-  field between single and multi, `PUT` it via the Tables API with `allowMultipleEntries` at top level —
-  and always echo `options.inverseLinkFieldId` in that PUT, because omitting it severs the inverse
-  pairing. Full write-up, including the silent on-write clobbering of single-valued link pairs and the
-  truthy-`[]` empty-link read shape:
+- **Before 2026-10-01, every `update_field` call damaged the field it touched.** Per Softr, the
+  handler ignored the `options` it was sent and wrote `allowMultipleEntries: false` on every call, so
+  a multi-select became a single-select and a multi-link a single-link. It also cleared the field's
+  default value, and blanked its description whenever none was sent. This file used to say the tool
+  "silently ignores `allowMultipleEntries`" (2026-08-26) and "silently drops added SELECT choices"
+  (2026-09-01); both were the visible half of that. If the old tool was ever run against a table you
+  care about, read those fields back and check them.
+- **Since 2026-10-01, `database_update_field` applies `options` on top of the current field** (per
+  Softr; not yet re-tested by us). Each key you pass replaces that key's stored value. Keys you leave
+  out are kept, `allowMultipleEntries` and the default value included. Unknown keys are rejected,
+  `allowMultipleEntries` now goes **inside `options`**, and an omitted description is left alone. A key
+  you pass still replaces its whole value: sending `choices` replaces the choice list, and the tool's
+  own description warns that narrowing it can orphan choices already held in records.
+- **The proven way to add a SELECT choice is the Tables API, with a full body** (verified
+  2026-09-09): `PUT /api/v1/databases/{db}/tables/{t}/fields/{f}` with
+  `{ name, type, options: { choices: [...], allowToAddNewChoice } }`, every existing choice carrying
+  its own `id` and the new one none (the server assigns it). A partial body returned 400 then. The
+  array order is kept, so a new choice can be slotted where it belongs rather than appended. Two other
+  routes: add it in Studio, or, when the field has `allowToAddNewChoice` enabled, the first record write
+  with an unknown label creates the choice.
+- **Flipping a LINKED_RECORD between single and multi through the Tables API** (verified
+  2026-08-26): `PUT` the field with `allowMultipleEntries` at top level, and always echo
+  `options.inverseLinkFieldId` in that PUT, because omitting it severs the inverse pairing. Full
+  write-up, including the silent on-write clobbering of single-valued link pairs and the truthy-`[]`
+  empty-link read shape:
   [../datasources/writing.md](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).
-- **`update_field` on a SELECT field silently drops added choices** — the call succeeds and echoes the
-  OLD choice set back, no error (verified live 2026-09-01; the second known silent no-op on this write
-  surface, joining the `allowMultipleEntries` finding above). New choices must be added in Studio —
-  or, when the field has `allowToAddNewChoice` enabled, the first record write with an unknown label
-  auto-creates the choice.
-- Limits: 100 records per `create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `aggregate_data`. For big tables prefer a filter or aggregate over paging.
+  Read any field back after changing it, whichever route you used.
+- **`database_update_table` sends only what you pass, since 2026-10-01.** Before then, per Softr,
+  `update_table` wrote an empty value over whichever of name and description it was not given, so a
+  plain rename blanked the description. Now a blank name is ignored and a blank description clears it.
+  A table's `updatedAt` also advances on every write now. It never did before, so an older `updatedAt`
+  is no evidence that nothing changed.
+- **Field descriptions are readable** since 2026-10-01 (per Softr). Before then a description
+  could be written but no read returned it.
+- Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging.
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.
 
 ## Workflows
 
-Softr Workflows are automations built from trigger + action nodes, and the MCP can build, wire, test, and publish them — a **26-tool suite** (roster-verified 2026-08-31; the full build → wire → test → publish loop **exercised end to end 2026-09-01** — 10 production workflows built live through MCP; see the build-loop findings below):
+Softr Workflows are automations built from trigger + action nodes, and the MCP can build, wire, test, and publish them — a **28-tool suite** (26 roster-verified 2026-08-31, plus `test_workflow` and `update_node_retry` in the 2026-10-01 roster; these tools kept their names in the 2026-10-01 rename; the full build → wire → test → publish loop **exercised end to end 2026-09-01** — 10 production workflows built live through MCP; see the build-loop findings below):
 
 | Group | Tools |
 |---|---|
-| Workflow lifecycle | `create_workflow`, `get_workflow`, `get_workflow_url`, `list_workflows`, `rename_workflow`, `update_workflow_configuration`, `publish_workflow`, `unpublish_workflow` |
-| Node management | `add_node`, `add_branch_node`, `create_branch`, `delete_node`, `duplicate_node`, `rename_node`, `reorder_node`, `reorder_multiple_nodes`, `replace_node`, `replace_trigger_node`, `update_node_inputs`, `update_node_note`, `update_node_continue_on_error` |
+| Workflow lifecycle | `create_workflow`, `get_workflow`, `get_workflow_url`, `list_workflows`, `rename_workflow`, `update_workflow_configuration`, `publish_workflow`, `unpublish_workflow`, `test_workflow` |
+| Node management | `add_node`, `add_branch_node`, `create_branch`, `delete_node`, `duplicate_node`, `rename_node`, `reorder_node`, `reorder_multiple_nodes`, `replace_node`, `replace_trigger_node`, `update_node_inputs`, `update_node_note`, `update_node_continue_on_error`, `update_node_retry` |
 | Discovery / testing | `list_node_types`, `get_node_specifications`, `get_dynamic_input_options`, `test_node`, `get_node_output` |
 
 **The node catalog is huge** — live-enumerated 2026-08-31: **418 node types (58 triggers + 360 actions) across 56 applications.** The parts that matter most for this skill:
@@ -438,7 +673,7 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 
 - Node inputs can embed **references to another node's runtime output**, a loop's current item, or named date/time tokens.
 - **Test-first is mandated:** every testable node needs a test run before its outputs become referenceable by downstream nodes. Each node carries a `testRunMode` — `REAL_ONLY`, `MOCK_ONLY`, or `MOCK_AND_REAL` — so some nodes can only be tested against real side effects while others mock. See the test-safety rules under build-loop findings below before testing anything against a production workspace.
-- **Workflows are workspace-level, not part of an app**: `preview_app` / `publish_app` do not apply. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
+- **Workflows are workspace-level, not part of an app**: `application_preview` / `application_publish` do not apply. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
 
 **Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows):**
 
@@ -457,17 +692,19 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 
 A separate product class from the workspace server (live-observed 2026-08-31 on two connected app servers): **one MCP server per published Softr app**, exposing that app's data to MCP clients. How these servers are provisioned/connected was not captured — check the app's settings in Studio or the official docs when setting one up.
 
-**Tools (12):** `list_tables`, `describe_table`, `get_schema`, `get_records`, `get_record`, `get_linked_records`, `get_current_user`, `create_record`, `update_record`, `delete_record`, `batch_update_records`, `batch_delete_records`.
+**Tools (12):** `list_tables`, `describe_table`, `get_schema`, `get_records`, `get_record`, `get_linked_records`, `get_current_user`, `create_record`, `update_record`, `delete_record`, `batch_update_records`, `batch_delete_records`. These are this server's own names, last enumerated by us in late August 2026; the 2026-10-01 rename of the workspace server did not touch them.
+
+**If the tool definitions arrive empty, do not conclude the server sent them that way.** Every definition of these tools our client ever recorded had a name-only description and an `{"type":"object"}` schema, the same signature as the stubs described [above](#the-array-argument-rejection-and-why-it-is-a-security-issue). Unlike the workspace stubs, these were stubs even at times when the same client held real workspace definitions, so their cause is not settled. Per Softr, these servers publish full schemas and descriptions. A tool with no arguments (`list_tables`, `get_schema`, `get_current_user`) works either way; before relying on one that takes arguments, start a fresh session and check the loaded definition again.
 
 **Live-observed semantics:**
 
-- **The table catalog is derived from the app itself.** `list_tables` returns only tables the app's pages actually use, each with an `operations` array (`read` / `create` / `update` / `delete`) mirroring the app's configured actions — read-only tables genuinely appear read-only. Each table also carries `context.pages` (which app pages use it) and `operationLabels` (the app's actual button labels: "Add record", "Edit", "Delete").
+- **The table catalog is derived from the app itself.** `list_tables` returns only tables a block on one of the app's pages is bound to, so an empty list means nothing is bound yet, not that the app has no data. Each entry's `tableId` and `tableName` came back as the same long `key=value` resource string (reported to Softr in September 2026; not among its 2026-10-01 fixes). Every table it does return comes with an `operations` array (`read` / `create` / `update` / `delete`) mirroring the app's configured actions — read-only tables genuinely appear read-only. Each table also carries `context.pages` (which app pages use it) and `operationLabels` (the app's actual button labels: "Add record", "Edit", "Delete").
 - An app may connect **multiple distinct data sources**; always call `list_tables` first for the full catalog before concluding data doesn't exist.
 - `get_current_user` exists, and combined with the action-scoped catalog this implies the server operates in an **app-user context** rather than the builder identity the workspace server uses (inferred — not confirmed by a live `get_current_user` call).
-- **Field keys in records are field IDs, not labels** — same rule as everywhere in Softr DB land; on these servers the mapping tool is `describe_table` (not `list_fields`).
+- **Field keys in records are field IDs, not labels** — same rule as everywhere in Softr DB land; on these servers the mapping tool is `describe_table` (not `database_list_fields`).
 - Its `get_schema` returns a **richer field-type catalog than the workspace server's**: creatable types add ADDRESS, PROGRESS, TIME, DATE_RANGE, BUTTON; SELECT documents `choices: array<{id, label, color}>` + `allowToAddNewChoice`; LONG_TEXT documents TEXT|HTML|MARKDOWN formats; ATTACHMENT documents `fileType` + `showAs PREVIEW|BADGE`; PERCENT documents `showAs NUMBER|PROGRESS_BAR|PROGRESS_RING`. Read-only list matches the workspace server.
-- **Documented conventions** (unlike the workspace server's silent caps): pagination is `page` (1-based) + `pageSize` (max 100) with `total` and `hasMore` in the response; timestamps are UTC `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` for reads AND writes; errors return `{code, error, suggestion}` with machine-readable codes (NOT_FOUND, VALIDATION_ERROR, PERMISSION_DENIED, INVALID_REQUEST, INTERNAL_ERROR). Do not assume the workspace server's limits (200-record silent read cap, etc.) transfer here, or vice versa.
-- Filter operators use the per-app naming (`GT`/`LT`/`GTE`/`LTE`, `DOES_NOT_CONTAINS`, `IS_WITHIN` relative dates, `IS_ONE_OF`/`IS_NONE_OF`, `HAS_ALL_OF`/`HAS_NONE_OF` (the latter flagged legacy in the schema), `INLINE_CONTAINS`) with per-operator supported-type lists — see the schema-drift caution in [Softr Database tools](#softr-database-tools).
+- **Documented conventions** (unlike the workspace server's silent caps): pagination is `page` (1-based) + `pageSize` (max 100) with `total` and `hasMore` in the response; timestamps are UTC `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` for reads AND writes (the workspace server has used the same format since 2026-10-01); errors return `{code, error, suggestion}` with machine-readable codes (NOT_FOUND, VALIDATION_ERROR, PERMISSION_DENIED, INVALID_REQUEST, INTERNAL_ERROR). Do not assume the workspace server's limits (200-record silent read cap, etc.) transfer here, or vice versa.
+- Filter operators, as observed 2026-08-31, used the per-app naming (`GT`/`LT`/`GTE`/`LTE`, `DOES_NOT_CONTAINS`, `IS_WITHIN` relative dates, `IS_ONE_OF`/`IS_NONE_OF`, `HAS_ALL_OF`/`HAS_NONE_OF` (the latter flagged legacy in the schema), `INLINE_CONTAINS`) with per-operator supported-type lists. Per Softr the per-app operator names were realigned on 2026-09-09, so call this server's `get_schema` before building a filter rather than trusting either list — see the schema-drift caution in [Softr Database tools](#softr-database-tools).
 
 **What they are NOT:** a delivery path for blocks. Per-app servers serve a published app's **data** at runtime; they cannot create, edit, or deploy vibe coding blocks — that stays on the workspace server.
 
@@ -475,7 +712,7 @@ A separate product class from the workspace server (live-observed 2026-08-31 on 
 
 When generating a block, pick the delivery path by what's connected:
 
-1. **WORKSPACE MCP server connected with Applications & Forms full access** (a per-application server does not count — it cannot create or deploy blocks; see the section above) — write the `.tsx` file locally first (it remains the source of truth and the reviewable artifact), then offer to deploy it directly: `create_vibe_coding_block` (or `update_vibe_coding_block_code` for edits), then `connect_vibe_coding_block_data_source` to wire up the data. Remember the action-permissions reset gotcha after every code push. After deploying, link the Studio page (`https://studio.softr.io/applications/{applicationId}/pages/{pageId}`) and offer `preview_app` / `publish_app` — publish only when asked, and mind the [preview-link auth warning](#application-management-tools).
+1. **WORKSPACE MCP server connected with Applications & Forms full access** (a per-application server does not count — it cannot create or deploy blocks; see the section above) — write the `.tsx` file locally first (it remains the source of truth and the reviewable artifact), then offer to deploy it directly: `vibe_coding_block_create` (or `vibe_coding_block_update_code` for edits), then `vibe_coding_block_connect_data_source` to wire up the data. Verify every push by its `sourceSha256` ([protocol](#verifying-a-push--the-deployed-source-is-the-only-proof)), and remember the action-permissions reset after every code push. A newly created block lands at the bottom of its page, so tell the user to drag it into place in Studio. After deploying, link the Studio page (`https://studio.softr.io/applications/{applicationId}/pages/{pageId}`) and offer `application_preview` / `application_publish` — publish only when asked, and mind the [preview-link auth warning](#application-management-tools).
 2. **No workspace MCP (or read-only access)** — classic path: write the `.tsx` file and have the user paste it into Studio's Vibe Coding editor, then connect the data source in the **Source** tab themselves.
 
 Either way, never deliver code inline in chat (JSX character corruption — see SKILL.md workflow step 5).

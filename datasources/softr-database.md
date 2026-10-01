@@ -93,14 +93,14 @@ After `source ~/.zshrc`, just run `get-softr-database <database_id>` from anywhe
 | Relationship   | Yes      | Linked records to other Softr Database tables. Write as an **array of record-id strings**, e.g. `[recordId]` (verified 2026-08-25) |
 | Formula        | Read-only | Booleans return as strings: use `=== "1"` for true, `=== "0"` for false |
 
-This table is the coarse block-side view. The full current catalog is larger — Rating, Duration, Currency, Percent, plus computed Lookup/Rollup/Count and system fields — and is best fetched live via the MCP's `get_schema`, authoritative **for the server you're calling**: the per-app servers currently document a fuller catalog than the workspace server (adding Address, Progress, Time, Date range, Button, and display options like Percent's progress-bar/ring), and even operator names differ between the two — see [../references/softr-mcp.md](../references/softr-mcp.md#softr-database-tools).
+This table is the coarse block-side view. The full current catalog is larger — Rating, Duration, Currency, Percent, plus computed Lookup/Rollup/Count and system fields — and is best fetched live from the MCP, authoritative **for the server you're calling** (`database_get_field_reference` on the workspace server, `get_schema` on a per-app server): the per-app servers document a fuller catalog than the workspace server (adding Address, Progress, Time, Date range, Button, and display options like Percent's progress-bar/ring — still missing from the workspace reference on 2026-10-01), and the two have also differed on operator names — see [../references/softr-mcp.md](../references/softr-mcp.md#softr-database-tools).
 
 ## Rate Limits
 No API rate limits. Softr Database queries run internally without external API calls, making it the best choice for high-traffic applications.
 
 ## Gotchas
 - **Formula boolean values are strings.** A formula that evaluates to true returns `"1"`, not `true`. Always compare with `=== "1"` or `=== "0"`.
-- **Field IDs are opaque codes.** You cannot guess them from column names. Look them up via the ranked list above (MCP `list_fields` / bundled CLI / network inspector / Studio field drawer) — the generic Field Inspector block does NOT work for Softr Database.
+- **Field IDs are opaque codes.** You cannot guess them from column names. Look them up via the ranked list above (MCP `database_list_fields` / bundled CLI / network inspector / Studio field drawer) — the generic Field Inspector block does NOT work for Softr Database.
 - **Relationships** work similarly to linked records in Airtable but use Softr's internal record IDs.
 
 ## Best For

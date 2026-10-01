@@ -497,9 +497,9 @@ has attached to the popup. With Playwright attached over CDP (seen 2026-09-30) t
 through to the 4s cap, which looks exactly like a broken wait. Use real URLs or `data:` URLs in
 the popup, or mock on a page that loaded normally (the `?print=1` path), where routing works.
 
-**Preview links pin the app version they were minted on.** A `preview_app` session keeps serving
-the version it was opened on, so after pushing a change, mint a fresh preview link before you
-verify anything; otherwise you are testing the old Print. (What else a preview link is, and why
+**Preview links pin the app version they were minted on.** An `application_preview` link carries
+`&version=<n>` in its URL and keeps serving that version, by design. After pushing a change, mint a
+fresh preview link before you verify anything; otherwise you are testing the old Print. (What else a preview link is, and why
 it is never shared: [softr-mcp.md](softr-mcp.md#application-management-tools).)
 
 **A browser that is not painting does not run the page.** A hidden browser pane or a background

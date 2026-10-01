@@ -152,7 +152,7 @@ The second connection above is for **reads**. Actions are filed per table:
   under the **first** connection's `dataSourceId`.
 
 So **point every write at the table's first connection**, and expect one action per table and
-operation in `get_vibe_coding_block_settings` / the Actions tab — that is the row you re-tighten
+operation in `vibe_coding_block_get_settings` / the Actions tab — that is the row you re-tighten
 after each push. Details in [writing.md](writing.md#actions-register-per-table-not-per-hook-or-connection).
 
 ## Getting the datasource ids — ask for CODE, never for a value
