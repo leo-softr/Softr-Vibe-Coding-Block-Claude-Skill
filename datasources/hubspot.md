@@ -2,10 +2,12 @@
 
 *Rewritten 2026-10-05 from a read-only verification run: five investigations and four adversarial
 fact-checks against a HubSpot-connected demo app on an EU portal, plus Softr's and HubSpot's live
-docs. Labels used below: **verified live** = observed that day through the Softr or HubSpot MCP;
-**documented** = Softr or HubSpot docs say so; **inferred** = reasoned, not observed;
-**unverified** = nobody has tested it. That run made no writes, so nothing on the write side of
-this page is "verified live". It is documented at best.*
+docs. Labels used below: **verified live** = observed that day through the Softr or HubSpot MCP,
+or in the browser's network log; **documented** = Softr or HubSpot docs say so; **inferred** =
+reasoned, not observed; **unverified** = nobody has tested it. That run made no writes. Write
+tests followed that day. In the afternoon, stage changes on one test ticket and one test deal
+went through a vibe block's `useRecordUpdate`; on the write side, only what those covered is
+verified live here. A morning association-write test is not written up here yet.*
 
 ## Overview
 
@@ -42,7 +44,7 @@ list had 7 before). The live integration returned **14 object ids**, i.e. all ex
 which that portal did not have (verified live 2026-10-05).
 
 **Listed does not mean usable, and usable does not mean writable.** Softr publishes no per-object
-write matrix, and no vibe-block write to any HubSpot object has been tested.
+write matrix, and vibe-block writes have been tested on tickets and deals only (2026-10-05).
 
 | Object | Id | Primary field | What to know |
 |---|---|---|---|
@@ -121,7 +123,7 @@ unless marked otherwise.*
 
 | Field kind | Writable? | Evidence |
 |---|---|---|
-| Default properties | Yes | Documented (Softr's HubSpot page); untested from a vibe block |
+| Default properties | Yes | **Verified live** 2026-10-05 for `dealstage` and `hs_pipeline_stage` with `useRecordUpdate`; the rest documented (Softr's HubSpot page) |
 | Custom properties | Yes | Documented; untested from a vibe block |
 | Softr computed fields (Calculation, Rollup, Count, Formula) | Read-only | Documented. These are the **only** fields Softr's page lists as read-only |
 | HubSpot-computed properties (`hs_object_id`, `createdate`, `hs_lastmodifieddate`, `num_associated_*`) | Presumably not | Inferred from HubSpot; nothing in Softr's metadata says so |
@@ -131,11 +133,60 @@ unless marked otherwise.*
 - **Ticket create:** HubSpot requires `subject` and `hs_pipeline_stage`. `hs_pipeline` is optional
   when the portal has one ticket pipeline, because the default is used (documented, HubSpot API).
   **Note create:** `hs_timestamp` is required (documented).
-- **SELECT write format is unknown for HubSpot.** On Softr Database, vibe hooks write a SELECT by
-  its **label** (verified 2026-08-25; see [writing.md](writing.md#dropdown--single-select-softr-database)).
-  On HubSpot the id and the label differ (`'1'` vs `'New'`, `'6183367908'` vs `'Initial Contact'`),
-  and which one the connector accepts has not been tested. Test both on a throwaway record before
-  building a form on it.
+- **Write a SELECT by its choice id** (verified live 2026-10-05). `fields: { stage: "closedwon" }`
+  on `dealstage` and `fields: { status: "1" }` on `hs_pipeline_stage` both saved. The id and the
+  label differ (`'1'` vs `'New'`, `'6183367908'` vs `'Initial Contact'`). Softr Database is the
+  other way round: there the **label** is written
+  ([writing.md](writing.md#dropdown--single-select-softr-database)). Whether HubSpot also accepts
+  a label is untested.
+- **What goes over the wire** (verified live 2026-10-05, ticket stage write):
+  - The write is `PATCH …/blocks/<block>/datasources/<connection id>/records-trigger/<recordId>`
+    with the body `{"context":{…},"fields":{"hs_pipeline_stage":"1"}}`. Fields are keyed by
+    HubSpot property id, and the value is a plain string.
+  - The response holds only the written field, in its read shape:
+    `{"record":{"id":"…","fields":{"hs_pipeline_stage":{"id":"1","label":"New"}}},"triggerResponse":null}`.
+  - The connection id in the write URL is internal: the deals connection's id changed when the
+    block was recompiled. Reads use the alias (`…/datasources/tickets/records`). This only
+    matters when reading a network log.
+- **The write endpoint enforces visibility** (verified live 2026-10-05). A client who replayed an
+  account manager's PATCH got 403. The block and its actions were both limited to account
+  managers, so the test did not show which of the two rules refused it. Every code push resets
+  action visibility (Hard Constraint 21 in SKILL.md), so re-lock it and read it back after each push.
+
+### What HubSpot changes after a write
+
+*Verified live 2026-10-05 on one test ticket and one test deal. The writes came from a vibe
+block in preview; the results were read back through the HubSpot MCP and the block's own list
+reads.*
+
+- **A deal's close date is overwritten when it closes, won or lost.** Entering `closedwon` or
+  `closedlost` sets `closedate` to the moment of the write: `closedwon` replaced a planned date
+  four months away, and `closedlost` later did the same. Reopening the deal, or undoing the
+  change, kept the new date; the old one had to be restored by hand. Say so in the confirm step
+  before a block closes a deal.
+- **A ticket's close date is cleared when it reopens.** Entering the closed status set
+  `closed_date` and `time_to_close`. Moving the ticket back to an open status cleared both.
+- **Probability and weighted amount lag behind the stage.** HubSpot recalculates
+  `hs_deal_stage_probability` and `hs_projected_amount` after the write (table below).
+- **HubSpot modifies a ticket again about 10 s after a stage write.** `hs_lastmodifieddate`
+  moved again 9 to 11 s after each of the three stage writes where it was checked.
+- **Stage writes leave associations alone.** They do leave a permanent stage history
+  (`hs_v2_date_entered_*` / `hs_v2_date_exited_*`), even when the value is put back.
+
+What the block's own list reads returned for the deal (Closed Lost, then Undo 5 s later):
+
+| Read of `deals` | `dealstage`, `closedate` | `hs_deal_stage_probability`, `hs_projected_amount` |
+|---|---|---|
+| +4 s after Closed Lost | `closedlost`, the new date | 0.1 and 1,980: the values from before the write |
+| +4 s after the Undo | Initial Contact, the new date kept | 0 and 0: Closed Lost's values |
+| +12 s after the Undo | Initial Contact, the new date kept | 0.1 and 1,980: correct |
+
+So the stage and the close date were readable within 4 s, while the computed fields were still
+one write behind at that point. No read follows a write unless the block asks. A block that
+shows any of these fields should, on top of the `refetch()` in `onSuccess`, read the table again
+about 4 s and 12 s after each successful save
+([pattern](writing.md#fields-the-source-changes-after-the-write)). A read right after the write
+was not measured.
 
 ### Association writes — an open question
 
@@ -280,8 +331,11 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
   hook calls into HubSpot calls is not documented. If list reads go through search, several
   HubSpot connections on one page, times concurrent users, can reach that limit (inferred).
 - **New and updated records take "a few moments" to appear in search results** (documented). A
-  `refetch()` right after a mutation may therefore still return the old value (inferred). Prefer
-  updating the UI optimistically from the mutation's own result.
+  `refetch()` right after a mutation may therefore still return the old value (inferred, not
+  measured). A list read at +4 s had the written stage, while HubSpot's computed fields were
+  still stale at +4 s and correct by +12 s (verified live 2026-10-05,
+  [details](#what-hubspot-changes-after-a-write)). Show the written value optimistically and
+  read again later.
 - Softr also caches data-source reads ("short-term" on one docs page, "24 hour" on another; scope
   unspecified). See [overview.md](overview.md).
 
@@ -358,7 +412,9 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
     either.
   - Time a real run before promising anything.
 - **Record updated fires on any change to any record of that object.** Expect it to fire on
-  HubSpot's internal recalculations and on Softr's own writes too (inferred). Build two things in
+  HubSpot's internal recalculations and on Softr's own writes too (inferred). HubSpot does modify
+  a record again about 10 s after a stage write (measured on a ticket, 2026-10-05), so one stage
+  change from a block may fire it twice (inferred; the trigger was not run). Build two things in
   from the start:
   - **A stage filter.** Note that a filter on the *current* stage alone fires again on every later
     edit to a ticket already in that stage.
@@ -383,9 +439,13 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
   Subscriptions need Commerce Hub, Line Items need a parent, Custom Objects need HubSpot Enterprise.
 - **Association writes are unverified**, not "read-only". Don't build a form that depends on them
   until a write test has passed. The fallback is a workflow with Run custom code.
-- **SELECT ids ≠ labels**, and the write format is unknown. Take display labels from the schema's
-  choices (`useFieldOptions` should serve them, but that is untested on HubSpot); don't hardcode
-  stage ids across portals.
+- **SELECT ids ≠ labels, and writes take the id** (verified live 2026-10-05; label untested).
+  Take display labels from the schema's choices (`useFieldOptions` should serve them, but that
+  is untested on HubSpot); don't hardcode stage ids across portals.
+- **Closing a deal overwrites its close date, and reopening keeps the new one.** Reopening a
+  ticket clears its close date. See [What HubSpot changes after a write](#what-hubspot-changes-after-a-write).
+- **After a save, read again at about 4 s and 12 s** on top of the usual `refetch()`. No read
+  follows a write on its own, and HubSpot's computed fields arrive late.
 - **The owner email and name fields are Softr's, not HubSpot's.** Filter and write
   `hubspot_owner_id`.
 - **Only part of each object's properties is exposed.** Check a property is in the field list

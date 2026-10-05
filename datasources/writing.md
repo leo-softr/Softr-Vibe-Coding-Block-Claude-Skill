@@ -128,6 +128,20 @@ updateRecord.mutate({
 });
 ```
 
+**No read follows a write** (measured live 2026-10-05 on a HubSpot-backed block). The network
+log showed the PATCH and then no read of the table until the block's own `refetch()`. The hook
+resolves to `{ id, fields }`: the PATCH response's record mapped through the hook's `fields:`
+select (seen in the compiled block bundle), and that response held only the written field.
+Nothing HubSpot-specific was seen in the hook's client code, so expect the same on other
+sources (inferred, untested elsewhere). So:
+
+- Call `refetch()` on every query that shows the written table.
+- If the source changes other fields itself with a delay (a HubSpot deal's probability, for
+  example), a `refetch()` in `onSuccess` can still return them old (inferred from a read at
+  +4 s; a read right after the write was not measured). Read the table again a few seconds
+  later as well; see
+  [Fields the source changes after the write](#fields-the-source-changes-after-the-write).
+
 #### CRITICAL: The `useRecordUpdate` payload shape (and the retired `.mutate()`-only rule)
 
 **Payload must be `{ recordId, fields: {...} }` — not flat.** Field values must be nested inside a `fields: {...}` object. The flat form (`mutate({ recordId, status: "active" })`) can succeed at runtime, but Softr's Action parser doesn't see field references inside it, so no Update Action is derived — `enabled` stays `false`, the UI gated on it silently does nothing, and Studio's Actions tab shows "No actions used in this block yet":
@@ -284,12 +298,61 @@ completes reads as broken. The pattern (verified live 2026-08-31 on a custom Kan
 3. **Revert on failure**: delete the override + `refetch()` → the card snaps back, with an
    error toast.
 4. **Clear on convergence**: an effect compares each override against fresh server data and
-   deletes it once they match — never clear on a timer.
+   deletes it once they match — never clear on a timer. Don't wait for fresh data to arrive
+   on its own: no read followed a write in the network log ([useRecordUpdate](#userecordupdate)),
+   so without a `refetch()` the override may never converge.
 5. **Undo**: snapshot the *server* state before mutating (previous lead, each row's previous
    value — per-row, since a batch may have had mixed values), and offer
    `toast.success(msg, { duration: 8000, action: { label: "Undo", onClick: restore } })`.
    The restore is just another optimistic move driven by the snapshot. Snapshot before the
    write, not from the UI — the UI may already be showing an optimistic override.
+
+### Fields the source changes after the write
+
+Some sources change other fields of a record when one is written. HubSpot stamps a deal's close
+date when it closes and recalculates its probability and weighted amount a few seconds later. A
+formula or rollup that depends on the written field recalculates on any source (inferred). No
+read follows a write, and a source that applies its own changes with a delay can still serve the
+old values to a `refetch()` in `onSuccess` (inferred). So read the written table again once the
+source has settled (verified live 2026-10-05 on HubSpot deals):
+
+```tsx
+// After a save the source changes some fields itself, a few seconds later, so the written
+// table is read again twice. The timers are cleared if the block unmounts first.
+const followUps = useRef<number[]>([]);
+useEffect(() => () => followUps.current.forEach((t) => window.clearTimeout(t)), []);
+
+async function saveStage(id: string, stage: string) {
+  if (!updateDeal.enabled) return;
+  try {
+    await updateDeal.mutateAsync({ recordId: id, fields: { stage } });
+  } catch {
+    toast.error("We couldn't save the change. Try again.");
+    return;
+  }
+  void dealsQ.refetch();
+  followUps.current = followUps.current.concat(
+    [4000, 12000].map((ms) => window.setTimeout(() => void dealsQ.refetch(), ms)),
+  );
+}
+```
+
+- **The delays depend on the source.** On HubSpot the read at +4 s already had the new stage
+  and close date, but the probability and weighted amount still held the previous write's
+  values. The read at +12 s had everything. HubSpot's own follow-up change landed 9 to 11 s
+  after a ticket write, so +12 s leaves about a second of margin: go later rather than earlier.
+  Measurements and the list of what HubSpot changes:
+  [hubspot.md](hubspot.md#what-hubspot-changes-after-a-write).
+- **Keep the immediate `refetch()` too.** A read right after the write was not measured.
+  HubSpot documents that changes take "a few moments" to reach its search, but whether Softr's
+  list reads use that search is not documented. With an optimistic override the immediate read
+  may add little; it is cheap and keeps the `refetch()`-in-`onSuccess` rule whole.
+- **Show the known outcome at once.** When you know what the source will set (today's date as
+  a closing deal's close date), show it in the override and let the re-read replace it.
+- **Only where it's needed.** Add the delayed reads when the block shows a field the source
+  sets or computes. A plain field the user wrote needs nothing more than the usual `refetch()`.
+
+## File Uploads
 
 ```jsx
 import { useUpload } from "@/lib/datasource";
@@ -437,6 +500,10 @@ The label must match a defined choice character-for-character — a typo fails t
 keep vocabularies as greppable constants, or fetch them live with `useFieldOptions` (see
 [reading.md](reading.md#usefieldoptions----fetch-singlemulti-select-choices)) and write
 `option.label`.
+
+**On HubSpot, write the choice id** (`"closedwon"`, `"1"`; verified live 2026-10-05 on
+`dealstage` and `hs_pipeline_stage`). Whether HubSpot also accepts the label is untested, so
+don't rely on it; see [hubspot.md](hubspot.md#writing).
 
 **Legacy note.** Until mid-2026 this skill documented the opposite — write the option UUID,
 labels rejected (verified April 2026 on the then-current platform). If a label write is

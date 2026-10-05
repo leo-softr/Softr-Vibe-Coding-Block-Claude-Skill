@@ -201,9 +201,10 @@ var statusOptions = useFieldOptions({
 
 // statusOptions → { options: [...], isLoading: bool }
 // statusOptions.options → [{ id: "sel...", label: "Active", color: "greenLight1" }, ...]
-//   id    — stable option id (use as a React key; NOT needed in mutate payloads — SELECT
-//           fields write by LABEL string on the current platform, verified 2026-08-25)
-//   label — display string AND the value to write in mutate payloads
+//   id    — stable option id (use as a React key; NOT needed in mutate payloads on Softr
+//           Database — SELECT fields write by LABEL string there, verified 2026-08-25.
+//           HubSpot is the exception: write the id, verified 2026-10-05)
+//   label — display string AND the value to write in mutate payloads (not on HubSpot)
 //   color — Airtable swatch color name (optional; handy for tinting chips)
 ```
 
@@ -219,7 +220,7 @@ same `select` object can be shared by both. Reuse one `select` for many fields a
 
 **When to use this vs. hardcoding:**
 
-- **Use `useFieldOptions`** when option labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying. Since SELECT fields write by label (verified 2026-08-25), live options also keep write payloads rename-proof: render and write `option.label`. Hardcoded labels remain fine as a display-only loading fallback while the live options fetch. Cross-table case: to render a select field from table B inside a block bound to table A (e.g. an intake form bound to Jobs that needs the Wigs `Color` options), put the `useRecords` + `useFieldOptions` in a hidden helper block bound to table B and publish the options to a `window` global (see [helper-blocks.md](../references/helper-blocks.md)).
+- **Use `useFieldOptions`** when option labels could change post-deploy — selects with rapidly-evolving lists, user-editable choices, or any case where re-pasting blocks for an option rename is annoying. Since SELECT fields write by label on Softr Database (verified 2026-08-25), live options also keep write payloads rename-proof: render and write `option.label`. HubSpot writes the choice id instead (verified 2026-10-05; see [hubspot.md](hubspot.md#writing)). Hardcoded labels remain fine as a display-only loading fallback while the live options fetch. Cross-table case: to render a select field from table B inside a block bound to table A (e.g. an intake form bound to Jobs that needs the Wigs `Color` options), put the `useRecords` + `useFieldOptions` in a hidden helper block bound to table B and publish the options to a `window` global (see [helper-blocks.md](../references/helper-blocks.md)).
 - **Hardcode** when the option set is stable and frequently referenced (e.g. a status enum that drives a state machine), so the label vocabulary lives in source and rename-safety is enforced by greppable constants. A robust middle ground: prefer the live options, fall back to a hardcoded list per field so the UI still renders if the helper hasn't published yet.
 
 `useFieldOptions` is the read-side equivalent of using `useLinkedRecords` for foreign records — it abstracts away the field's option store. Items are shaped `{ id, label, color }` (note: `label`, not `title` like `useLinkedRecords`).
