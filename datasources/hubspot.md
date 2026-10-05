@@ -209,7 +209,7 @@ portal or with the owner's go-ahead):
 A connection's **Source conditions are the only server-side row gate**. A `where` in block code is a
 request parameter the caller controls, not access control. See
 [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints)
-(verified 2026-09-18 on Softr Database, untested on HubSpot).
+(verified 2026-09-18 on Softr Database; on HubSpot 2026-10-05, below).
 
 The **block's Visibility** is enforced on the same endpoints, all or nothing (verified 2026-10-05 on
 HubSpot). A block gated to an "Account managers" condition group returned every deal and ticket to
@@ -218,33 +218,41 @@ Softr-only user and logged-out visitors. So a staff view can be a group-gated bl
 unfiltered connections. The same tables on an ungated block are open to anyone who may view the
 page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)).
 
-- **The one logged-in-user value seen working in a vibe-block Source condition is
-  `{USER:::EMAIL}`, used as the entire value.** An embedded form like `",{USER:::EMAIL},"` matches
-  nothing. Eleven spellings of a user-table-field token failed, and a subject of `USER:<fieldId>`
-  returned HTTP 400 "Field not found". All of this was on Softr Database
-  ([details](../references/softr-mcp.md#logged-in-user-values-in-source-conditions)).
-  **Untested on HubSpot.**
-- Studio's conditional-filter doc offers the logged-in user's Email and Email-Domain, plus every
-  users-table field once users sync from a data source (documented). To learn how Studio *stores*
-  a user-field value, set it once in the block's Source tab, then read
-  `dataSources[].condition` back with `vibe_coding_block_get_settings`.
+- **Scope clients by company with the user's own field** (verified 2026-10-05). A Source
+  condition `associations.company IS_ONE_OF ["USER:::associations.company"]`, logical operator
+  AND, on the deals and the tickets connections gave each client only their own companies'
+  records: Dana 1 deal and 1 ticket, Tom 1 deal. The users table is the contacts table, so
+  `USER:::associations.company` is the logged-in contact's own company association. The token is
+  `USER:::<user field id>`, **no braces**, as the entire value. It was set in Studio's Source tab
+  and over MCP alike ([details](../references/softr-mcp.md#logged-in-user-values-in-source-conditions)).
+  - **It fails closed.** A synced contact with no company, a Softr-only user and account managers
+    without a company all got 0 rows. By-id reads of other companies' records returned 404.
+  - **So staff need their own block**, gated to their group, with unfiltered connections (above).
+    Widening the client condition for them would widen it for everyone.
+  - **Use AND.** With one rule OR and AND behave the same, but a second rule added under OR widens
+    access.
+- **The email token is different: `{USER:::EMAIL}`, with braces**, as the entire value. It is
+  verified on Softr Database and untested on HubSpot. For any other user field, pick it once in the
+  block's Source tab and read `dataSources[].condition` back with `vibe_coding_block_get_settings`.
 - **Community evidence for association scoping in native blocks.** In
   [community.softr.io/t/hubspot-conditional-filter/10572](https://community.softr.io/t/hubspot-conditional-filter/10572)
   (September 2024), a native filter "ticket's Associated Company ID = logged-in user's Associated
   Company ID" worked after a Softr fix. It used an older field model; `associatedcompanyid` is no
   longer on Softr's contacts. Softr's HubSpot page also says "You can also use associated objects
-  in Visibility Conditional Filters". None of this has been tried in a vibe block or over MCP.
-- **Proven fallback: put the user's email on the records.** Add a custom text property, e.g.
-  "Portal requester email" on tickets or "Account manager email" on companies and deals. Write it
-  when the record is created, and compare it with `{USER:::EMAIL}` using **IS**. If the property
-  holds a list of emails and you use CONTAINS, mind the substring trap: `bob@x.com` also matches
-  `jbob@x.com` (verified 2026-09-18 on Softr Database). The value is written by the browser, so a
-  determined user could tamper with it on create. That is acceptable for scoping a demo; production
-  needs a server-side source of identity.
-- **Owner scoping.** `hubspot_owner_id` is the real property, but comparing it with the logged-in
-  user needs a user-field token, and none has been proven. A custom manager-email property compared
-  with `{USER:::EMAIL}` rests on the token that works. Owners are also HubSpot users, i.e. HubSpot
-  seats.
+  in Visibility Conditional Filters". The vibe-block version above is the verified one.
+- **Fallback: put the user's email on the records**, for scoping that no user field can express. Add
+  a custom text property, e.g. "Portal requester email" on tickets or "Account manager email" on
+  companies and deals. Write it when the record is created, and compare it with `{USER:::EMAIL}`
+  using **IS**. If the property holds a list of emails and you use CONTAINS, mind the substring
+  trap: `bob@x.com` also matches `jbob@x.com` (verified 2026-09-18 on Softr Database). The value is
+  written by the browser, so a determined user could tamper with it on create. That is acceptable
+  for scoping a demo; production needs a server-side source of identity. The user's company
+  association above lives in HubSpot instead, out of reach of a block with no contact write action.
+- **Owner scoping.** `hubspot_owner_id` is the real property, but on a contact it names that
+  contact's owner, not the contact. Scoping "my deals" for an account manager would need a custom
+  contact property holding their own owner id, read through `USER:::<field id>` (untested). For a
+  team-wide staff view, a group-gated block with unfiltered connections needs no owner filter at
+  all. Owners are also HubSpot users, i.e. HubSpot seats.
 
 **Filter limits** ([docs.softr.io/troubleshooting/troubleshooting-hubspot-errors](https://docs.softr.io/troubleshooting/troubleshooting-hubspot-errors)):
 
@@ -307,9 +315,9 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
 - **Condition-based user groups on a synced HubSpot property work** (verified 2026-10-05). For a
   select contact property the rule is subject `USER:portal_role` (the property's internal name),
   type `ARRAY`, operator `IS_ONE_OF`, value `[<choice id>]`: the choice id, not the label. That
-  syntax is for **user groups**. In a block's Source condition the same subject returned 400 (see
-  above). Membership then lives in HubSpot: anyone who can edit that property there can grant the
-  group's access.
+  syntax is for **user groups**. In a block's Source condition the subject form returned 400; there
+  the user field goes in the value, as `USER:::<field id>` (see above). Membership then lives in
+  HubSpot: anyone who can edit that property there can grant the group's access.
 - **`application_list_users` is not a membership check.** It showed `userGroups: []` for every
   user, including members of condition groups that demonstrably applied (verified 2026-10-05).
   Test membership by what the user can reach, e.g. preview as them against a group-gated block.
@@ -384,8 +392,8 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
   before relying on it.
 - **Mind the filter budget on blocks with an Edit button:** 4 AND filters, counting Source
   conditions, inline search and action-visibility filters together.
-- **Scope rows with `{USER:::EMAIL}` against an email property** until a user-field token is
-  proven, and test it on HubSpot before shipping.
+- **Scope client rows with `USER:::associations.company`, no braces,** in a Source condition
+  joined by AND. It fails closed, so give staff their own group-gated block.
 
 ## Best For
 

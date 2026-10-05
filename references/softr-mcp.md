@@ -478,7 +478,7 @@ connected to its ungated blocks is readable by any logged-in user who crafts the
 Source conditions allow, all fields the block's read selects name. A per-record access check in
 React ("is this viewer a party to this record?") shapes the UI; it is not access control. When rows
 must be private per user, put it in the Source conditions (e.g. a logged-in-user condition; see
-[below](#logged-in-user-values-in-source-conditions) for the one value known to work) or on a
+[below](#logged-in-user-values-in-source-conditions) for the two forms known to work) or on a
 page only the right group can view. When a field must be private, a second connection of the table
 keeps it out of every ordinary browser's payload — but not away from a crafted request by someone
 who may view the page; for that it has to live on a page (or in a group-gated block) the viewer
@@ -491,31 +491,43 @@ permission rather than uniformly critical.
 
 #### Logged-in-user values in Source conditions
 
-*Verified on Softr Database in a production project. On 2026-09-01 the condition was set in Studio's
-Source tab and read back with `vibe_coding_block_get_settings`. On 2026-09-18 conditions were set
-over MCP and checked against the records endpoint's totals as different users. Untested on any
-other source.*
+*The email token was verified on Softr Database in a production project: set in Studio's Source
+tab and read back with `vibe_coding_block_get_settings` on 2026-09-01, then set over MCP and checked
+against the records endpoint's totals as different users on 2026-09-18. The user-field token was
+verified on HubSpot on 2026-10-05, the same way.* There are two forms, and **their braces differ**:
 
-- **`{USER:::EMAIL}` is the one logged-in-user value seen working, and only as the ENTIRE value**
-  of an expression, e.g.
+- **The email: `{USER:::EMAIL}`, with braces, only as the ENTIRE value** of an expression, e.g.
   `{ "subject": { "field": "<fieldId>", "type": "TEXT" }, "operator": "CONTAINS", "value": ["{USER:::EMAIL}"] }`.
   Softr substitutes it as a whole-value token, not by string interpolation. The embedded form
   `",{USER:::EMAIL},"` returned total 0 for every user, including users who should have matched.
-- **No token for a users-table field or a user group has been found.** Eleven spellings were tried,
-  including `{USER:::<fieldId>}`, `{USER:<fieldId>}` and `{USER:::FIELD:<fieldId>}`, and each
-  silently matched nothing. A subject of `USER:<fieldId>`, which is the syntax user-group rules use,
-  returned HTTP 400 "Field not found".
+- **A users-table field: `USER:::<user field id>`, with NO braces, as the entire value** (verified
+  2026-10-05 on HubSpot). `associations.company IS_ONE_OF ["USER:::associations.company"]` on a
+  deals connection gave each user only their own companies' deals. Studio stores a picked user
+  field in this form (Leo set it in the Source tab, and it read back that way), and the same form
+  works when written with `vibe_coding_block_set_data_source_record_filters`.
+  **It fails closed:** a user whose field is empty, or who has no record in the users' data source,
+  gets 0 rows, and a by-id request for a record outside the condition returns 404.
+- **Use AND between rules.** With one rule OR and AND behave the same, but a second rule added
+  under OR widens access (2026-10-05).
+- **The braced user-field spellings fail.** On 2026-09-18, on Softr Database, eleven spellings were
+  tried, including `{USER:::<fieldId>}`, `{USER:<fieldId>}` and `{USER:::FIELD:<fieldId>}`. Each
+  silently matched nothing. All eleven had braces, so the braceless form is untested on Softr
+  Database, not disproved. A subject of `USER:<fieldId>`, the syntax user-group rules use, returned
+  HTTP 400 "Field not found": the user field goes in the value, never the subject. No token for a
+  user group has been found.
 - Studio's conditional-filter UI offers the logged-in user's Email and Email-Domain, plus every
-  users-table field once users sync from a data source (documented). So Studio can store such
-  values, but the stored form is unknown. To find it, pick the user field in a block's Source tab,
-  save, and read `dataSources[].condition` back with `vibe_coding_block_get_settings`.
+  users-table field once users sync from a data source (documented). For a value not listed here,
+  pick it in a block's Source tab, save, and read `dataSources[].condition` back with
+  `vibe_coding_block_get_settings`. That is how the user-field form was found.
 - **CONTAINS against a list of emails has a substring trap:** `bob@x.com` matches a field holding
   `jbob@x.com`. Prefer IS against a single-email field. If a record must hold several emails, the
   delimiter trick the embedded form was meant to provide does not work, so accept the trap or
   split the data.
-- When a row gate must follow something other than the user's email (a role, a company), store an
-  email on the record and compare it with `{USER:::EMAIL}`, or gate a whole page or block by user
-  group instead.
+- When a row gate must follow something other than the user's email (a company, a team), compare
+  the record's field with the user's own field through `USER:::<user field id>`. Where that form is
+  untested (Softr Database so far), store an email on the record and compare it with
+  `{USER:::EMAIL}`. Staff who need every row get a group-gated block with unfiltered connections
+  ([above](#what-the-server-enforces-on-a-blocks-data-endpoints)), not a wider condition.
 
 For HubSpot specifics (association-based scoping, owner fields), see
 [../datasources/hubspot.md](../datasources/hubspot.md#row-scoping--who-sees-which-records).

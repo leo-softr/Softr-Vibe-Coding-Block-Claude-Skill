@@ -310,9 +310,10 @@ var user = useCurrentUser();
 
 **`where: q.text("ownerEmail").is(user.email)` is not access control.** It shapes the UI, but the
 caller controls that parameter. To restrict rows to the logged-in user on the server, put the
-condition in the connection's Source conditions with the value `{USER:::EMAIL}`, used as the whole
-value. That is the one logged-in-user token seen working there. See
-[../references/softr-mcp.md](../references/softr-mcp.md#logged-in-user-values-in-source-conditions).
+condition in the connection's Source conditions, as the whole value: `{USER:::EMAIL}` (with
+braces) for the user's email, or `USER:::<user field id>` (no braces) for one of the user's own
+fields, e.g. their company (verified 2026-10-05 on HubSpot; fails closed when the field is empty).
+See [../references/softr-mcp.md](../references/softr-mcp.md#logged-in-user-values-in-source-conditions).
 
 **Custom user-record fields** are first-class: pass a `properties` map (aliased like a `select` query) and read them under `user.properties`:
 
