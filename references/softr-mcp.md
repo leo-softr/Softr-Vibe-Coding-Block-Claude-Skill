@@ -47,6 +47,13 @@ On 2026-10-01 Softr renamed the workspace-server tools outside Workflows to **ar
 (`application_update_pwa_settings`); the 28 Workflows tools and `get_workspace_integrations` kept their names. The
 map below was checked against the tool lists the server delivered on 2026-09-30 (old) and 2026-10-01 (new).
 
+**The Workflows tools have since followed** (when exactly is not known; first seen 2026-10-05). The 2026-10-05 roster delivered all 28 as `workflow_*`:
+`workflow_create`, `workflow_get`, `workflow_list`, `workflow_publish`, `workflow_update_node_inputs`,
+`workflow_get_node_specifications`, `workflow_list_node_types`, `workflow_test_node` and the rest,
+i.e. area first, then the old verb and object. [Workflows](#workflows) below still lists the
+pre-rename names. Translate them that way. That roster had no `get_workspace_integrations`;
+`integration_list` covers it.
+
 Most new names are the old words reordered. These are the ones you would not guess:
 
 | Old | New |
@@ -468,7 +475,8 @@ The consequence to design around: **on a page any logged-in user may view, every
 connected to its blocks is readable by any logged-in user who crafts the request** — all rows the
 Source conditions allow, all fields the block's read selects name. A per-record access check in
 React ("is this viewer a party to this record?") shapes the UI; it is not access control. When rows
-must be private per user, put it in the Source conditions (e.g. a logged-in-user condition) or on a
+must be private per user, put it in the Source conditions (e.g. a logged-in-user condition; see
+[below](#logged-in-user-values-in-source-conditions) for the one value known to work) or on a
 page only the right group can view. When a field must be private, a second connection of the table
 keeps it out of every ordinary browser's payload — but not away from a crafted request by someone
 who may view the page; for that it has to live on a page (or in a group-gated block) the viewer
@@ -477,6 +485,37 @@ wording suggests block visibility is checked the same way, which is inference.)
 
 This is also what makes the open-`ADD_RECORD` finding above severity-dependent on the page's VIEW
 permission rather than uniformly critical.
+
+#### Logged-in-user values in Source conditions
+
+*Verified on Softr Database in a production project. On 2026-09-01 the condition was set in Studio's
+Source tab and read back with `vibe_coding_block_get_settings`. On 2026-09-18 conditions were set
+over MCP and checked against the records endpoint's totals as different users. Untested on any
+other source.*
+
+- **`{USER:::EMAIL}` is the one logged-in-user value seen working, and only as the ENTIRE value**
+  of an expression, e.g.
+  `{ "subject": { "field": "<fieldId>", "type": "TEXT" }, "operator": "CONTAINS", "value": ["{USER:::EMAIL}"] }`.
+  Softr substitutes it as a whole-value token, not by string interpolation. The embedded form
+  `",{USER:::EMAIL},"` returned total 0 for every user, including users who should have matched.
+- **No token for a users-table field or a user group has been found.** Eleven spellings were tried,
+  including `{USER:::<fieldId>}`, `{USER:<fieldId>}` and `{USER:::FIELD:<fieldId>}`, and each
+  silently matched nothing. A subject of `USER:<fieldId>`, which is the syntax user-group rules use,
+  returned HTTP 400 "Field not found".
+- Studio's conditional-filter UI offers the logged-in user's Email and Email-Domain, plus every
+  users-table field once users sync from a data source (documented). So Studio can store such
+  values, but the stored form is unknown. To find it, pick the user field in a block's Source tab,
+  save, and read `dataSources[].condition` back with `vibe_coding_block_get_settings`.
+- **CONTAINS against a list of emails has a substring trap:** `bob@x.com` matches a field holding
+  `jbob@x.com`. Prefer IS against a single-email field. If a record must hold several emails, the
+  delimiter trick the embedded form was meant to provide does not work, so accept the trap or
+  split the data.
+- When a row gate must follow something other than the user's email (a role, a company), store an
+  email on the record and compare it with `{USER:::EMAIL}`, or gate a whole page or block by user
+  group instead.
+
+For HubSpot specifics (association-based scoping, owner fields), see
+[../datasources/hubspot.md](../datasources/hubspot.md#row-scoping--who-sees-which-records).
 
 ## Adopting Studio-AI-generated code
 
@@ -669,9 +708,19 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 | Node management | `add_node`, `add_branch_node`, `create_branch`, `delete_node`, `duplicate_node`, `rename_node`, `reorder_node`, `reorder_multiple_nodes`, `replace_node`, `replace_trigger_node`, `update_node_inputs`, `update_node_note`, `update_node_continue_on_error`, `update_node_retry` |
 | Discovery / testing | `list_node_types`, `get_node_specifications`, `get_dynamic_input_options`, `test_node`, `get_node_output` |
 
+These are the names as of 2026-10-01. By 2026-10-05 the server delivered them as `workflow_*`
+(`create_workflow` → `workflow_create`, `update_node_inputs` → `workflow_update_node_inputs`); see
+[the rename note](#tool-names--the-2026-10-01-rename).
+
 **The node catalog is huge** — live-enumerated 2026-08-31: **418 node types (58 triggers + 360 actions) across 56 applications.** The parts that matter most for this skill:
 
-- **Softr-native triggers:** one-time + recurring schedules, `WEBHOOK` (inbound webhook), `SOFTR_EMAIL_RECEIVED` (inbound email! — delivery mechanism not captured), Softr Databases record events (added / updated / deleted / meets-conditions / enters-view / "run custom workflow on selected records"), Softr Apps events (Add Record form submitted, Edit Record form submitted, form submitted, user added, comment added) — and **"Run Custom Workflow action triggered"**, which by its name is the receiving end of the vibe block's `TRIGGER_CUSTOM_WORKFLOW` NavigationAction (name-based inference; the pairing has not been wired live). See SKILL.md's NavigationAction action-types list.
+- **Softr-native triggers:** one-time + recurring schedules, `WEBHOOK` (inbound webhook), `SOFTR_EMAIL_RECEIVED` (inbound email! — delivery mechanism not captured), Softr Databases record events (added / updated / deleted / meets-conditions / enters-view / "run custom workflow on selected records"), Softr Apps events (Add Record form submitted, Edit Record form submitted, form submitted, user added, comment added) — and **"Run custom workflow"** (`SOFTR_APPS_TRIGGER_WORKFLOW`; this file called it "Run Custom Workflow action triggered" until 2026-10-05, and the live label is "Run custom workflow"). This is the receiving end of the vibe block's `TRIGGER_CUSTOM_WORKFLOW` action.
+  - **From the block:** the live developer guide documents `navigate(setting, { recordId, datasourceId })` on a `TRIGGER_CUSTOM_WORKFLOW` setting, callable for example from `useRecordCreate`'s `onSuccess`, and says "the builder picks which action it points at" (documented, checked 2026-10-05). We have not yet run it end to end ourselves.
+  - **The trigger and its payload:** its only input is `corsAllowedOrigins`. Saved payloads look like `{ body: { ... }, query: {} }`, with `body` holding whatever the triggering action mapped. Native buttons can map form or record fields; the vibe path documents only `recordId` and `datasourceId`.
+  - **Who can call it:** the endpoint is browser-callable (per its spec, an empty `corsAllowedOrigins` allows any origin), so re-read the record server-side rather than trusting the body.
+  - **Wait screen:** `workflow_create` scaffolds the Show Wait Screen and End User Interactions steps for this trigger. Whether a vibe `navigate()` call shows the wait screen is undocumented; the docs describe the toggle only on native app actions.
+
+  See SKILL.md's NavigationAction action-types list.
 - **Softr-native actions:** `BRANCH`, `FILTER`, `WAIT`, `LOOP_ACTION_GROUP` (run each list item through the same steps), `SOFTR_SEND_EMAIL`, `CALL_API` (REST), `WEBPAGE_SCRAPPER`, `PDF_TO_TEXT`, `COMPRESS_FILES` (zip + download link), `TRANSFORM_DATA`, `RESPONDED_TO_WEBHOOK` (custom HTTP response to the webhook caller); Softr DB record CRUD incl. bulk update/delete and find; Softr Apps user management (find / create / delete / deactivate / activate / invite user, send push notification).
 - **`CUSTOM_CODE`:** runs custom **JavaScript or Python** inside a workflow.
 - **AI actions:** Softr AI, OpenAI, Anthropic, Gemini, and Mistral each ship Write / Summarize / Categorize / Custom-prompt nodes; OpenAI adds gpt-image-2 image generation. Pinecone, Firecrawl, Replicate, and Linkup nodes exist too.
@@ -681,12 +730,15 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 
 - Node inputs can embed **references to another node's runtime output**, a loop's current item, or named date/time tokens.
 - **Test-first is mandated:** every testable node needs a test run before its outputs become referenceable by downstream nodes. Each node carries a `testRunMode` — `REAL_ONLY`, `MOCK_ONLY`, or `MOCK_AND_REAL` — so some nodes can only be tested against real side effects while others mock. See the test-safety rules under build-loop findings below before testing anything against a production workspace.
-- **Workflows are workspace-level, not part of an app**: `application_preview` / `application_publish` do not apply. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
+- **Workflows are owned by a workspace, and can now be pinned to an app** (verified 2026-10-05 from the tool definitions). `workflow_create` still requires a `workspaceId`; its optional `applicationId` "pins the workflow to it, so it is listed on that app's Workflows tab", and `workflow_list({ applicationId })` lists the workflows pinned to an app. Leave `applicationId` out for a workflow that belongs to the workspace as a whole. Pinning or not, `application_preview` / `application_publish` do not apply to workflows. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
 
 **Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows):**
 
 - **`create_workflow` instantiates an OLD version of the trigger node.** Immediately call `replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a specific field changed) only exists at v1.2.0; the version `create_workflow` instantiates doesn't have it.
 - **FILTER node conditions are set via `update_node_inputs` with inputName `"condition"`** — the value is an `{operator, conditions: [...]}` object. The condition is stored on the FILTER node's **outgoing path**, the same way the Studio builder wires it.
+  - **The official MCP docs disagree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05).
+  - **What stands on each side:** our 2026-09-01 build did set them this way. The FILTER spec today declares `inputs: {}`, but live FILTER nodes still keep their condition on the outgoing path, so the empty spec does not refute the mechanism.
+  - **Until it's re-checked:** after setting a condition over MCP, read the workflow back (`workflow_get`) and confirm the path condition is there. If it isn't, finish the condition in the builder.
 - **`LOOP_ACTION_GROUP`'s `loopVariables.items` must reference a plain array**, e.g. `$.records` — a `[*]` projection (e.g. `$.records[*].fields.X`) is rejected by the validator. Per-item references **inside** the loop use `{loopActionGroup.<id>:::loopVariables.items.fields.<fieldId>}` (use the bracket form for ids that start with a digit).
 - **`update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
 - **Test-safety rules** (which `testRunMode` means what in practice):

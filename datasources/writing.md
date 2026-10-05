@@ -16,6 +16,13 @@ Record mutations, sequential write queues, file uploads, linked record format, a
 
 Every Vibe Coding block in Softr Studio has an **Actions tab** alongside Chat / Source / Content / Visibility. The Actions tab is a **read-only inspector** of the Create / Update / Delete operations the platform inferred from your code.
 
+> **Docs discrepancy (noted 2026-10-05, unresolved).**
+> - **What the docs say:** the live Vibe Coding page tells builders to "Review each action and configure permissions, conditions, or connected workflows as needed".
+> - **Where we agree:** permissions are settable, on the Actions tab or with `vibe_coding_block_set_action_visibility`, so "read-only" is about the action *list*, which only the code changes.
+> - **What nobody has observed:** an Actions-tab control for conditions or connected workflows on a vibe block, or whether a vibe block's `ADD_RECORD` fires the Softr Apps "Add record" workflow trigger.
+>
+> Until someone sees those controls in Studio, start workflows from code with `navigate()` on a `TRIGGER_CUSTOM_WORKFLOW` setting (SKILL.md, NavigationAction).
+
 Each Action's "FIELDS USED" list mirrors the aliases in your `q.select()` mapping. Actions are not a separately-managed system:
 
 - The platform parses your block's source on every save

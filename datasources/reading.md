@@ -308,6 +308,12 @@ var user = useCurrentUser();
 // Note: `id` is only present when user sync is enabled.
 ```
 
+**`where: q.text("ownerEmail").is(user.email)` is not access control.** It shapes the UI, but the
+caller controls that parameter. To restrict rows to the logged-in user on the server, put the
+condition in the connection's Source conditions with the value `{USER:::EMAIL}`, used as the whole
+value. That is the one logged-in-user token seen working there. See
+[../references/softr-mcp.md](../references/softr-mcp.md#logged-in-user-values-in-source-conditions).
+
 **Custom user-record fields** are first-class: pass a `properties` map (aliased like a `select` query) and read them under `user.properties`:
 
 ```jsx

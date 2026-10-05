@@ -276,7 +276,8 @@ softr-vibe-coding/
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
     ├── google-sheets.md              # Text formatting, 50-100 user cap
-    ├── hubspot.md                    # CRM objects, Sensitive Data Scopes
+    ├── hubspot.md                    # 15 objects (listed ≠ usable), field model,
+    │                                 # association writes (open), row scoping (Oct 5 2026)
     ├── notion.md                     # Database pages only, Relation workarounds
     ├── coda.md                       # API token auth, limitations
     ├── monday.md                     # API token, Connected Boards
