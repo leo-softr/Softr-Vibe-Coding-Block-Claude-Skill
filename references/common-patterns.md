@@ -17,6 +17,8 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Drag-to-Reorder Rows](#drag-to-reorder-rows)
 - [Create → open](#create--open)
 - [Clickable Row with an Inner Link](#clickable-row-with-an-inner-link)
+- [Measure the block, not the window](#measure-the-block-not-the-window)
+- [Clear Softr's sticky bars](#clear-softrs-sticky-bars)
 
 ## Cross-Page State with localStorage + URL Parameters
 
@@ -515,4 +517,106 @@ function onKeyDown(e) {
 
 Make the rows themselves focusable too (`tabIndex={0}`, an `onKeyDown` that opens on Enter only when `event.target === event.currentTarget`, so an Enter on the anchor inside the row is not handled twice), and let `onMouseEnter` *and* `onFocus` both move the highlight onto the row — the highlight is the single answer to "which record does Enter open", whichever device last touched it. That is the shape `projects-table.jsx` shipped on 2026-09-10.
 
-Paint the highlighted row with the same colour the mouse hover gets (`data-active="true"` + `bg-[#FFF7EF]`) and scroll it into view when it moves (`querySelector('[data-active="true"]').scrollIntoView({ block: "nearest" })` in a `useEffect` on `activeIdx`). That is right here, because these rows are page content and the table's scroller and the page *should* move to them. Inside a dropdown it is wrong, and the Combo scrolls only its own list — see [searchable-dropdown.md](searchable-dropdown.md#the-four-things-that-will-bite-you), item 4, rule 3. Reset `active` to 0 whenever the query changes: the old index points at a row that may no longer be in the list. `autoFocus` is right only when the block *is* the page's reason to exist — an index page whose first act is always a search; on a page with content above the table, a focus steal scrolls the page to the box.
+Paint the highlighted row with the same colour the mouse hover gets (`data-active="true"` + `bg-[#FFF7EF]`) and scroll it into view when it moves (`querySelector('[data-active="true"]').scrollIntoView({ block: "nearest" })` in a `useEffect` on `activeIdx`). That is right here, because these rows are page content and the table's scroller and the page *should* move to them. On a page with Softr's top bar, a row scrolled in from above the window can land under the bar: give the rows a `scroll-margin-top` or scroll the window yourself, as in [Clear Softr's sticky bars](#clear-softrs-sticky-bars). Inside a dropdown it is wrong, and the Combo scrolls only its own list — see [searchable-dropdown.md](searchable-dropdown.md#the-four-things-that-will-bite-you), item 4, rule 3. Reset `active` to 0 whenever the query changes: the old index points at a row that may no longer be in the list. `autoFocus` is right only when the block *is* the page's reason to exist — an index page whose first act is always a search; on a page with content above the table, a focus steal scrolls the page to the box.
+
+## Measure the block, not the window
+
+Beside Softr's sidebar navigation, the window over-reports the block's width by the width of the sidebar: 280px by default, 57px collapsed, 200 to 360px when dragged. Lay the block out by its own width. CSS container queries do most of it (`@container` on a wrapper, `@min-[NNrem]:` on what is inside it; see [ui-ux-guidelines.md → Breakpoint strategy](../ui-ux-guidelines.md#breakpoint-strategy)), so reach for CSS first. When a decision can't be made in CSS, measure the block in JS. Typical cases: rendering a different tree (list and detail side by side, or a phone flow with its own back control), or choosing how many chart ticks to draw.
+
+```tsx
+import { useLayoutEffect, useRef, useState } from "react";
+
+// Module scope, like any hook or component. The block's own width: the space Softr gives it.
+function useElementWidth(ref: { current: HTMLElement | null }) {
+  const [width, setWidth] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1200));
+  // useLayoutEffect, not useEffect: measured before the first paint, so no frame is laid out at the window's width.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.getBoundingClientRect().width);
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return width;
+}
+
+export default function Block() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(rootRef);
+  const wide = width >= 860; // 340px list + 20px gap + at least 440px of detail + padding
+  return (
+    <div ref={rootRef} className="@container">
+      {wide ? <ListAndDetail /> : <PhoneFlow />}
+    </div>
+  );
+}
+```
+
+- **`useLayoutEffect`, not `useEffect`.** A passive `useEffect` runs after the browser paints, so the first frame is laid out with the initial guess: the window's width. Beside a sidebar that guess is out by up to 360px, and the layout visibly flips. At a 1200px window with a 360px sidebar the block is 840px, but the first frame would paint the two-column skeleton and then switch to one column. `useLayoutEffect` measures and re-renders before the first paint. (A code-review finding, 2026-10-05; the fix shipped in two blocks.)
+- **Put the ref on the block's outer wrapper, and render that wrapper in every state, loading included.** The effect runs once, so a ref that attaches only after the data loads is never observed. Measure the wrapper, not an element whose width depends on the decision the width drives.
+- **Keep padding off the `@container` element** when CSS and JS both switch on width. Container queries read its content box and `getBoundingClientRect()` reads its border box. With no padding or border they are the same number, so `@min-[860px]:` and `width >= 860` agree.
+- The window `resize` listener is only the fallback for a browser without `ResizeObserver`. The observer also sees what a resize event never reports: the sidebar collapsing or being dragged while the window stays the same size.
+- Thresholds one app uses: a chart labels every other month below a 640px block, and list and detail sit side by side from an 860px block.
+
+## Clear Softr's sticky bars
+
+On a page with Softr navigation, Softr's bars live in the main document, outside the block, and the page scrolls under them (measured live 2026-10-05):
+
+| Bar | Shows at | Element | Height | Position |
+|---|---|---|---|---|
+| Top bar | a window of 768px and up | `#topbar-root` | 56px | sticky, top 0, z-index 800 |
+| Phone tab bar | a window below 768px | `#bottombar-root` | 57px rendered (`#bottombar-root` and its `ul` both measured 57px; Softr's variable says 55px) | sticky in the page grid's bottom row (not `fixed`), z-index 800 |
+
+The block host hands their sizes to block CSS. `--nav-height` is 56px with the top bar; on phones Softr leaves its own variable empty and the host's fallback gives 0px. `--bottombar-height` is `calc(0px + 55px)` on phones (2px short of the rendered bar) and 0px otherwise. `--sidebar-width` is 280px with the sidebar open, 57px collapsed and 0px on phones. The host maps them from Softr's `:root` variables `--sticky-nav-height`, `--softr-bottombar-height` and `--softr-sidebar-width`, each with a `0px` fallback (all measured live 2026-10-05). The variable table is in [quick-reference.md → Softr navigation variables](quick-reference.md#softr-navigation-variables); the whole page layout is in [native-chrome-styling.md → App frame (navigation layout)](native-chrome-styling.md#app-frame-navigation-layout).
+
+**Sticky elements inside a block.** A `sticky top-4` slides under the top bar. Offset it by the bar, and cap a sticky pane so its foot stays on screen:
+
+```tsx
+<section
+  className="sticky flex flex-col"
+  style={{
+    top: "calc(var(--nav-height, 0px) + 16px)",
+    maxHeight: "calc(100dvh - var(--nav-height, 0px) - 32px)", // 16px of air above and below
+  }}
+>
+```
+
+Measured live 2026-10-05 in the preview at a 1440px window: the pane's top sat at 72px (56 + 16). The mirror image for a phone, `bottom: calc(var(--bottombar-height, 0px) + 16px)`, is untested.
+
+**Scripted window scrolls and room checks.** JS sees the window, not the bars. Code that scrolls the window to bring something into view, or asks whether a popover has room above or below, must take the top bar (56px) off the top edge and, on phones, the tab bar (57px as rendered) off the bottom edge. Softr switches its navigation on the window width, so here the window is the right thing to test:
+
+```tsx
+const TOP_BAR = 56; // Softr's sticky top bar, window 768px and up
+const TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px; --softr-bottombar-height says 55px
+const AIR = 16;
+
+// The strip of the window that Softr's bars leave visible.
+function visibleStrip() {
+  const phone = window.innerWidth < 768; // 767px = tab bar, 768px = top bar + sidebar
+  return {
+    top: (phone ? 0 : TOP_BAR) + AIR,
+    bottom: window.innerHeight - (phone ? TAB_BAR : 0) - AIR,
+  };
+}
+
+function keepInView(el: HTMLElement) {
+  const { top, bottom } = visibleStrip();
+  const r = el.getBoundingClientRect();
+  if (r.top < top) window.scrollBy(0, r.top - top);
+  else if (r.bottom > bottom) window.scrollBy(0, r.bottom - bottom);
+}
+
+// It issues a window scroll, so call it as setTimeout(() => keepInView(el), 0) (Hard Constraint 17).
+```
+
+The project this comes from hard-coded 72px (a bar plus 16px) at the top, and at the bottom wherever a tab bar could be. That number is a project choice; subtracting the bars is the rule. `visibleStrip` generalises it and is untested as written. A confirm strip that opens below a row, or a drop-up test, uses the same strip in place of `0` and `window.innerHeight`. For the dropdown, see [searchable-dropdown.md → rule 2](searchable-dropdown.md#the-four-things-that-will-bite-you).
+
+**Read the host variables only inside CSS `calc()`.** They are unregistered custom properties, so in JS `getComputedStyle(el).getPropertyValue(...)` returns the token that was set, not a length. `--nav-height` reads `56px` on desktop, but `--bottombar-height` reads `calc(0px + 55px)` on phones (both measured live 2026-10-05). `parseFloat` turns that into `NaN` (inferred, not run in a block), and a `|| 0` fallback would then scroll content under the tab bar without a sound. In CSS both forms work. In JS, use the bar heights above.
+
+**Fragment jumps are offset; inner scrolls are not.** Softr's page CSS gives every block's outer wrapper (`div[data-block]`, with a page-assigned id such as `ai1`; the Vibe host sits two levels inside it) `#main-content [data-block] { scroll-margin-top: var(--sticky-nav-height, 0px) }` (the rule was read from Softr's live page CSS on 2026-10-05; the jump itself is untested), so a URL fragment that targets that wrapper lands below the top bar. Nothing offsets a scroll to an element *inside* the block: `scrollIntoView` on a row or a section can put it at the window's top edge, under the bar. Give the target `scroll-margin-top: calc(var(--nav-height, 0px) + 16px)`, which `scrollIntoView` honours (untested in a block), or scroll the window with `keepInView`. A fragment can't reach inside the shadow root in the first place; see [static-blocks.md → Section anchors](static-blocks.md#section-anchors-on-landing-pages).

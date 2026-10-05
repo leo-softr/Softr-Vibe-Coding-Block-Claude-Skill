@@ -3,7 +3,8 @@
 How to check a deployed block's rendering and behaviour in a Softr preview with the
 [agent-browser](https://github.com/vercel-labs/agent-browser) CLI. **Verified 2026-10-01** with
 agent-browser v0.38.1 on macOS (Node 22) against a real Softr preview; only the commands under
-[Untested but promising](#untested-but-promising) were not run.
+[Untested but promising](#untested-but-promising) were not run. [Testing Custom Code header
+CSS](#testing-custom-code-header-css) was verified 2026-10-05, except where it says otherwise.
 
 ## When to use it
 
@@ -155,6 +156,160 @@ ab close                               # ✓ Browser closed (no process left beh
 
 Give a path; without one, it writes to a temp directory. A saved screenshot costs no tokens until
 someone opens it; one shown inline costs about 1.5k. Left alone, the daemon exits after an hour idle.
+
+## Testing Custom Code header CSS
+
+CSS in **Settings → Custom Code → Code inside header** applies to every page of the app, and the
+builder usually pastes it, not you. So test it in the preview before it is pasted, then prove what
+went live. **Verified 2026-10-05** on one app with Softr's top bar and sidebar, using the app-frame
+code in [native-chrome-styling.md → App frame (navigation layout)](native-chrome-styling.md#app-frame-navigation-layout)
+with its Vibe-host rule in the unscoped form (see step 4), with agent-browser and the desktop app's
+Browser pane; anything else is marked.
+
+**Where header code shows:** on the published app, and in the preview: after a paste and a publish,
+a fresh preview load applied it with nothing injected (verified 2026-10-05). Whether the preview
+shows header code that is pasted but not yet published is untested. The Studio editor canvas is not
+a test surface: header code is not known to render there.
+
+### 1. Before pasting: inject it into the preview
+
+Open the page as in [step 1](#1-session-preview-cookie-page), as the user whose navigation you are
+styling: on the preview origin run `fetch('/studio/impersonate/<softrUserId>')`, then open the page
+again ([how](softr-mcp.md#testing-as-any-app-user-without-logins--the-preview-as-switcher)). Then
+inject the file exactly as it will be pasted, tagged so that a re-run replaces it:
+
+```bash
+node -e '
+const h = require("fs").readFileSync("custom-code-header.html", "utf8");
+process.stdout.write(`(() => {
+  document.querySelectorAll("[data-hdr-test]").forEach(n => n.remove());
+  const t = document.createElement("template"); t.innerHTML = ${JSON.stringify(h)};
+  for (const n of [...t.content.children]) { n.setAttribute("data-hdr-test", ""); document.head.appendChild(n); }
+  return "injected";
+})()`);' > inject.js
+ab eval --stdin < inject.js            # "injected"
+```
+
+- The injected copy lasts until the next load: inject again after every `open` or reload. A width
+  change keeps it.
+- This tests the `<link>` and `<style>` parts. A `<script>` in the header is out of scope.
+- If an older version is already live, the preview carries it too and the injected copy only adds
+  to it, so a rule you deleted still applies. Remove the live `<style>` first, found by a token
+  only it contains (inferred, not run).
+- A Browser pane opened on the preview link shows the toolbar shell, with the app in the
+  same-origin `#preview-iframe`. Open the direct page URL instead, so that `document` is the app's.
+
+### 2. Measure; screenshots are the extra
+
+Computed values answer the question; a screenshot only illustrates it. A hidden pane times out on
+screenshots ([why](#tool-choice-and-why)) but measures fine, so measure first and take any
+screenshot with agent-browser, to disk. Save this as `measure.js`:
+
+```js
+(() => {
+  const q = s => document.querySelector(s), bg = e => e ? getComputedStyle(e).backgroundColor : 'none';
+  const main = q('#main-content'), sr = q('#sidebar-root'), a = sr ? getComputedStyle(sr, '::after') : null;
+  return JSON.stringify({
+    w: innerWidth, sidebar: !!q('.softr-sidebar'), tabBar: !!q('.softr-bottombar'),
+    html: bg(document.documentElement), body: bg(document.body), page: bg(q('#page-content')),
+    main: bg(main), radius: main ? getComputedStyle(main).borderTopLeftRadius : 'none',
+    host: bg(q('#main-content [data-role="vibe-block-root"]')),
+    corner: a ? a.content + ' @ ' + a.left : 'none',
+    overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  });
+})()
+```
+
+What the verified live code gave (2026-10-05; its Vibe-host rule was the unscoped
+`#main-content [data-role="vibe-block-root"]`, and the recipe's scoped form is untested):
+
+| Window | Navigation | `html`, `body`, `#page-content` | `#main-content` | `corner` |
+|---|---|---|---|---|
+| 768px and wider | top bar + sidebar | frame colour | sheet colour, 24px radius | `"" @ 280px` open, `"" @ 57px` collapsed |
+| 767px and narrower | phone tab bar | sheet colour | transparent (`rgba(0, 0, 0, 0)`), 0px radius; the paper is on `html`, `body` and `#page-content` | `none @ auto` |
+
+At the widths checked for it (1440, 1024 and 390/375) the Vibe host was `rgba(0, 0, 0, 0)` and
+there was no sideways scroll. On phones `#sidebar-root` is still in the DOM, empty, 0px wide and
+`position: static` (not sticky), which is why the corner rule is guarded with
+`:has(.softr-sidebar)`. Without the guard the `::after` still renders there and is placed against
+the page: likely off the right edge, adding sideways scroll (seen in a mock, not on Softr).
+
+### 3. The width sweep
+
+```bash
+for w in 1440 1280 1024 900 768 767 390; do ab set viewport $w 900; ab wait 1200; ab eval --stdin < measure.js; done
+```
+
+Then collapse the sidebar (the top bar's "Toggle sidebar" button, a ref from `snapshot -i`; it
+writes nothing) and measure 1024 and 768 again.
+
+- **767 / 768 is Softr's switch, to the pixel:** 767 gives the phone tab bar, 768 the top bar and
+  sidebar. At 768 with the sidebar open, a block gets 488px.
+- **A plain width change switches the layout live.** `ab set viewport` alone moved between sidebar
+  and tab bar; no reload needed.
+- **Reload after leaving a mobile-device emulation.** A pane loaded under a mobile preset (an
+  Android user agent and touch points, not just a width) kept the phone layout when widened to
+  1440, until a reload (seen 2026-10-05; most likely a device check at load, inferred).
+- **The collapsed sidebar stayed collapsed** at later widths in one headless run (seen once):
+  open it again, or expect 57px.
+
+### 4. Pages without navigation
+
+The recipe scopes its rules with `:has(.softr-sidebar, .softr-bottombar)`, so pages without Softr's
+navigation (log in, sign up, 404) should keep Softr's own colours.
+
+- **Before pasting:** inject on a 404 page in the preview (any path that does not exist): `html`
+  and `body` stayed rgb(255,255,255). A logged-in preview sends `/login` to the home page, so
+  `/login` cannot be checked there.
+- **Once pasted:** open `/login` and a 404 page on the published app, logged out. With the code
+  live, `html`, `body` and `#page-content` stayed white on both, with no top bar, sidebar or tab
+  bar (verified 2026-10-05).
+- **The Vibe-host rule depends on which form you have.** In the verified live code it was unscoped
+  (`#main-content [data-role="vibe-block-root"]`) and applied on these pages too; on a page without
+  navigation that holds a Vibe block it is probably invisible, because the page behind the block
+  is the same theme colour (inferred). The recipe scopes it with `:has(.softr-sidebar,
+  .softr-bottombar)`, so nothing should apply there (untested as written). Either way, no page
+  without navigation but with a Vibe block was tested: on one, check that the host keeps the
+  theme white.
+
+### 5. After the paste: prove what is live
+
+**A publish publishes everything.** Header code reaches the published app with a publish, and a
+publish also pushes every unpublished page live (seen 2026-10-05: unfinished pages went live with a
+header-code publish). Before asking anyone to publish header code, check what else is unpublished,
+and say so in the ask.
+
+Then fetch the published page and pull the code out. Softr carries it in an inline script as
+`appCustomHeaderCode: "…"`, an unquoted key inside `SoftrPageRenderer.render({…})`: JavaScript, not
+JSON, so read the string literal rather than parsing the object. `json.loads` read Softr's string on
+2026-10-05:
+
+```bash
+curl -sL 'https://<subdomain>.softr.app/' -o pub.html
+python3 - <<'EOF'
+import json, re
+s = open('pub.html').read()
+m = re.search(r'appCustomHeaderCode:\s*("(?:[^"\\]|\\.)*")', s)
+if not m: raise SystemExit('appCustomHeaderCode not found: wrong page, a redirect or an empty body; fetch / again')
+live = json.loads(m.group(1))
+mine = open('custom-code-header.html').read()
+rules = lambda t: re.sub(r'\s+', '', re.sub(r'<!--.*?-->|/\*.*?\*/', '', t, flags=re.S))
+print(len(live), 'bytes live;', 'rules match' if rules(live) == rules(mine) else 'RULES DIFFER')
+EOF
+#   1516 bytes live; rules match
+```
+
+- **Compare the rules, not the text.** The pasted copy can lose or shorten comments; it did on
+  2026-10-05, and the rules still matched.
+- **`pageCustomHeaderCode`** is the page-level header code, and `appCustomFooterCode` /
+  `pageCustomFooterCode` are the footers: check that they are empty, or hold what you expect.
+- **The page source opens with `<!-- Last Published: … -->`.** Check that it moved, so you are not
+  reading the previous publish.
+- The key is in every page's source, logged out too: it was the same on Home, `/login` and a 404
+  page.
+
+Then run the sweep again in a fresh preview with nothing injected, and the pages without navigation
+on the published app, logged out.
 
 ## Gotchas
 

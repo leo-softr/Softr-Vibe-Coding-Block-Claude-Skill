@@ -21,7 +21,7 @@ This Claude skill teaches Claude Code how to generate complete, polished Softr V
 - **All 14 Softr data sources** — Airtable, Softr Database, Google Sheets, HubSpot, Notion, Coda, monday.com, SmartSuite, ClickUp, Xano, Supabase, BigQuery, SQL Database, and REST API — each with field mapping, rate limits, and gotchas
 - **Helper blocks & cross-block patterns** — Invisible helper blocks for multi-table access via `window` globals + `CustomEvent`, `useWindowData` hook, breadcrumb navigation, saved views architecture
 - **Advanced integrations** — Shadow DOM CSS isolation for third-party libraries (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar)
-- **Native shell styling** — re-skin Softr's native top bar, **footer**, nav, dropdowns, and **page background** via global Custom Code CSS (stable selectors vs. hashed classes, floating "island" header/footer, the dropdown grid fix, the multi-layer page-background stacking, restyle-vs-replace) — distinct from blocks
+- **Native shell styling** — re-skin Softr's native top bar, **footer**, nav, dropdowns, and **page background** via global Custom Code CSS (stable selectors vs. hashed classes, floating "island" header/footer, the dropdown grid fix, the multi-layer page-background stacking, restyle-vs-replace), plus the **app frame** for apps with Softr's sidebar navigation: the bars' colour as one frame around a paper content sheet, with blocks full-bleed, transparent and laid out by their own width — distinct from blocks
 - **UI/UX design guidelines** — 26 sections covering visual hierarchy, color, typography, spacing, motion design, accessibility, responsive patterns, and an AI slop anti-pattern checklist
 - **Self-validation** — Claude checks Softr platform compatibility and house conventions (inline hook options, correct payload shapes, correct imports, container wrappers or a deliberate full-bleed layout, `getFieldValue()` wrapping, hooks ordering) before delivering code
 - **Premium visual baseline** — every app-UI block (dashboards, lists, forms, detail pages) ships polished from v1: gradient backgrounds, card elevation, loading skeletons, empty states, error states; static marketing blocks use the editorial baseline instead
@@ -202,20 +202,22 @@ softr-vibe-coding/
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
 │   │                                 # shell, eval measurements, the records-trigger
 │   │                                 # write guard proven before any click, what a
-│   │                                 # click sent, screenshots to disk (Oct 1 2026)
+│   │                                 # click sent, screenshots to disk (Oct 1 2026);
+│   │                                 # testing Custom Code header CSS (Oct 5 2026)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
 │   │                                 # nav, dropdowns, page background) via global
 │   │                                 # Custom Code CSS — stable selectors, floating
-│   │                                 # islands, dropdown grid fix, multi-layer page-bg
+│   │                                 # islands, dropdown grid fix, multi-layer page-bg,
+│   │                                 # app frame for sidebar apps (Oct 5 2026)
 │   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
 │   │                                 # controls on native List/Grid blocks — wide-range
 │   │                                 # sentinel, inject into filter row, survive re-renders
 │   ├── anti-patterns.md              # Categorized violation catalog
 │   │                                 # Data access, mutations, hooks, layout,
 │   │                                 # permissions, editable settings, helper blocks
-│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker)
+│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
 │   │                                 # auth-aware CTA, image masks, blobs, dot lists
@@ -240,7 +242,8 @@ softr-vibe-coding/
 │   │                                 # (Sep 30 2026)
 │   ├── quick-reference.md            # Syntax cheat sheet
 │   │                                 # Imports, hook signatures, mutation shapes,
-│   │                                 # field mapping, component skeleton
+│   │                                 # field mapping, component skeleton,
+│   │                                 # Softr navigation variables, container queries
 │   └── searchable-dropdown.md        # THE dropdown pattern for blocks
 │                                     # why native <select> and shadcn <Select> both
 │                                     # break in the shadow DOM, composedPath()

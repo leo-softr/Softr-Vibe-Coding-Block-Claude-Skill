@@ -255,6 +255,42 @@ useNavigationBlocker(function() { return dirtyRef.current; });
 
 Catches BOTH Softr's in-app SPA navigation (nav bar, sidebar, `<NavigationAction>`) AND browser unload (tab close, refresh, external links). A plain `window.addEventListener("beforeunload", ...)` does NOT catch Softr's in-app nav. See [common-patterns.md](common-patterns.md#navigation-blocker-for-unsaved-changes).
 
+## Softr navigation variables
+
+Softr sets these on the page's `:root` when the app uses its sidebar / top-bar navigation; the Vibe host's `:host` maps them for the block, each with a `0px` fallback (measured live 2026-10-05; phone = below a 768px window).
+
+| Page (`:root`, header CSS) | Block (Vibe host) | Desktop / tablet (≥ 768px window) | Phone (< 768px window) |
+|---|---|---|---|
+| `--sticky-nav-height` | `--nav-height` | `56px` (sticky top bar) | not set → host `0px` |
+| `--softr-sidebar-width` | `--sidebar-width` | `280px` open, `57px` collapsed (drag handle 200–360px) | not set → host `0px` |
+| `--softr-bottombar-height` | `--bottombar-height` | host `0px` | `calc(0px + 55px)` (sticky tab bar; the rendered bar measured 57px) |
+
+```tsx
+style={{ top: "calc(var(--nav-height, 0px) + 16px)", maxHeight: "calc(100dvh - var(--nav-height, 0px) - 32px)" }}
+```
+
+- **Use them only inside CSS `calc()`.** In JS, `getComputedStyle(...).getPropertyValue("--bottombar-height")` hands back the token string (`calc(0px + 55px)` on phones), so `parseFloat` gives `NaN` (the string is measured; the `NaN` is reasoned, not run).
+- The same `:host` rule maps `--background`, `--font-family-sans` / `--font-family-serif` and `--container-max-width` onto Softr's hashed theme variables (`--_5f91d6c_…`), which is why an unpainted block still paints the Studio theme background (verified 2026-10-05). Never reference the hashed names: the prefix is per Softr block package and has changed before.
+- How blocks use them: [SKILL.md → App pages beside Softr navigation](../SKILL.md#app-pages-beside-softr-navigation) and [common-patterns.md → Clear Softr's sticky bars](common-patterns.md#clear-softrs-sticky-bars). The page side (header CSS, the `:root` values): [native-chrome-styling.md → App frame (navigation layout)](native-chrome-styling.md#app-frame-navigation-layout).
+
+## Container queries
+
+Lay a block out by its OWN width when it sits beside Softr's sidebar (57–360px of the window). Softr's Tailwind compiles container variants (verified live 2026-10-05):
+
+```tsx
+<div className="@container">                                    {/* the container: a wrapper */}
+  <div className="px-4 @min-[40rem]:px-6 @min-[64rem]:px-10">   {/* resolves against the wrapper's width */}
+    <div className="grid grid-cols-2 @min-[52rem]:grid-cols-4">…</div>
+    <section className="@container …">                          {/* a pane: its children follow the pane */}
+      <div className="text-[20px] @min-[24rem]:text-[24px]">…</div>
+    </section>
+  </div>
+</div>
+```
+
+- A container query never resolves against the element that carries `@container`, only against the nearest ancestor container — so put `@container` on a wrapper.
+- Beside a sidebar, no `sm:` / `md:` / `lg:` for layout: they fire on the window. Full rules and worked thresholds: [SKILL.md → App pages beside Softr navigation](../SKILL.md#app-pages-beside-softr-navigation). When CSS can't decide, [measure the block](common-patterns.md#measure-the-block-not-the-window).
+
 ## Component Skeleton
 
 ```jsx
@@ -277,3 +313,5 @@ export default function Block() {
   );
 }
 ```
+
+App pages beside Softr's sidebar navigation, inside a frame the header code paints, drop these wrappers for the full-bleed `@container` shell: [SKILL.md → App pages beside Softr navigation](../SKILL.md#app-pages-beside-softr-navigation).

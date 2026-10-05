@@ -22,7 +22,7 @@ allowed-tools: Read Write Glob Grep Bash
 
 You generate complete, production-ready Softr Vibe Coding blocks as TypeScript React files. A Vibe Coding block is a single file with a default-exported React component, compiled by Softr's server and run in the browser inside a Softr app. The current platform compiles TypeScript with modern syntax — optional chaining (`?.`), nullish coalescing (`??`), arrow functions, `const`, generics — plus shadcn/ui from `@/components/ui/*`, lucide-react, sonner, and date-fns (verified live against the builder MCP's `vibe_coding_block_get_docs` and a 15-block production deployment, 2026-08-25).
 
-> **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md). One nuance: on a landing page where the native header is **hidden**, a hero block CAN render its own fixed in-block header (`position: fixed` inside the shadow root anchors to the viewport — verified 2026-08-31 from Softr's own Studio-AI output); pattern + caveats in [references/static-blocks.md](references/static-blocks.md#block-owned-landing-page-header).
+> **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / sidebar / phone tab bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, or to paint them into one app frame around the content, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md) (app frame: [App frame (navigation layout)](references/native-chrome-styling.md#app-frame-navigation-layout); the blocks that sit inside it: [App pages beside Softr navigation](#app-pages-beside-softr-navigation)). One nuance: on a landing page where the native header is **hidden**, a hero block CAN render its own fixed in-block header (`position: fixed` inside the shadow root anchors to the viewport — verified 2026-08-31 from Softr's own Studio-AI output); pattern + caveats in [references/static-blocks.md](references/static-blocks.md#block-owned-landing-page-header).
 
 ## Your Workflow
 
@@ -77,6 +77,7 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - `export default function Block()` is present
    - Container + content wrappers present (`<div className="container py-0"><div className="content">`) — OR a deliberate full-bleed layout recorded in the `// BLOCK PLACEMENT:` comment (see "Block Placement & Page Spacing")
    - `// BLOCK PLACEMENT:` comment present at top of file with wrapper classes matching the placement (see "Block Placement & Page Spacing")
+   - App page beside Softr's sidebar / top-bar navigation (the header code paints the frame): the block is **full-bleed** with **no background of its own** and no gradient/rounded page panel; every layout threshold is a container query on the block's width (`@container` on a wrapper + `@min-[NNrem]:`), with **no `sm:`/`md:`/`lg:` for layout**; sticky elements clear the top bar with `calc(var(--nav-height, 0px) + …)`. See [App pages beside Softr navigation](#app-pages-beside-softr-navigation)
    - Loading, error, and empty states all handled
    - Mutation calls gated behind `enabled` check (if using mutations)
    - Field access uses `record.fields.alias` (not `record.alias`)
@@ -124,6 +125,7 @@ When the user describes their block, figure out which of these areas apply and a
   - Icon + wordmark (SVG): `https://cdn.brandfetch.io/idytCFzVcY/theme/dark/logo.svg`
   - Icon only (PNG): `https://cdn.brandfetch.io/idytCFzVcY/w/1024/h/1024/theme/dark/icon.png`
 - **Layout and style**: Cards vs. table vs. list? How many columns? Apply the Premium Visual Baseline for app-UI blocks; static marketing blocks use the editorial baseline in [references/static-blocks.md](references/static-blocks.md#editorial-baseline-replaces-the-premium-visual-baseline) instead.
+- **Navigation layout**: Does the app use Softr's **sidebar / top-bar navigation**, and where does the menu live — in the sidebar or in the top bar? Does the app's header code paint an app frame ([native-chrome-styling.md → App frame (navigation layout)](references/native-chrome-styling.md#app-frame-navigation-layout)), or should it? Beside a sidebar, an app page is full-bleed and lays out by its own width — see [App pages beside Softr navigation](#app-pages-beside-softr-navigation). With the menu in the top bar, the sidebar renders as an empty column in the theme colour (seen 2026-10-05); moving the menu into the sidebar is a Studio change (untested).
 - **Interactivity**: Create/edit/delete? Filtering? Sorting? Pagination?
 - **User context**: Does it need to know who's logged in?
 - **Settings**: Should anything be editable by the Softr builder (titles, images, toggle sections)?
@@ -175,14 +177,14 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Cross-*block* communication, window globals, breadcrumbs, publishing shared computed state. *(Multi-table reads no longer need a helper — use a second datasource.)* | [references/helper-blocks.md](references/helper-blocks.md) |
 | Embedding third-party libraries with their own CSS (Leaflet, Mapbox, TinyMCE, Quill, FullCalendar) | [references/advanced-integrations.md](references/advanced-integrations.md) |
 | Debugging a broken block, checking patterns before delivery, full violation catalog | [references/anti-patterns.md](references/anti-patterns.md) |
-| Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping | [references/quick-reference.md](references/quick-reference.md) |
+| Quick syntax check — import paths, hook signatures, mutation call shapes, field mapping, Softr navigation variables (`--nav-height` etc.), container-query syntax | [references/quick-reference.md](references/quick-reference.md) |
 | Any **dropdown / picker / combobox** in a block — why shadcn `<Select>` and native `<select>` both fail inside the shadow DOM, the `composedPath()` click-outside, sorting A→Z inside the component, multi-token filtering, **searchable by default** regardless of option count (`bare` inline editors click-only; `searchable={false}` only for a short fixed enum being set), the `bare` inline-editor variant | [references/searchable-dropdown.md](references/searchable-dropdown.md) |
 | **Printing** anything from a block — always a new window/tab holding its own document, never `window.print()` on the page or an in-page print view: the escaped HTML builder, pop-up-safe opening from the click, print-when-ready (stylesheets, fonts and images, capped), Print disabled until the data has loaded, the `?print=1` deep link from another page, paper layout (shared `<colgroup>`, `vertical-align: middle`, tick boxes) | [references/printing.md](references/printing.md) |
-| Small reusable patterns — `localStorage` cross-page state, clipboard copy button | [references/common-patterns.md](references/common-patterns.md) |
+| Small reusable patterns — `localStorage` cross-page state, clipboard copy button, measuring the block's own width (not the window's), clearing Softr's sticky top bar and phone tab bar | [references/common-patterns.md](references/common-patterns.md) |
 | Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
 | The official **Softr MCP server** — Softr DB schema + full record/table/field/database CRUD (deletes included), field-level browsing of connected integrations (Airtable / Google Sheets / Notion / Supabase and more), **creating, editing, versioning, and deploying Vibe Coding blocks directly** (`vibe_coding_block_get_docs`, `vibe_coding_block_create`, ...), push verification by `sourceSha256`, app management/scaffolding, the **Softr Workflows** suite (28 tools, 418-node catalog), and **per-application MCP servers**. Tool names changed on 2026-10-01; the file carries the old → new map | [references/softr-mcp.md](references/softr-mcp.md) |
-| **Checking a pushed block in a browser** — rendering and behaviour in a Softr preview with the agent-browser CLI (ask before installing it): the preview cookie, reaching into the block's shadow DOM through accessibility refs, measuring with `eval`, blocking and proving the save endpoint before any click, reading what a click sent, screenshots to disk | [references/browser-checks.md](references/browser-checks.md) |
-| Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
+| **Checking a pushed block in a browser** — rendering and behaviour in a Softr preview with the agent-browser CLI (ask before installing it): the preview cookie, reaching into the block's shadow DOM through accessibility refs, measuring with `eval`, blocking and proving the save endpoint before any click, reading what a click sent, screenshots to disk, testing Custom Code header CSS | [references/browser-checks.md](references/browser-checks.md) |
+| Restyling Softr's **native shell — header / footer / nav / dropdowns / page background** (not a block; it's Softr chrome, done with global Custom Code CSS): stable selectors vs. hashed classes, floating "island" header+footer, the dropdown blank-space grid fix, the multi-layer page-background stacking, restyle-vs-replace, and the **app frame** for sidebar apps (top bar + sidebar as one frame in the theme colour, the content as one paper sheet with a pinned rounded corner, blocks transparent, scoped with `:has()` so Log in / 404 keep Softr's colours) | [references/native-chrome-styling.md](references/native-chrome-styling.md) |
 | Adding a **dynamic date filter or custom filter control to a native List/Grid block** (via a Custom Code Static block, not a Vibe block): drive the block's conditional filter with `{URL_PARAM:…}`, the empty-param "match nothing" wide-range sentinel, inject the control into the filter row and keep it alive across Softr's re-renders | [references/native-block-filters.md](references/native-block-filters.md) |
 | **Editable settings deep-dive** — full hook catalog (incl. verified-undocumented `useLongTextSetting` and the `navigation` array-schema type), settings-first granularity doctrine, heading-line-split and `-text`/`-link` pairing patterns, naming conventions, rename-resets-value gotcha, empty-media gating, key-by-index rule | [references/editable-settings.md](references/editable-settings.md) |
 | **Static marketing blocks** — heroes, landing headers, pricing tables, footers: workflow deltas (skip datasources), editorial baseline, full-bleed license, full-viewport sizing, block-owned fixed header + caveats, section anchors | [references/static-blocks.md](references/static-blocks.md) |
@@ -213,9 +215,12 @@ export default function Block() {
 
 Wrap the outermost layout in `container` and `content` divs by default — these constrain width to match the Softr app's max width settings so the block aligns with neighboring native blocks. Note this is a **house convention, not platform-enforced**: per the official developer guide the platform default is full width, and the classes are merely "available" to constrain it (verified 2026-08-31 against `vibe_coding_block_get_docs` and a rendering wrapper-free Studio-AI hero).
 
+The wrappers also bring **window-based gutters**. Inside a Vibe host, `.container`'s side padding is `--container-x`, which `:host([data-container-padding-x=…])` sets on WINDOW media queries: `regular` is 16px, then 24px from a 576px window (the 768px step keeps 24px), more from 992px (`0 32px` measured on a 744px block at a 1024px window); `tab` 0px, `container` 8px, `none` 0px (read from the block's compiled CSS and measured, 2026-10-05). On a full-width page that is harmless; beside Softr's sidebar the gutter steps on a width the block doesn't have — one reason app pages there drop the wrappers.
+
 **Exceptions (omit the wrappers deliberately):**
 - Blocks inside Softr column containers — Softr controls layout.
-- Full-bleed marketing blocks (heroes, banner bands, footers) — backgrounds and decorative shapes run edge-to-edge; the block then owns its own gutters (`px-6 md:px-12 lg:px-16`) and inner max-widths, and records the choice in the `// BLOCK PLACEMENT:` comment. See [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license).
+- Full-bleed marketing blocks (heroes, banner bands, footers) — backgrounds and decorative shapes run edge-to-edge; the block then owns its own gutters (`px-6 md:px-12 lg:px-16`, window breakpoints: right on a full-width page, wrong beside a sidebar) and inner max-widths, and records the choice in the `// BLOCK PLACEMENT:` comment. See [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license).
+- App pages beside Softr's sidebar / top-bar navigation, inside a frame the header code paints — the block is full-bleed AND transparent (no background, no page panel), owns container-query gutters (`px-4` → `@min-[40rem]:px-6` → `@min-[64rem]:px-10`) and lays out by its own width. See [App pages beside Softr navigation](#app-pages-beside-softr-navigation).
 
 ## Block Placement & Page Spacing
 
@@ -228,6 +233,7 @@ Blocks rarely live alone — most Softr pages stack 2–4 blocks vertically, oft
 - Is there a Softr header immediately above this block?
 - Is there a Softr footer immediately below this block?
 - Is there a Back button at the top of this block?
+- Does the page show Softr's sidebar / top-bar navigation, with header code painting an app frame? If so, the block follows [App pages beside Softr navigation](#app-pages-beside-softr-navigation) instead of the wrapper table below.
 
 **Detail pages — always ask about the back button AND its fallback URL.** A "detail page" is any block that reads a single record by URL recordId (i.e. it calls `useCurrentRecordId()` / `useRecord()`, or the user describes it as the target of a `/page?recordId=...` link). Users almost always want a back button there but rarely think to mention it, and shipping the page without one is the most common UX gap on these screens. So even if every other placement detail is clear, ask both:
 
@@ -271,7 +277,7 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 
 ### Spacing values (defaults)
 
-**Container** (default — omitted by full-bleed blocks and blocks inside column containers; see table below): `<div className="container py-0">`
+**Container** (default — omitted by full-bleed blocks, app pages beside Softr navigation and blocks inside column containers; see table below): `<div className="container py-0">`
 
 **Inner wrapper** classes by block position:
 
@@ -281,7 +287,8 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 | Middle block | `py-3 px-8` | 12px + Softr separator + 12px ≈ 24px between blocks |
 | Last block (footer-adjacent) | `pt-3 pb-12 px-8` | 12px top + 48px bottom for footer breathing room |
 | Standalone (only block on page) | `pt-3 pb-12 px-8` | Treat like a last block |
-| Full-bleed (hero / banner / footer) | none — no container/content; block owns gutters `px-6 md:px-12 lg:px-16` | Edge-to-edge backgrounds; see [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license) |
+| Full-bleed (hero / banner / footer) | none — no container/content; block owns gutters `px-6 md:px-12 lg:px-16` | Edge-to-edge backgrounds on a full-width page; see [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license) |
+| App page beside Softr navigation (header code paints the frame) | none — no container/content, no background; `@container` root, then `px-4 pt-5 pb-12 @min-[40rem]:px-6 @min-[40rem]:pt-6 @min-[64rem]:px-10 @min-[64rem]:pt-8` | The only block on the page, on the header's paper sheet; gutters follow the block's width, not the window's; see [App pages beside Softr navigation](#app-pages-beside-softr-navigation) |
 
 **Back button** (when present at the top of a block — typically on detail pages): wrap in `<div className="mt-6 mb-4">`. The `mt-6` (24px) adds breathing room above the button independent of wrapper padding; `mb-4` (16px) sits between the button and the first card. Apply this regardless of whether the block is first or mid-page.
 
@@ -289,13 +296,70 @@ The `// BLOCK PLACEMENT:` marker is intentionally stable so it can be grepped an
 
 **Net page rhythm**: between-block gaps (12 + 12 = 24px) match within-block card gaps (`mb-6` = 24px), so the page reads as one consistent vertical rhythm.
 
+### App pages beside Softr navigation
+
+When the app uses Softr's **sidebar / top-bar navigation** and the app's header code paints the frame (the top bar and sidebar colour around the page, the content as one paper sheet with a rounded corner tucked under them; recipe in [native-chrome-styling.md → App frame (navigation layout)](references/native-chrome-styling.md#app-frame-navigation-layout)), the blocks on its app pages take a different shape. Verified live 2026-10-05 on a three-page HubSpot-backed app (a dashboard, an accounts list + detail, a request form): the header code on the published app and in the preview, the blocks measured in the preview.
+
+**Full-bleed, and the block paints nothing behind itself [house].**
+- No `container` / `content` wrappers, no background colour on the block's root, no gradient or rounded panel around the page (Premium Visual Baseline §1 does not apply). A panel on top of the sheet brings back the "card floating on a white page" look the frame exists to remove; Leo rejected exactly that. The block's own cards, borders and dividers stay the block's job, because header CSS cannot reach inside the shadow root.
+- The transparency comes from the header code, not the block. A Vibe host paints the Studio theme background (white by default) through its compiled `:host` rule even when the block sets none; the frame recipe clears it with a main-document rule on the host, `[data-role="vibe-block-root"]` (the `:host` rule isn't `!important`, so it loses). Without that header code, a block that paints nothing still sits on white (verified 2026-10-05).
+- **One block per page, and it owns the page's `h1`**; its panel titles are `h2`. No separate welcome or title block above it. The pattern was built and verified only with one block per page. If a page must hold more, only the first block takes the top padding and only the last takes `pb-12`; the rest use `pt-0` / `pb-0` with the same side gutters (untested).
+- **The same shell on every app page**, so the header lands in the same place (the cross-page chrome rule above):
+
+  ```tsx
+  // FONT and C.ink: the brand's UI font and ink colour (DESIGN.md tokens)
+  <div ref={rootRef} className="@container" style={{ color: C.ink, fontFamily: FONT }}>
+    <div className="px-4 pt-5 pb-12 @min-[40rem]:px-6 @min-[40rem]:pt-6 @min-[64rem]:px-10 @min-[64rem]:pt-8">
+      {/* the h1 header row, then the page */}
+    </div>
+  </div>
+  ```
+
+  Measured padding (top, sides, bottom): `32px 40px 48px` on a 1160px block (a 1440px window minus a 280px sidebar), `20px 16px 48px` on a 390px block.
+- Why the wrappers go: `.container`'s gutters step on the window (see the note under [Code Structure](#code-structure)).
+
+**Lay out by the block's width, never the window's.** Softr's sidebar takes 57–360px of the window (280px by default, 57px collapsed, 200–360px when dragged), so `sm:` / `md:` / `lg:` fire on a width the block doesn't have: at a 1024px window the block is 744px wide, and at 768px with the sidebar open it is 488px. Measured 2026-10-05: an `lg:` five-column chart row fired on a 744px block and cut off its bar labels. Below a 768px window Softr swaps the top bar and sidebar for a bottom tab bar (767 = tab bar, 768 = top bar + sidebar).
+- Use Tailwind container queries: `@container` on a wrapper, `@min-[NNrem]:` on what's inside it. Softr's Tailwind compiles them (verified live 2026-10-05). Syntax in [quick-reference.md → Container queries](references/quick-reference.md#container-queries).
+- A container query never resolves against the element that carries `@container`, only against the nearest ancestor container. So `@container` goes on a wrapper, and the `@min-…` classes go on its descendants.
+- Nest another `@container` on a pane (a detail panel, a side column) so its inner rows and strips follow the pane, not the page.
+- Thresholds are BLOCK widths. From that app (the numbers are the project's; the method is the reusable part):
+
+  | Part | Narrow | Wide | From (block width) |
+  |---|---|---|---|
+  | Figure strip | 2 columns | 4 columns | `@min-[52rem]:` |
+  | Chart row | stacked | 5-column grid, spans 2 + 3 | `@min-[64rem]:` |
+  | Form + side list | stacked | `grid-cols-[minmax(0,44rem)_minmax(18rem,22rem)]` | `@min-[56rem]:` |
+  | List + detail | list, then detail | side by side | 860px, decided in JS: a 340px list + 20px gap + at least 440px of detail + the shell's padding |
+
+  Work each threshold out from the parts it has to fit (the list + detail row shows how), then check it at real block widths with the real fonts. A padding change moves where text wraps: after the switch to this shell, a figure-strip skeleton keyed to the old wrap point no longer matched the loaded cells (measured 2026-10-05 across block widths with the real fonts).
+- When CSS can't decide (which component tree to render, how many chart ticks fit), measure the block: [common-patterns.md → Measure the block, not the window](references/common-patterns.md#measure-the-block-not-the-window). Measure in `useLayoutEffect`; a passive `useEffect` paints the first frame at the window's width, and beside a sidebar the layout visibly flips.
+
+**Clear Softr's sticky bars with the host's variables.** Softr's top bar is sticky (56px, z-index 800), and on phones so is the tab bar (about 57px as rendered, though Softr's variable says 55px; z-index 800). The Vibe host maps the bar and sidebar sizes onto `--nav-height`, `--sidebar-width` and `--bottombar-height`, each falling back to `0px` (values in [quick-reference.md → Softr navigation variables](references/quick-reference.md#softr-navigation-variables)). Use them only inside CSS `calc()`, e.g. a sticky list pane:
+
+```tsx
+<section className="sticky …" style={{ top: "calc(var(--nav-height, 0px) + 16px)", maxHeight: "calc(100dvh - var(--nav-height, 0px) - 32px)" }}>
+```
+
+A plain `sticky top-4` slid under the top bar; with the variable the pane sits at 72px (measured 2026-10-05). JS that scrolls the window or sizes a popover has to clear the bars too: [common-patterns.md → Clear Softr's sticky bars](references/common-patterns.md#clear-softrs-sticky-bars).
+
+**Check it where the header code runs.** Header code applies on the published app and in Softr's preview (verified 2026-10-05, seen after a publish; whether the preview shows a pasted but unpublished change is untested, so inject it instead), not in the Studio editor canvas, so judge the page in the preview: [browser-checks.md → Testing Custom Code header CSS](references/browser-checks.md#testing-custom-code-header-css).
+
+**Record it in the placement comment:**
+
+```tsx
+// BLOCK PLACEMENT: the only block on <page>; it owns the page's h1. FULL-BLEED by design: no container/content
+// wrappers and no background of its own; the app's header code paints the frame and the paper sheet.
+// Spacing: px-4 pt-5 pb-12, then px-6 pt-6 from a 40rem block and px-10 pt-8 from 64rem (same shell on every page).
+// LAYOUT follows the block's own width (@container queries), never the window.
+```
+
 ### Full-viewport hero blocks
 
 A hero may size itself to the viewport — vh units inside a block resolve against the real window (blocks are shadow DOM in the main document, not iframes). The Studio-verified responsive shape is `min-h-screen lg:min-h-0 lg:h-screen` (natural height on mobile, locked viewport height on desktop). Three rules: (1) `h-screen` fills the window only when the native header is hidden on that page — with a native header above, a 100vh block overflows by the header height; use `min-h-[calc(100vh-<px>)]` when native chrome stays; (2) hard `h-screen` + `overflow-hidden` + centered flex **clips settings-grown content unrecoverably** — prefer `lg:min-h-screen` unless the locked look is explicitly wanted; (3) the standard spacing table above does not apply — the hero owns all its spacing. Extend the placement comment: `// BLOCK PLACEMENT: full-viewport hero, native header hidden, owns all spacing`. Full detail in [references/static-blocks.md](references/static-blocks.md#full-viewport-hero-sizing).
 
 ## Premium Visual Baseline
 
-**Every block must look polished in its first version.** Styling is not a follow-up task — it is a core requirement of every code generation. Apply ALL of the following by default unless the user explicitly requests a minimal/plain style.
+**Every block must look polished in its first version.** Styling is not a follow-up task — it is a core requirement of every code generation. Apply ALL of the following by default unless the user explicitly requests a minimal/plain style (one carve-out: §1's gradient wrapper is dropped on app pages inside a header-painted frame).
 
 **Scope: this is the app-UI baseline** — dashboards, lists, forms, detail pages. Static marketing blocks (heroes, landing sections, footers) use the **editorial baseline** in [references/static-blocks.md](references/static-blocks.md#editorial-baseline-replaces-the-premium-visual-baseline) instead — typographic hierarchy and brand-exact values, no gradient wrapper/cards/skeletons/empty states (nothing loads).
 
@@ -308,6 +372,8 @@ Refer to [ui-ux-guidelines.md](ui-ux-guidelines.md) for full design principles.
 </div>
 ```
 Adjust the top gradient color to complement the user's brand.
+
+**Exception — app pages inside a header-painted frame.** When the app's header code paints the frame and the paper sheet beside Softr's sidebar navigation, drop this wrapper and any rounded page panel: the block paints no background at all. A panel on the sheet recreates the "card floating on a white page" look the frame exists to remove (rejected by Leo, 2026-10-05). The cards inside the block (§3) stay. See [App pages beside Softr navigation](#app-pages-beside-softr-navigation).
 
 ### 2. Header section
 - Icon in a colored rounded square (`h-10 w-10 rounded-xl` with brand primary, white icon)
@@ -538,7 +604,7 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
 6. **Array setting icon placement** — Never put `vibeCodingBlockIcon` as first field.
 7. **No nested arrays in settings** — Use text with separator, split in code.
 8. **Default export required** — `export default function Block()`.
-9. **Container wrapping [house]** — Wrap in `<div className="container py-0"><div className="content">` by default so the block's width matches native blocks. NOT platform-enforced: the platform default is full width and the wrappers are officially optional (verified 2026-08-31). Deliberate full-bleed blocks (heroes, banner bands, footers) and blocks inside column containers omit them — see "Block Placement & Page Spacing" and [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license). Vertical padding lives on the inner wrapper and depends on block placement.
+9. **Container wrapping [house]** — Wrap in `<div className="container py-0"><div className="content">` by default so the block's width matches native blocks. NOT platform-enforced: the platform default is full width and the wrappers are officially optional (verified 2026-08-31). Deliberate full-bleed blocks (heroes, banner bands, footers), app pages beside Softr's sidebar navigation inside a frame the header code paints (full-bleed, no background, laid out by container queries — see [App pages beside Softr navigation](#app-pages-beside-softr-navigation)) and blocks inside column containers omit them — see "Block Placement & Page Spacing" and [references/static-blocks.md](references/static-blocks.md#full-bleed-layout-license). Vertical padding lives on the inner wrapper and depends on block placement.
 10. **Inline options literals for data hooks** — `useRecords` fails to compile when its options
     object is passed through a variable or wrapper function. Build the options object inline at the
     call site; share `q.select` mappings between hooks, not whole options objects. (Same

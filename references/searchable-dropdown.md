@@ -151,6 +151,32 @@ the hidden part); a picker at the bottom of a dialog body opens up, inside the d
 row at the window's bottom edge opens up, as before. All four, plus a scroller outside the
 shadow root, checked in Chromium on 2026-09-30 on a test page — not yet in a deployed block.
 
+**On app pages with Softr navigation, the strip doesn't reach the window's edges either.**
+Softr's bars sit over the page, outside the block: from a 768px window, a 56px sticky top bar;
+below it, a sticky tab bar at the bottom, 57px as rendered (Softr's variable says 55px; both bars
+z-index 800, measured live 2026-10-05). The walk above starts the strip at `0` and
+`window.innerHeight`, so a trigger just under the top bar
+can open its menu up and under the bar, and on a phone a menu can open down behind the tab bar.
+That clash is inferred from the measurements, not seen. Start the strip inside the bars (an
+untested variant):
+
+```jsx
+var SOFTR_TOP_BAR = 56; // Softr's sticky top bar, window 768px and up
+var SOFTR_TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px; its variable says 55px
+
+function comboClipBox(node) {
+  var phone = window.innerWidth < 768; // Softr's own switch: 767px = tab bar, 768px = top bar
+  var top = phone ? 0 : SOFTR_TOP_BAR;
+  var bottom = window.innerHeight - (phone ? SOFTR_TAB_BAR : 0);
+  // … the ancestor walk, unchanged
+}
+```
+
+On a page without Softr navigation (log in, a landing page) the top offset only makes the
+panel open upward a little less readily. The same bar heights apply to any other room check
+or window scroll in a block:
+[common-patterns.md → Clear Softr's sticky bars](common-patterns.md#clear-softrs-sticky-bars).
+
 Rule 2 does not rescue a clipped cell. The cell is the height of its row, so neither side has
 room, the list falls to its 120px floor and is clipped anyway. Rule 1 is not optional.
 
@@ -345,7 +371,8 @@ Everything else — the trigger, the card, the rows — stays flat.
 - [ ] No overflow-clipping class (`overflow-hidden`, `overflow-*-auto`, `truncate`,
       `line-clamp-*`) between the Combo and the scroller it belongs to; an over-wide chip
       bounded at the chip (`min-w-0 truncate`)
-- [ ] Drop-up and list `maxHeight` measured against the clipping ancestors, not the window
+- [ ] Drop-up and list `maxHeight` measured against the clipping ancestors, not the window, and
+      on app pages inside Softr's top bar and phone tab bar
 - [ ] Keyboard: ↑ ↓ Enter Esc Tab; the active row kept visible by scrolling the list only
       (never `scrollIntoView`), and the search box focused with `preventScroll`
 - [ ] `aria-haspopup="listbox"`, `aria-expanded`, `role="listbox"` / `role="option"`,

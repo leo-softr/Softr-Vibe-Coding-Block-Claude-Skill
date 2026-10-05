@@ -236,6 +236,7 @@ All spacing uses **multiples of 4px**. The critical step that pure 8pt systems m
 
 ### Depth and Elevation:
 - Use semantic z-index levels: dropdown (100) > sticky (200) > modal-backdrop (300) > modal (400) > toast (500) > tooltip (600).
+- **That scale orders a block's own layers. Softr's bars sit outside it** (sticky, z-index 800, in the main document; measured live 2026-10-05): clear them with an offset, don't try to outrank them. See [§26](#26-finishing-touches) and [common-patterns.md → Clear Softr's sticky bars](references/common-patterns.md#clear-softrs-sticky-bars).
 - Shadows should be subtle. If you can clearly see it, it is probably too strong.
 
 ---
@@ -401,6 +402,16 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
   links them -- in a Tailwind + inline-token codebase the colour is literally written twice.
 - **Skeletons repeat page chrome too.** If the page has a back button, breadcrumb or title above the
   content, the skeleton needs those at the SAME offsets, or the chrome jumps when the record arrives.
+- **Under container queries, set skeleton line counts and heights at BLOCK widths, with the real fonts.**
+  The block's padding and column count step with its own width, and both move where text wraps: a note
+  that fits on one line in a 600px two-column block wraps in a 900px four-column block, because its cell
+  got narrower. A skeleton keyed to a guessed threshold jumps when the data lands. Measure where the real
+  text wraps across a sweep of block widths, then key the skeleton heights to those widths
+  (`h-[39px] @min-[387px]:h-[19.5px]`). (2026-10-05: after a padding change, the figure labels fit on one
+  line from a 387px block, but the skeleton, keyed at `@min-[30rem]`, kept two-line bars, so it was 39px
+  too tall at 390px. In the four-column layout (about 832–1170px) the notes wrap to two lines, but the
+  skeleton reserved one, so the page jumped 19.25px. The fix came from a headless sweep of 300 to 1400px
+  block widths with the real fonts. It shipped, but was not visually re-checked after the push.)
 
 ### Perceived Performance:
 - **Optimistic UI**: Update the interface immediately, handle failures gracefully. Use for low-stakes actions (likes, filters); avoid for payments or destructive operations.
@@ -518,7 +529,7 @@ Users always need to know: *Where am I? Where can I go? How do I get back?*
 
 ### Mobile adaptation:
 - Transform table rows into **stacked card layouts** on small screens.
-- `hidden md:block` on the table, `block md:hidden` on mobile cards.
+- `hidden md:block` on the table, `block md:hidden` on mobile cards. That is a window breakpoint: beside Softr's sidebar navigation, key the swap to the block's width with container variants instead (`hidden @min-[48rem]:block` / `@min-[48rem]:hidden`, under an `@container` wrapper; see [§21](#21-mobile-first-responsive-design)).
 - Never require horizontal scrolling for important data.
 
 ---
@@ -569,12 +580,12 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 ## 21. Mobile-First Responsive Design
 
 ### Rules:
-- **Start with `flex-col`**, stack to `md:flex-row` or grid layouts at larger screens.
+- **Start with `flex-col`**, stack to `md:flex-row` or grid layouts at larger screens. Beside Softr's sidebar navigation, switch on the block's width instead (`@min-[48rem]:flex-row` under an `@container` wrapper). See [Breakpoint strategy](#breakpoint-strategy) below.
 - **No horizontal overflow.** Use `overflow-x-hidden` as safety net.
 - **Touch targets: 44px minimum.**
 - **Hover states are desktop-only.** Never depend on `:hover` for essential actions.
 - Form fields: `w-full` on mobile.
-- Navigation: collapse to hamburger or bottom nav on small screens.
+- Navigation: collapse to hamburger or bottom nav on small screens. This applies only to navigation a block draws itself. In apps with Softr's sidebar / top-bar navigation layout, Softr switches its own navigation to a phone tab bar below a 768px window: 767px gives the tab bar, 768px gives the top bar and sidebar (verified live 2026-10-05; a top-bar-only app was not checked). On a page with Softr navigation, don't build a second one into the block.
 
 ### Art-directed responsive images:
 A settings hook returns a plain value, so one `useImageSetting` may safely feed **two sibling `<img>` renders** with opposite visibility classes — desktop: absolute-positioned, masked, cropped via arbitrary `object-[x%_y%]`; mobile: in-flow full-bleed (`hidden lg:block` / `lg:hidden`, same mechanism as the table→cards swap in §18). The builder still edits ONE image in the Settings pane. To bleed the mobile render edge-to-edge against the wrapper's own horizontal padding, use matching negative margins (`-mx-6` against `px-6`, `md:-mx-12` against `md:px-12`).
@@ -583,6 +594,26 @@ A settings hook returns a plain value, so one `useImageSetting` may safely feed 
 ```
 Mobile first: default -> sm (640px) -> md (768px) -> lg (1024px) -> xl (1280px)
 ```
+
+Those are **window** breakpoints. They are right when the block spans the window: marketing pages, and pages with no sidebar.
+
+**Beside Softr's sidebar navigation, size by the block's width, not the window's.** The sidebar takes 280px by default, 57px collapsed, and anywhere from 200 to 360px when dragged, so the window over-reports the block's width by that much. At a 768px window with the sidebar open, the block gets 488px. At 1024px it gets 744px, yet `lg:` fires: in a real dashboard that squeezed a 5-column chart row and cut off its labels (verified live 2026-10-05). Use container queries:
+
+```jsx
+<div className="@container">   {/* the block's outer wrapper: the container */}
+  <div className="grid grid-cols-2 gap-4 @min-[52rem]:grid-cols-4">   {/* children use @min-[…] */}
+    …
+  </div>
+</div>
+```
+
+- `@container` on a wrapper, `@min-[NNrem]:` variants on what is inside it. A query resolves against the nearest **ancestor** container, never the element itself, so the two cannot sit on the same element.
+- Softr's Tailwind (4.1.13) compiles the container variants (verified live 2026-10-05).
+- Nest a second `@container` on a pane (a detail panel beside a list) so the pane's insides follow the pane, not the page.
+- Derive a threshold from the parts it has to fit. For example, list and detail go side by side from an 860px block: a 340px list, a 20px gap, at least 440px of detail, plus padding.
+- When a decision can't be made in CSS (render a different tree, thin out chart ticks), measure the block in JS: [common-patterns.md → Measure the block, not the window](references/common-patterns.md#measure-the-block-not-the-window).
+
+The page shell for these pages (full-bleed, no container/content wrappers, gutters set by container query) is in [SKILL.md → App pages beside Softr navigation](SKILL.md#app-pages-beside-softr-navigation).
 
 ### Beyond screen size:
 Consider pointer and hover capabilities, not just viewport width. A laptop with touchscreen and a tablet with keyboard both exist. Touch devices need larger targets and always-visible controls.
@@ -720,7 +751,7 @@ Actively check for and reject these fingerprints of generic AI-generated interfa
 - **Badge counts:** Show filtered item count ("3 active projects")
 - **Relative timestamps:** "2 hours ago" via `date-fns/formatDistanceToNow`
 - **Truncate long text** with `truncate` or `line-clamp-2`, full value in `Tooltip`
-- **Sticky headers** for long tables
+- **Sticky headers** for long tables. When the header sticks to the page scroll (not to the table's own scroller) on a page with Softr's top bar, offset it by the bar: `top: calc(var(--nav-height, 0px) + 16px)`, not `top-0`/`top-4`. Softr's `#topbar-root` is sticky at top 0, z-index 800, 56px tall, so anything sticky at the window's top slides under it. A list pane fixed this way measured top 72px (verified live 2026-10-05). See [common-patterns.md → Clear Softr's sticky bars](references/common-patterns.md#clear-softrs-sticky-bars).
 - **Never render an affordance you have not wired.** A grip glyph that does not drag, a chevron that does not sort, a card that looks clickable and is not — the signifier IS the promise, and an unfulfilled one reads as a broken feature, not a missing one. Either wire it or delete it. (Observed 2026-09-09: a `GripVertical` shipped as decoration on every row of a reorderable list; users reported the list as "can't be reordered", not as "missing drag".)
 - **A control that is disabled by default is indistinguishable from a broken one.** If the only explanation lives in a `title` tooltip, nobody reads it — they file a bug. When a control depends on a mode the user has not chosen yet, prefer making the action *switch the mode and proceed* over greying it out. Disable only for genuine impossibility (permissions, first row can't move up), and when you do, say why in visible text rather than on hover. (Same 2026-09-09 report: reorder arrows were disabled until you switched the sort to Manual, which nothing on screen told you.)
 
@@ -743,6 +774,8 @@ Actively check for and reject these fingerprints of generic AI-generated interfa
 | Loading data | `Skeleton` matching content structure |
 | Empty collection | Icon + heading + explanation + CTA |
 | Error state | Icon + message + retry button |
+| Layout beside Softr's sidebar | `@container` wrapper + `@min-[NNrem]:` variants, never window breakpoints ([§21](#21-mobile-first-responsive-design)) |
+| Sticky element on an app page | `top: calc(var(--nav-height, 0px) + 16px)` ([common-patterns.md](references/common-patterns.md#clear-softrs-sticky-bars)) |
 
 ## Appendix B: Motion and Spacing Tokens
 
@@ -763,6 +796,7 @@ Actively check for and reject these fingerprints of generic AI-generated interfa
 --z-modal: 400;
 --z-toast: 500;
 --z-tooltip: 600;
+/* Softr's top bar and phone tab bar: sticky, z-index 800, outside the block. Clear them, don't outrank them (§7). */
 ```
 
 ## Appendix C: Design Brief Template
