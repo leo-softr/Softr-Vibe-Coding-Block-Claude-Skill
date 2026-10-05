@@ -518,7 +518,7 @@ needed.
 
 ### Linked Record
 
-Array of record-id **strings** (`["RECORD_ID"]`) on Softr Database (verified 2026-08-25); the legacy / Airtable fallback shape is `[{ id }]` objects. HubSpot associations: the string array worked on create; an update needs `[{ id }]` and replaced the list (verified 2026-10-05; [hubspot.md](hubspot.md#association-writes)). See "Linked Record Format for Mutations" above.
+Array of record-id **strings** (`["RECORD_ID"]`) on Softr Database (verified 2026-08-25); the legacy / Airtable fallback shape is `[{ id }]` objects. HubSpot associations: the string array worked on create; an update needs `[{ id }]` and replaced the company list (verified 2026-10-05, one ticket; [hubspot.md](hubspot.md#association-writes)). See "Linked Record Format for Mutations" above.
 
 ### Multi-Select
 

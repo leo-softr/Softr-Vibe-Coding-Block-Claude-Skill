@@ -97,8 +97,9 @@ unless marked otherwise.*
   of `{ id, label }`, usually with the record's name as the label (one re-read shortly after a
   link update showed the company's id instead; see [Association writes](#association-writes)).
   The primary-company link `associations.ticket_to_company` read as one `{ id, label }` object,
-  or `null` when the ticket had no primary company, even with a company still linked. A Softr
-  workflow's Find record output showed the single-object case too.
+  or `null` (seen once, in a re-read shortly after a link update, while a company was still
+  linked; HubSpot's primary label was not checked). A Softr workflow's Find record output showed
+  the single-object case too.
 - **SELECT fields carry id→label choices** in `options.choices`, and HubSpot ids are not labels.
   - **Deals:** stage ids are portal-specific. The live portal had `6183367908` = Initial Contact
     … `closedwon` = Closed Won, in pipeline `default` ("Sales Pipeline").
