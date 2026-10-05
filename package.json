@@ -3,7 +3,7 @@
   "version": "2.13.1",
   "description": "Claude Code skill for generating production-ready Softr Vibe Coding blocks (JSX). Installs into ~/.claude/skills/ and auto-updates on each Claude Code session.",
   "bin": {
-    "softr-vibe-coding": "./bin/cli.js"
+    "softr-vibe-coding": "bin/cli.js"
   },
   "files": [
     "bin/",
