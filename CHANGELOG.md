@@ -6,6 +6,7 @@ Entries from 1.3.1 onward are generated automatically from git commit subjects b
 
 ## [2.13.2] - 2026-10-05
 - Release 2.13.2
+- Drop the leading ./ from the bin path in package.json
 
 ## [2.13.1] - 2026-10-05
 - Release 2.13.1

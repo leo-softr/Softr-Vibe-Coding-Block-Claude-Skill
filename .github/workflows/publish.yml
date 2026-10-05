@@ -112,11 +112,16 @@ jobs:
           const current = process.env.CURRENT_VERSION;
           const today = new Date().toISOString().slice(0, 10);
 
-          // Find the most recent commit reachable from HEAD where package.json *contained*
-          // `"version": "${published}"`. We can't use `git log -S` for this — it matches both
-          // additions AND removals of the string, so it would also match the bump commit
-          // (which removes the published string while adding the current one), and we'd end up
-          // with HEAD as the anchor and an empty range.
+          // Find the commit that *introduced* `"version": "${published}"` to package.json: walk
+          // the package.json commits newest first to the first one at the published version,
+          // then keep going while the version stays the same, and take the oldest of that run.
+          // Stopping at the newest match would anchor on any later package.json edit that kept
+          // the version (a bin path, a description) and leave that commit out of the entry,
+          // which is how v2.13.2 lost "Drop the leading ./ from the bin path".
+          // We can't use `git log -S` for this — it matches both additions AND removals of the
+          // string, so it would also match the bump commit (which removes the published string
+          // while adding the current one), and we'd end up with HEAD as the anchor and an
+          // empty range.
           let prevCommit = '';
           try {
             const commits = execSync('git rev-list HEAD -- package.json', { encoding: 'utf8' })
@@ -125,6 +130,7 @@ jobs:
               const content = execSync(`git show ${commit}:package.json`, { encoding: 'utf8' });
               if (content.includes(`"version": "${published}"`)) {
                 prevCommit = commit;
+              } else if (prevCommit) {
                 break;
               }
             }
