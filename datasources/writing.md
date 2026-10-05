@@ -432,6 +432,12 @@ parentAccount: "RECORD_ID_1"
 string-array shape is the verified current form on Softr Database; if a linked-record write
 fails on an Airtable-backed block, try the `[{ id }]` object shape before deeper debugging.
 
+**HubSpot associations: the string array worked on a create, but an update needs `[{ id }]`
+objects** (verified live 2026-10-05, one ticket). A create with `company: ["<id>"]` linked the
+ticket; a create with `[{ id }]` is untested. An update with string arrays failed with 500; with
+`[{ id }]` it worked and **replaced** the ticket's company list. See
+[hubspot.md](hubspot.md#association-writes).
+
 ### Linked-record write traps (verified live 2026-08-26)
 
 Four Softr Database behaviors proven by direct experiment on a live production build — a
@@ -512,7 +518,7 @@ needed.
 
 ### Linked Record
 
-Array of record-id **strings** (`["RECORD_ID"]`) on Softr Database (verified 2026-08-25); the legacy / Airtable fallback shape is `[{ id }]` objects. See "Linked Record Format for Mutations" above.
+Array of record-id **strings** (`["RECORD_ID"]`) on Softr Database (verified 2026-08-25); the legacy / Airtable fallback shape is `[{ id }]` objects. HubSpot associations: the string array worked on create; an update needs `[{ id }]` and replaced the list (verified 2026-10-05; [hubspot.md](hubspot.md#association-writes)). See "Linked Record Format for Mutations" above.
 
 ### Multi-Select
 

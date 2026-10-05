@@ -278,7 +278,7 @@ softr-vibe-coding/
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
     ├── google-sheets.md              # Text formatting, 50-100 user cap
     ├── hubspot.md                    # 15 objects (listed ≠ usable), field model,
-    │                                 # association writes (open), row scoping (Oct 5 2026)
+    │                                 # association writes, write behaviour, row scoping (Oct 5 2026)
     ├── notion.md                     # Database pages only, Relation workarounds
     ├── coda.md                       # API token auth, limitations
     ├── monday.md                     # API token, Connected Boards
@@ -325,7 +325,7 @@ The skill enforces these automatically, but good to know (verified live against 
 - Data hook options must be **inline object literals** — `useRecords(opts)` with a variable or wrapper fails to compile
 - Create payloads are **flat**; update payloads are `{ recordId, fields: {...} }` — asymmetric by design
 - `mutateAsync` is fully supported — it's the tool for sequential multi-row saves
-- SELECT fields write by option **label string**; linked records write as arrays of record-id strings
+- SELECT fields write by option **label string**; linked records write as arrays of record-id strings. HubSpot differs (verified Oct 2026): SELECTs take the choice id, and an association update needs `[{ id }]` objects and replaces the whole link list (see `datasources/hubspot.md`)
 - Every code recompile resets the block's auto-registered Actions to default permissions — tighten permissions after the last redeploy, and note there is **no cosmetic-edit exemption**: an edit that changes only a comment resets them too. **Always read the permissions back to confirm** — a create action defaults to the block's own visibility, so on a block everyone can see it comes back publicly writable, and the MCP call that re-tightens it can fail with no fallback
 - **Blocks cannot import each other**, so two blocks that must look alike will drift — each one looks correct in isolation while the set does not. Repeated page chrome (back button, title, primary action) must sit at the same offset on every page, and a loading skeleton must track the REST state of whatever it stands in for
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
