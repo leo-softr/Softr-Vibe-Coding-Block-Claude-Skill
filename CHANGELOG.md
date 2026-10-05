@@ -4,6 +4,13 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.13.1] - 2026-10-05
+- Release 2.13.1
+- Keep HubSpot association claims at their tested scope (second review round)
+- Record HubSpot association writes: create with id strings, update with [{ id }] replaces the list (verified 2026-10-05)
+- Fix three stale TOC anchors in helper-blocks.md
+- Record that no read follows a write, and HubSpot's after-write changes (verified 2026-10-05)
+
 ## [2.13.0] - 2026-10-05
 - Release 2.13.0
 - Record the USER::: user-field Source-condition token (verified 2026-10-05 on HubSpot)
