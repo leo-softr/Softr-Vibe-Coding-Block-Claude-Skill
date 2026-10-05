@@ -460,19 +460,21 @@ Both edit paths recompile, so both reset Action permissions either way (Hard Con
 ### What the server enforces on a block's data endpoints
 
 *Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
-captured from the app iframe).* A block's data lives behind per-connection endpoints —
+captured from the app iframe); the block-visibility row verified 2026-10-05 (HubSpot; preview link,
+impersonated users, direct POSTs).* A block's data lives behind per-connection endpoints —
 `/blocks/<blockId>/datasources/<dataSourceId>/records` for lists, `/records/<id>` for one record —
 and these are the gates that actually exist on them:
 
 | Gate | Enforced server-side? |
 |---|---|
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
+| **The block's Visibility** (`predefinedUserGroup` + `customUserGroupIds`; `vibe_coding_block_set_visibility`) | **Yes.** A viewer outside the block's group gets the same **403**, on list and by-id, even where the page lets them in. The body reads like a write error on a read: "You cannot add or edit a record because either the block/action visibility rules, user group conditions, or the user/record data in the datasource has changed." Per block: the same table on an ungated block stays open. Five code pushes left the setting intact |
 | **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate** |
 | A `where` filter in the block's code | No — it is a request parameter the caller controls |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
 
 The consequence to design around: **on a page any logged-in user may view, every datasource
-connected to its blocks is readable by any logged-in user who crafts the request** — all rows the
+connected to its ungated blocks is readable by any logged-in user who crafts the request** — all rows the
 Source conditions allow, all fields the block's read selects name. A per-record access check in
 React ("is this viewer a party to this record?") shapes the UI; it is not access control. When rows
 must be private per user, put it in the Source conditions (e.g. a logged-in-user condition; see
@@ -480,8 +482,9 @@ must be private per user, put it in the Source conditions (e.g. a logged-in-user
 page only the right group can view. When a field must be private, a second connection of the table
 keeps it out of every ordinary browser's payload — but not away from a crafted request by someone
 who may view the page; for that it has to live on a page (or in a group-gated block) the viewer
-cannot see. (The verified 403 case was page VIEW; the message's "block/action visibility rules"
-wording suggests block visibility is checked the same way, which is inference.)
+cannot see. Conversely, a block gated to a staff group may read unfiltered connections for a staff
+view: on 2026-10-05 group members got all 41 deals and 16 tickets, and everyone else got 403, with
+the page VIEW permission at `LOGGED_IN_USERS` throughout.
 
 This is also what makes the open-`ADD_RECORD` finding above severity-dependent on the page's VIEW
 permission rather than uniformly critical.
@@ -595,6 +598,13 @@ passwords, no test accounts to create:
   [../datasources/](../datasources/) were established — read the wire, not the rendered UI.
 - Blocks render in shadow roots inside that iframe: read the DOM through
   `iframe.contentDocument` and each block host's `shadowRoot`, not `document.querySelector`.
+- **Switch user without the switcher** (verified 2026-10-05): on the preview link's origin,
+  `fetch('/studio/impersonate/<softrUserId>')` makes the preview run as that user. The id is the
+  user's Softr id from `application_list_users`. It works from a fresh preview link, so it needs no
+  Studio session in the browser.
+- **Press the preview's own `#refresh-button` after a push.** An open preview kept serving the old
+  block version until it was pressed (verified 2026-10-05). Minting a fresh link does too (see the
+  version note above).
 
 > **The preview is wired to the LIVE datasource.** Anything clicked there — a Save, a status
 > change, a form submit — writes real records, as the previewed user. Keep preview sessions to

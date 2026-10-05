@@ -91,7 +91,7 @@ it behaves as a **union** of both branches, not a choice between them. Which is 
 
 ## One connection = one read payload (the union of its selects)
 
-*Verified live 2026-09-18.*
+*Verified live 2026-09-18; the block-visibility gate 2026-10-05.*
 
 The records endpoint is per block + connection —
 `/blocks/<blockId>/datasources/<dataSourceId>/records` — and it returns the **UNION of every field
@@ -131,11 +131,20 @@ function AdminNotes({ recordId }) {
 Or put the private field in a separate block whose visibility is group-gated.
 
 Know what this buys you. Not *rendering* the hook keeps the field out of ordinary browsers, but
-the endpoint still exists: page VIEW permission is enforced on it (a viewer who cannot view the
-page gets a 403), yet on a page any logged-in user may view, **every connected datasource is
-readable by any logged-in user who crafts the request**. A connection's **Source conditions are
-the only server-side ROW gate**; the only server-side gate on the *field* is a page or block the
-viewer cannot see. See [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
+the endpoint still exists. Two all-or-nothing gates are enforced on it, list and by-id: page VIEW
+permission, and the **block's own Visibility** (`predefinedUserGroup` + `customUserGroupIds`). A
+viewer outside either gets a 403 (block gate verified 2026-10-05, on HubSpot). Past those gates, on
+an ungated block on a page any logged-in user may view, **every connected datasource is readable by
+any logged-in user who crafts the request**. A connection's **Source conditions are the only
+server-side ROW gate**; the only server-side gate on the *field* is a page or block the viewer
+cannot see.
+
+**A block gated to a user group may therefore read unfiltered connections** (verified 2026-10-05).
+A staff dashboard gated to an "Account managers" group, with no Source condition on its deals and
+tickets connections, gave both members all 41 deals and 16 tickets, and gave clients, a Softr-only
+user and logged-out visitors 403 on list and by-id. The gate belongs to the block, not the table:
+connect the same table to an ungated block and it is open again. See
+[../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
 
 Alias → field attribution is per connection, so two selects on different connections may reuse
 an alias name (`customer` on both) without colliding — including in `where` filters.

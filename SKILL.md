@@ -601,10 +601,13 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     endpoint is per block + connection and returns the UNION of every field named by any READ
     `q.select` on that connection, to every viewer. A second or ternary select "only for admins"
     hides nothing. Put a private field on a **second connection of the same table** (allowed) read
-    only by a hook non-privileged browsers never run, or in a group-gated block. Page VIEW permission
-    is enforced on these endpoints, but on a page any logged-in user may view, every connected
-    datasource is readable by any logged-in user who crafts the request -- Source conditions are the
-    only server-side ROW gate. Verified live 2026-09-18. See
+    only by a hook non-privileged browsers never run, or in a group-gated block. Two all-or-nothing
+    gates are enforced on these endpoints (list and by-id): page VIEW permission and the **block's own
+    Visibility** -- a viewer outside the block's user group gets 403 (verified 2026-10-05). So a block
+    gated to a staff group may read unfiltered connections for a staff view. The gate is per block:
+    the same table connected to an ungated block, on a page any logged-in user may view, is readable
+    by any logged-in user who crafts the request. Source conditions remain the only server-side ROW
+    gate. Verified live 2026-09-18 and 2026-10-05. See
     [datasources/multi-datasource.md](datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects).
 24. **Multi-datasource: `select:` is a plain module-scope identifier** -- a ternary
     (`select: a ? X : Y`) cannot be attributed to a connection and the query returns `fields: {}`, no

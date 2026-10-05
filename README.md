@@ -263,7 +263,8 @@ softr-vibe-coding/
     │                                 #   the from: parameter, getting the datasource UUIDs,
     │                                 #   select: as a module-scope identifier, the union-of-
     │                                 #   selects read payload (a conditional select is not
-    │                                 #   privacy), Actions per table (Sep 18 2026)
+    │                                 #   privacy), Actions per table (Sep 18 2026);
+    │                                 #   block Visibility gates its endpoints (Oct 5 2026)
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user; no detail-page
     │                                 # auto-scoping, useRecords ignores enabled:false,

@@ -211,6 +211,13 @@ request parameter the caller controls, not access control. See
 [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints)
 (verified 2026-09-18 on Softr Database, untested on HubSpot).
 
+The **block's Visibility** is enforced on the same endpoints, all or nothing (verified 2026-10-05 on
+HubSpot). A block gated to an "Account managers" condition group returned every deal and ticket to
+members from connections with no Source condition, and 403 on list and by-id to clients, a
+Softr-only user and logged-out visitors. So a staff view can be a group-gated block with
+unfiltered connections. The same tables on an ungated block are open to anyone who may view the
+page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)).
+
 - **The one logged-in-user value seen working in a vibe-block Source condition is
   `{USER:::EMAIL}`, used as the entire value.** An embedded form like `",{USER:::EMAIL},"` matches
   nothing. Eleven spellings of a user-table-field token failed, and a subject of `USER:<fieldId>`
@@ -285,6 +292,9 @@ request parameter the caller controls, not access control. See
   managers), use the "Let the user only exist in the Softr app" option (documented).
 - **Sync is continuous only on a published app.** In Studio, or on an unpublished app, it runs on
   login, on publish and when the Users tab is opened (documented).
+- **Even on a published app the lag varies** (verified 2026-10-05). A new HubSpot contact appeared
+  as a Softr user after 33 s in the morning; two more, created later that day, took 24 min. Never
+  assume real time: confirm the user exists with `application_list_users` before testing as them.
 - **An app has one users table** (documented). Account managers are therefore either contacts in the
   same table or Softr-only users.
 - **`useCurrentUser().id` exists only when user sync is on** (documented). Whether it equals the
@@ -294,10 +304,15 @@ request parameter the caller controls, not access control. See
   slowly (documented). It affects group membership and logged-in-user values, not how fresh other
   records are. A ticket-status lag comes from elsewhere: the search delay above, data-source
   caching, or workflow trigger latency.
-- Condition-based user groups on a synced HubSpot property use the subject `USER:<property internal
-  name>` and compare select fields by choice id (documented in the MCP tool descriptions). That
+- **Condition-based user groups on a synced HubSpot property work** (verified 2026-10-05). For a
+  select contact property the rule is subject `USER:portal_role` (the property's internal name),
+  type `ARRAY`, operator `IS_ONE_OF`, value `[<choice id>]`: the choice id, not the label. That
   syntax is for **user groups**. In a block's Source condition the same subject returned 400 (see
-  above).
+  above). Membership then lives in HubSpot: anyone who can edit that property there can grant the
+  group's access.
+- **`application_list_users` is not a membership check.** It showed `userGroups: []` for every
+  user, including members of condition groups that demonstrably applied (verified 2026-10-05).
+  Test membership by what the user can reach, e.g. preview as them against a group-gated block.
 
 ## Audit trail
 
