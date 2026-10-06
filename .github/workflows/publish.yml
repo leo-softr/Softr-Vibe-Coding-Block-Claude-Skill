@@ -5,6 +5,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One run at a time, queued, never cancelled (cancelling could stop a run between
+# `npm publish` and the CHANGELOG commit). GitHub once fired this workflow twice for one
+# push (v2.14.1, 2026-10-06): both runs saw the old version on npm, both published, and
+# the second failed with E409. Queued, the second run starts after the first has
+# published, and the mirror guard below recognises the commit as already on npm.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -55,6 +64,15 @@ jobs:
           CURRENT: ${{ steps.check.outputs.current }}
         run: |
           set -euo pipefail
+
+          # A second run for the same commit (a duplicate trigger, or a re-run of a release
+          # push) finds its version already on npm. npm records the commit a version was
+          # published from as `gitHead`; when that is this commit, npm already mirrors main.
+          PUBLISHED_FROM=$(npm view "softr-vibe-coding@${CURRENT}" gitHead 2>/dev/null || true)
+          if [ -n "$PUBLISHED_FROM" ] && [ "$PUBLISHED_FROM" = "$AFTER" ]; then
+            echo "v${CURRENT} on npm was published from this commit (${AFTER}); nothing to do."
+            exit 0
+          fi
 
           # Resolve a diff base. `before` is all-zeros on a brand-new branch and can be
           # unreachable after a force-push, so fall back to the first parent before giving up.
