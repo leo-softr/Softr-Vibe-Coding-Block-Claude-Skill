@@ -19,6 +19,7 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Clickable Row with an Inner Link](#clickable-row-with-an-inner-link)
 - [Measure the block, not the window](#measure-the-block-not-the-window)
 - [Clear Softr's sticky bars](#clear-softrs-sticky-bars)
+- [A modal above Softr's bars](#a-modal-above-softrs-bars)
 
 ## Cross-Page State with localStorage + URL Parameters
 
@@ -620,3 +621,120 @@ The project this comes from hard-coded 72px (a bar plus 16px) at the top, and at
 **Read the host variables only inside CSS `calc()`.** They are unregistered custom properties, so in JS `getComputedStyle(el).getPropertyValue(...)` returns the token that was set, not a length. `--nav-height` reads `56px` on desktop, but `--bottombar-height` reads `calc(0px + 55px)` on phones (both measured live 2026-10-05). `parseFloat` turns that into `NaN` (inferred, not run in a block), and a `|| 0` fallback would then scroll content under the tab bar without a sound. In CSS both forms work. In JS, use the bar heights above.
 
 **Fragment jumps are offset; inner scrolls are not.** Softr's page CSS gives every block's outer wrapper (`div[data-block]`, with a page-assigned id such as `ai1`; the Vibe host sits two levels inside it) `#main-content [data-block] { scroll-margin-top: var(--sticky-nav-height, 0px) }` (the rule was read from Softr's live page CSS on 2026-10-05; the jump itself is untested), so a URL fragment that targets that wrapper lands below the top bar. Nothing offsets a scroll to an element *inside* the block: `scrollIntoView` on a row or a section can put it at the window's top edge, under the bar. Give the target `scroll-margin-top: calc(var(--nav-height, 0px) + 16px)`, which `scrollIntoView` honours (untested in a block), or scroll the window with `keepInView`. A fragment can't reach inside the shadow root in the first place; see [static-blocks.md → Section anchors](static-blocks.md#section-anchors-on-landing-pages).
+
+## A modal above Softr's bars
+
+On an app page with Softr's navigation, shadcn's `Dialog` and `Sheet` don't work cleanly. Two things go wrong:
+
+- **It sits under the top bar.** shadcn's overlay is `z-50`; Softr's sticky `#topbar-root` is z-index 800. The top bar stays undimmed and clickable, and a tall modal slides under it. Measured live 2026-10-06 in the preview at 1440×900 with the top bar and sidebar: a `position: fixed` layer inside a block's shadow root at z-index 50 lost to the top bar (`document.elementFromPoint` inside the bar returned the bar); at z-index 801 and at 1000 the same layer covered the top bar and the sidebar. A walk up from the block host to `<html>` found no stacking context (every ancestor static / `auto`, no `transform`, `contain` or `container-type`), so a block's z-index competes directly with Softr's bars.
+- **It leaves the shadow root.** Radix portals the dialog to `document.body`, outside the block's shadow root, and the block's styles stay behind — the same reason shadcn `<Select>` is out ([searchable-dropdown.md](searchable-dropdown.md)).
+
+Render the modal in the block's own DOM instead. This is the reusable core of the record modal that shipped in the Partner Spotlight review block on 2026-10-06:
+
+```tsx
+import { useEffect, useRef } from "react";
+import { X } from "lucide-react";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
+
+// Module scope. onDismiss must itself refuse while a save runs (Escape and the backdrop call it too).
+function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, children }: {
+  labelledBy: string; describedBy?: string; onDismiss: () => void; dismissDisabled?: boolean; children: React.ReactNode;
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const dismissRef = useRef(onDismiss); // the latest handler; the listener is attached once per opening
+  dismissRef.current = onDismiss;
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    // Inside a shadow root document.activeElement is the block's host; the root knows the real element.
+    const root: any = panel ? panel.getRootNode() : document;
+    const opener = (root.activeElement as HTMLElement | null) || null;
+
+    // Lock the page behind the modal; the stable gutter stops a sideways jump where scrollbars take space.
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    const prevGutter = html.style.getPropertyValue("scrollbar-gutter");
+    html.style.overflow = "hidden";
+    html.style.setProperty("scrollbar-gutter", "stable");
+    const focusTimer = window.setTimeout(() => panel?.focus({ preventScroll: true }), 0);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return;
+      if (e.key === "Escape") { e.preventDefault(); dismissRef.current(); return; }
+      if (e.key !== "Tab" || !panel) return;
+      // Visible controls only: getClientRects() is empty for anything display: none.
+      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.getClientRects().length > 0);
+      if (!items.length) { e.preventDefault(); panel.focus(); return; }
+      const current = root.activeElement as HTMLElement | null;
+      const inside = !!current && current !== panel && panel.contains(current);
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (!inside || current === first)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (!inside || current === last)) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKey);
+      html.style.overflow = prevOverflow;
+      if (prevGutter) html.style.setProperty("scrollbar-gutter", prevGutter);
+      else html.style.removeProperty("scrollbar-gutter");
+      if (opener && opener !== panel && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+
+  return (
+    // z-[1000]: above Softr's top bar, sidebar and phone tab bar (all z-index 800 or below).
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-6">
+      <div aria-hidden="true" className="absolute inset-0 bg-gray-950/50" onClick={() => dismissRef.current()} />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        tabIndex={-1}
+        className="@container relative flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl outline-none"
+      >
+        {children}
+        <button
+          type="button"
+          onClick={() => dismissRef.current()}
+          disabled={dismissDisabled}
+          aria-label="Close"
+          className="absolute right-3 top-3 rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function Block() {
+  // ... state, `active` record, `saving`, a `close` that returns early while saving ...
+  return (
+    <>
+      <div className="@container">{/* the block's page */}</div>
+      {/* A sibling of the @container wrapper, not a child of it. */}
+      {active && (
+        <InBlockModal labelledBy="modal-title" describedBy="modal-desc" onDismiss={close} dismissDisabled={saving}>
+          {/* header with id="modal-title" / id="modal-desc"; give it right padding (pr-12) for the X */}
+          {/* a scrolling body: min-h-0 flex-1 overflow-y-auto */}
+        </InBlockModal>
+      )}
+    </>
+  );
+}
+```
+
+- **Outside the block's `@container` wrapper.** `@container` sets `container-type: inline-size`, which brings layout containment, and containment on an ancestor can capture `position: fixed` (it becomes the fixed box's containing block). Render the modal as a sibling of that wrapper, then put `@container` on the panel so everything inside it sizes by the panel. The overlay itself is fixed to the window, so its own padding may use `sm:`.
+- **z-index 1000, not 50.** Anything from 801 up clears the bars; 1000 leaves room. It also keeps Softr's links out of reach while an edit is open.
+- **Focus lives in the shadow root.** Read the focused element from `panel.getRootNode().activeElement`; `document.activeElement` is only the block's host. The opener is captured on open, and focus goes back to it on close if it is still on the page.
+- **Saving.** Disable the X while a save runs, and make the dismiss handler return early while saving, because Escape and the backdrop call the same handler. In the shipped block that handler also asks before discarding unsaved edits.
+- **Scroll lock on `<html>`**, not `body`: the page scroller is the document. Restore both properties exactly as they were.
+- The shipped component also has `animate-in fade-in-0 zoom-in-95` on the panel and `backdrop-blur-[2px]` on the backdrop.
+
+**Status (2026-10-06).** Verified live, harness: the shipped component's exact source was bundled with `deno bundle` and mounted into a shadow root under `#main-content` on the live preview page, rendered with Softr's own React 18.2 (`window.__softr_React` / `window.__softr_ReactDOM`), 1440×900 window with top bar and sidebar. Passed: opens with focus on the panel; covers the top bar and the sidebar; the panel centres at 896px; Tab and Shift+Tab wrap both ways and skip hidden controls; Escape and the X do nothing while saving; Escape, the backdrop and the X close it; `overflow` and `scrollbar-gutter` are restored; focus returns to the opener. **Not yet seen:** the full review block opening the modal with real data — there was no Social Media Manager member to preview as. The trimmed version above was not run on its own. Phones (tab bar) untested.

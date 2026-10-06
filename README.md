@@ -217,7 +217,7 @@ softr-vibe-coding/
 │   ├── anti-patterns.md              # Categorized violation catalog
 │   │                                 # Data access, mutations, hooks, layout,
 │   │                                 # permissions, editable settings, helper blocks
-│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars)
+│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
 │   │                                 # auth-aware CTA, image masks, blobs, dot lists
