@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.14.1] - 2026-10-06
+- Release 2.14.1
+- Add nine more verified Softr facts from the 2026-09 production build
+
 ## [2.14.0] - 2026-10-06
 - Release 2.14.0
 - Add Softr runtime and Workflows facts verified on a 2026-09-18/19 production build
