@@ -87,6 +87,7 @@ You'll see exactly which field is an object. Add `getFieldValue()` around it.
 | User, Created By, Updated By | `{ avatarUrl, id, name, email }` |
 | Attachment | `{ filename, id, type, url }` |
 | Formula | `string or number` |
+| Lookup (multi-value) | array of **strings**, one element per linked record: `["#1042#"]`, and `[]` when empty (verified live 2026-09-19, Softr Database). `getFieldValue()` joins it for display; a `contains` filter on it tests each element ([reading.md](reading.md#operator-semantics-on-the-server)) |
 
 ## Record Structure
 

@@ -199,7 +199,13 @@ softr-vibe-coding/
 │   │                                 # after a resume, update_field/update_table fixes;
 │   │                                 # Oct 6 2026: MCP-written FILTER conditions are
 │   │                                 # inert (set them in Studio), Workflows tools as
-│   │                                 # workflow_*, denied by-id fetch per backend
+│   │                                 # workflow_*, denied by-id fetch per backend;
+│   │                                 # Workflows engine facts (CUSTOM_CODE contract,
+│   │                                 # string-array loops, sample-based validation,
+│   │                                 # replace_node new ids, re-firing triggers,
+│   │                                 # write modes, serialExecution, continueOnError),
+│   │                                 # Softr DB row-gating recipe, what a push leaves
+│   │                                 # alone, DATETIME create shape, offset paging
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -270,18 +276,22 @@ softr-vibe-coding/
     │                                 #   select: as a module-scope identifier, the union-of-
     │                                 #   selects read payload (a conditional select is not
     │                                 #   privacy), Actions per table (Sep 18 2026);
-    │                                 #   block Visibility gates its endpoints (Oct 5 2026)
+    │                                 #   block Visibility gates its endpoints (Oct 5 2026);
+    │                                 #   every row carries its record id (Oct 6 2026)
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user; no detail-page
     │                                 # auto-scoping, useRecords ignores enabled:false,
     │                                 # server-side linked-record filters (Sep 18 2026);
-    │                                 # where/orderBy aliases resolve per hook (Oct 6 2026)
+    │                                 # where/orderBy aliases resolve per hook, operator
+    │                                 # semantics, filters fail open, userGroups poll,
+    │                                 # excluded useRecord = no record (Oct 6 2026)
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes;
     │                                 # Actions register per table (Sep 18 2026)
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
-    │                                 # parsed as local dates (Oct 6 2026)
+    │                                 # parsed as local dates, multi-value lookup shape
+    │                                 # (Oct 6 2026)
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits

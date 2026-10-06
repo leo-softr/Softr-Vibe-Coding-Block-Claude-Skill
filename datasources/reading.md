@@ -9,9 +9,9 @@ Fetching, filtering, sorting, pagination, metrics, charts, and current user.
 - [useRecord -- Fetch a Single Record](#userecord----fetch-a-single-record) — the detail-page pattern; no auto-scoping
 - [useLinkedRecords -- Fetch Linked/Related Options](#uselinkedrecords----fetch-linkedrelated-options)
 - [useFieldOptions -- Fetch Single/Multi-Select Choices](#usefieldoptions----fetch-singlemulti-select-choices)
-- [Filtering](#filtering) — incl. [server-side linked-record filters](#filtering-by-a-linked-record-server-side)
+- [Filtering](#filtering) — incl. [operator semantics on the server](#operator-semantics-on-the-server), [filters fail open](#filters-fail-open), [server-side linked-record filters](#filtering-by-a-linked-record-server-side)
 - [Sorting](#sorting)
-- [Current User](#current-user)
+- [Current User](#current-user) — user groups need a short, bounded poll
 - [Metrics](#metrics)
 - [Chart Data](#chart-data)
 
@@ -112,10 +112,12 @@ import { useState, useEffect } from "react";
 var result = useRecords({ select: select, count: 100 });
 
 useEffect(function() {
-  if (result.hasNextPage && !result.isFetchingNextPage && result.status === "success") {
+  // `!result.error` is defensive: never re-request a page while the hook reports an error
+  // (how a failed later page surfaces has not been verified).
+  if (result.hasNextPage && !result.isFetchingNextPage && result.status === "success" && !result.error) {
     result.fetchNextPage();
   }
-}, [result.hasNextPage, result.isFetchingNextPage, result.status, result.fetchNextPage]);
+}, [result.hasNextPage, result.isFetchingNextPage, result.status, result.error, result.fetchNextPage]);
 ```
 
 ## useRecord -- Fetch a Single Record
@@ -147,6 +149,14 @@ the server which record the page is "about". Consequences:
 - `useRecord` with a **null / missing id falls back to a list call** and hands back whatever that
   returns. So always pass `enabled: !!recordId` (`useRecord` honours `enabled: false` — no
   request is made) and verify `data.id === recordId` before rendering or, worse, writing.
+
+**A record the connection's Source conditions exclude comes back as no record, not as an error**
+(verified live 2026-09-18, Softr Database). The by-id request answers HTTP 200 with an empty
+body, not 403 or 404, so `useRecord` reports no error and holds no record. Render that as "not
+found"; never wait for a 403/404 to learn the viewer was refused. A production block also sends
+any denial-shaped error (401/403/404, or a JSON parse error on an empty body) to the same "not
+found" state, in case a later build answers differently, and keeps the error panel with a retry
+for real failures.
 
 **A recordId-less `useRecord` — what the older note here meant, and its limits.** This file used
 to say that `useRecord({ select })` with no `recordId` "loads the record the block is bound to
@@ -259,6 +269,47 @@ where: q.and(
 )
 ```
 
+### Operator semantics on the server
+
+*Softr Database: `is` verified live 2026-09-18, `contains` 2026-09-19.* What the operators do once
+the filter reaches the server:
+
+- **Text `is` is case-insensitive.** `q.text("email").is("Ann@Example.com")` matches
+  `ann@example.com`. Compare client-side when case matters.
+- **`contains` is a case-insensitive substring test, and on a multi-value lookup it tests each
+  element** — never the elements joined into one string. Multi-value lookups arrive in the browser
+  as arrays of strings ([fields.md](fields.md#common-field-type-shapes)). To match one whole value inside a
+  lookup, wrap every value in delimiters it cannot contain (a formula such as
+  `CONCATENATE("#", {Order No}, "#")`, looked up through the link), search for the delimited
+  value, and re-check the exact value client-side: an undelimited `contains("1042")` also
+  matches `10420`.
+- **`contains("")` returned 0 rows, not every row** (measured 2026-09-19 against a lookup field; a
+  plain text field was not probed). Don't build on it either way. When a hook must match nothing
+  until a value exists, give it an explicit sentinel, as in option 2 under
+  [`useRecords` ignores `enabled: false`](#userecords-ignores-enabled-false); for `contains` the
+  sentinel must not be a substring of any real value either.
+
+```jsx
+var KEY_NONE = "#no-key#";   // no real "#<number>#" key can contain this
+var orderKey = orderNo ? "#" + orderNo + "#" : "";
+
+// orderKeys = a lookup, through the link, of the order's "#<number>#" key formula
+var lines = useRecords({ from: ds.lines, select: lineSelect, count: 100,
+  where: q.text("orderKeys").contains(orderKey || KEY_NONE) });
+
+// The server test is a substring test: keep only rows whose lookup holds the exact key.
+// (items = the flattened pages of `lines`)
+var mine = !orderKey ? [] : items.filter(function(r) {
+  var v = r.fields.orderKeys;
+  var keys = Array.isArray(v) ? v : (v ? [String(v)] : []);
+  return keys.indexOf(orderKey) !== -1;
+});
+```
+
+A key like this also lets a block filter by a link without selecting the link field, which would
+ship the linked records' ids to the browser
+([multi-datasource.md](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)).
+
 ### Filter and sort aliases must be in the same hook's select
 
 *Seen live 2026-09-18 (Softr Database, on a `useMetric`).* Aliases are resolved **per hook**, not
@@ -278,6 +329,37 @@ var countSelect = q.select({ orderNo: "FIELD_ID1", status: "FIELD_ID2" });
 Adding the field to the select also adds it to the connection's read payload
 ([multi-datasource.md](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)),
 so put a filter on a private field on the connection that is allowed to carry it.
+
+### Filters fail open
+
+*Verified live 2026-09-19 (Softr Database).* A filter on a field that is **not in the
+connection's read-select union**
+([multi-datasource.md](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects))
+is **silently ignored**: no error, and the query returns everything, as if there were no `where`.
+(This was recorded for the filter a block sends with its request, the hook's `where`. Source
+conditions were not part of the finding.) How a block's own `where` can name a field outside the
+union while passing the per-hook alias rule above was not established: the session that found it
+also sent hand-built requests to the endpoint, which can name any field. Either way there is no
+way to filter on a field without shipping it: leave it out of every read select and the filter
+stops applying.
+
+The two rules fail in opposite directions. An alias missing from the hook's own `select` crashes
+the block ([above](#filter-and-sort-aliases-must-be-in-the-same-hooks-select)); a field missing from
+the connection's union drops the filter without a word. A block that compiles and renders
+plausible rows has passed the first check and proved nothing about the second.
+
+Treat every `where` as unproven until you have seen it narrow:
+
+1. Confirm each field the `where` names is in a read select on that connection.
+2. Load the block as a viewer who can see more rows than the filter should leave (an admin is
+   usually easiest) and compare the count with and without the `where`, or read the response in
+   the network tab: 7 rows without it and 3 with it, not 7 and 7.
+3. Where an ignored filter would make the block show the wrong rows (another order's lines on
+   this order's page), apply the same condition client-side to every row as well, so the block
+   stays correct even if the server returns everything.
+
+A `where` is not access control in any case ([Current User](#current-user)); this is about the
+block showing the rows it says it shows.
 
 ### Filtering by a linked record (server-side)
 
@@ -301,6 +383,10 @@ On the wire the alias is resolved to the field id:
 **per hook** ([above](#filter-and-sort-aliases-must-be-in-the-same-hooks-select)), so two selects on
 different connections may use the same alias name for different fields, and each filter resolves
 against its own hook's `select`.
+
+**`isOneOf` filters a link the same way**, for "linked to any of these" (verified live 2026-09-18):
+`q.array("order").isOneOf(orderIds)` goes out as `operator: "IS_ONE_OF"` with the id array as
+`value`, next to `hasAllOf([id])`.
 
 `orderId` must be a real id when the hook runs — `useRecords` cannot be switched off with
 `enabled: false` ([above](#userecords-ignores-enabled-false)), so mount this query in a child
@@ -358,6 +444,54 @@ var softrUser = window.__softr_current_user || {};
 var userGroups = softrUser.userGroups || [];
 var isPremium = userGroups.some(function(g) { return g.name === "Premium Member"; });
 ```
+
+**`window.__softr_current_user` has no change event.** It is a plain global the Softr shell fills
+in, and nothing re-renders the block when it lands. An empty `userGroups` early on means the
+shell is not ready yet, not that the user has no groups; read once at mount, an admin can be
+settled as a non-admin for good. The shell is usually ready before the block's data arrives. Two
+production blocks (2026-09-18) cover the case where it isn't: they hold the user in state, poll
+with a bound, and treat an empty list as not loaded yet, since every logged-in user carries at
+least Softr's predefined groups.
+
+```jsx
+import { useState, useEffect } from "react";
+
+// Module scope. An empty userGroups means the shell is still filling in: return null until then.
+function readShellUser() {
+  var u = window.__softr_current_user || null;
+  if (!u || !Array.isArray(u.userGroups) || u.userGroups.length === 0) return null;
+  return u;
+}
+
+// In Block():
+var [shellUser, setShellUser] = useState(readShellUser());
+var [groupsSettled, setGroupsSettled] = useState(!!readShellUser());
+
+useEffect(function() {
+  if (groupsSettled) return;
+  var tries = 0;
+  var timer = setInterval(function() {
+    tries += 1;
+    var found = readShellUser();
+    if (found) {
+      clearInterval(timer);
+      setShellUser(found);
+      setGroupsSettled(true);
+    } else if (tries >= 14) {   // about 2 s at 150 ms, then settle with no groups
+      clearInterval(timer);
+      setGroupsSettled(true);
+    }
+  }, 150);
+  return function() { clearInterval(timer); };
+}, [groupsSettled]);
+
+var userGroups = (shellUser && shellUser.userGroups) || [];
+var isAdmin = userGroups.some(function(g) { return g.name === "Admin"; });
+```
+
+Gate anything role-dependent on `groupsSettled` (show a skeleton until then), so a viewer never
+flashes the wrong panel. The bound settles a viewer whose list never fills in, instead of leaving
+them on a skeleton.
 
 ## Metrics
 

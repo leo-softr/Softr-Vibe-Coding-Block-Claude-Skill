@@ -73,6 +73,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - Detail page: the record is fetched with `useRecord({ select, recordId, enabled: !!recordId })` using `useCurrentRecordId()`, and the code checks `data.id === recordId` before rendering — never `useRecords({ count: 1 })`, which returns the table's FIRST row (Hard Constraint 25)
    - No list query relies on `enabled: false` — `useRecords` fetches anyway; conditional list queries live in a child component mounted only when needed, or carry a match-nothing `where` (Hard Constraint 26)
    - Every alias a hook's `where` / `orderBy` names is in **that hook's own** `select` — anything else crashes the block at runtime (Hard Constraint 29)
+   - Every `where` has been **seen to narrow** the result (compare row counts with and without it) — a filter on a field outside the connection's read-select union is silently ignored and returns everything ([datasources/reading.md](datasources/reading.md#filters-fail-open))
+   - Role checks read `window.__softr_current_user.userGroups` from state with a bounded poll, and role-dependent UI waits until it settles — the global has no change event and an early `[]` means not loaded yet ([datasources/reading.md](datasources/reading.md#current-user))
    - Date-only values are parsed with `toLocalDate()`, never `new Date()` — midnight UTC renders a day early west of Greenwich ([datasources/fields.md](datasources/fields.md#date-only-fields-arrive-as-midnight-utc))
    - No field is "hidden" from some viewers by a conditional / second `select` on the same connection — the browser receives the union of every read select on that connection (Hard Constraint 23)
    - All imports use named imports (no `import React from 'react'`)

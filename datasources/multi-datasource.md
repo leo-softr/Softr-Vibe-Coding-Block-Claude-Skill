@@ -106,6 +106,18 @@ the block — it is simply not rendered. Anyone can read it in the network tab.
 What does *not* join the union: a mutation hook's `fields:` select. Write-only fields stay out of
 the read payload.
 
+**Every row carries its record id, whatever the select.** The union governs *fields*; the records
+endpoint returns each row's own record id beside them however narrow the select is. A connection
+whose only select was one email field still gave anyone who crafted the request every row's id
+with its email (noted in a production block's security review, 2026-09-19). So wherever knowing a
+record id lets someone act (a by-id fetch, an update addressed by `recordId`, a link write that a
+Source condition then keys on), treat ids as access keys: a connection hands every row it releases,
+with its id, to every viewer allowed to call it. Narrowing the select does not withhold ids; only
+fewer rows (a Source condition) or a gated page or block does. A link field in a select ships the
+*linked* records' ids too (`{ id, label }`). To filter by a link without shipping them, filter on
+a readonly key looked up through the link instead
+([reading.md](reading.md#operator-semantics-on-the-server)).
+
 **Remedy.** Connect the **same table a second time** — Softr allows it, and the second connection
 gets its own `dataSourceId` — and read the private field only through that connection, from a
 hook that non-privileged browsers never run:

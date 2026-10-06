@@ -338,6 +338,22 @@ default permissions (see the next section for why that can be a security problem
 the restoration). If page-level visibility is the access control in your app, record that decision
 so nobody chases the reset after every round; if it is not, re-tighten and read back.
 
+**What a push leaves alone, and when it goes live** (our observations on Softr Database, not
+from the docs):
+
+- **A code push does not clear Source conditions** (verified 2026-09-18). Only the Actions reset.
+- **Disconnecting and reconnecting a data source does.** `vibe_coding_block_disconnect_data_source`,
+  then `vibe_coding_block_connect_data_source` with the same table, brings the block back bound to
+  that table with an **empty** condition (2026-09-10). Other blocks bound to the same data source id
+  kept theirs. That makes it a way to clear a broken condition when the filter tool cannot be called,
+  and it also means a reconnect done for any other reason drops the row gate: read the conditions
+  back afterwards. The next code push re-derives the block's Actions at the defaults, as any push does.
+- **A push lands in the draft.** The live app serves it only after the next app publish, and that
+  publish, whoever runs it, takes every other pending draft change live with it, unversioned
+  settings edits included. Before calling a block "staged", compare the app's last publish time
+  (`application_get`) with the version's `createdAt` (`vibe_coding_block_list_versions`): on
+  2026-09-01 a block we believed staged went live with a publish 28 minutes after it was saved.
+
 ### The array-argument rejection, and why it is a security issue
 
 **Several workspace-server tools take an array argument, and a call that sends it as a JSON *string*
@@ -480,7 +496,7 @@ and these are the gates that actually exist on them (`<connection>` was recorded
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
 | **The block's Visibility** (`predefinedUserGroup` + `customUserGroupIds`; `vibe_coding_block_set_visibility`) | **Yes.** A viewer outside the block's group gets the same **403**, on list and by-id, even where the page lets them in. The body reads like a write error on a read: "You cannot add or edit a record because either the block/action visibility rules, user group conditions, or the user/record data in the datasource has changed." Per block: the same table on an ungated block stays open. Five code pushes left the setting intact |
 | **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate.** A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found" |
-| A `where` filter in the block's code | No — it is a request parameter the caller controls |
+| A `where` filter in the block's code | No — it is a request parameter the caller controls. It can also **fail open**: on 2026-09-19 (Softr Database) a request filter on a field that was not in the connection's read-select union was silently ignored, with no error, and the query returned everything. Confirm the filtered field is selected on the connection and prove the `where` narrows the result (compare counts with and without it); see [reading.md](../datasources/reading.md#filters-fail-open). A `where` naming an alias missing from its own hook's `select` fails the other way and crashes the block (Hard Constraint 29) |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
 
 The consequence to design around: **on a page any logged-in user may view, every datasource
@@ -539,6 +555,22 @@ verified on HubSpot on 2026-10-05, the same way.* There are two forms, and **the
   untested (Softr Database so far), store an email on the record and compare it with
   `{USER:::EMAIL}`. Staff who need every row get a group-gated block with unfiltered connections
   ([above](#what-the-server-enforces-on-a-blocks-data-endpoints)), not a wider condition.
+- **A Softr Database recipe for "everyone named on the record, plus staff"** (verified 2026-09-18
+  in a production app):
+  - `CONTAINS` is a case-insensitive **substring** test. It works against a FORMULA text field and
+    against a LOOKUP of one (subject `type: "TEXT"`). So a formula that joins every email on the
+    record (lower-cased, comma-delimited) gates rows with `<formula> CONTAINS {USER:::EMAIL}`,
+    substring trap included (above).
+  - Related tables follow the parent through a LOOKUP of that formula, with the same condition on
+    the lookup.
+  - A LOOKUP that brings an email over a link field works with `IS_ONE_OF {USER:::EMAIL}`.
+  - There is no group token, so a **constant** formula listing the staff emails stands in for one:
+    `<access formula> CONTAINS {USER:::EMAIL}` OR `<staff formula> CONTAINS {USER:::EMAIL}`. This is
+    the OR widening warned about above, chosen on purpose. A staff-only connection carries the
+    second rule alone. Adding a staff member then takes two edits: the user group and the formula.
+  - The MCP cannot edit a formula after creation, so the staff list is changed in Studio.
+  - `vibe_coding_block_set_data_source_record_filters` takes one flat level: the rules joined by a
+    single AND or a single OR, no nested groups.
 
 For HubSpot specifics (association-based scoping, owner fields), see
 [../datasources/hubspot.md](../datasources/hubspot.md#row-scoping--who-sees-which-records).
@@ -564,6 +596,11 @@ From the official MCP docs — these hold for MCP-driven and Studio-driven edits
 - **Rolling back reverts more than the code.** Restoring a version also restores settings, visibility, and data source connections as they were at that point. Action permissions are the exception: per Softr (2026-10-01) a restore recompiles, so the restored block's Actions come back at the default permissions, not as they were.
 - **Changing the code resets action permissions.** Any code change rebuilds the block's record actions at default visibility — restrictions to user groups must be re-applied. (This is Hard Constraint 21 in SKILL.md, now officially documented: tighten Action permissions only after the LAST redeploy.) The defaults: ADD_RECORD follows the block's own visibility, while UPDATE_RECORD and DELETE_RECORD are reset to logged-in users (per Softr, 2026-10-01).
 - **A block with an unconnected data source saves without complaint**, then errors when the page loads. If a freshly created block looks broken but the code seems right, check its data source connection first.
+
+Ours, not from the docs: **Source conditions and Action permissions are not versioned.** The version
+history cannot date a change to either (noted 2026-09-10). Whether restoring a version brings back an
+older condition we have not tested. What a code push does and does not reset is in
+[Verifying a push](#verifying-a-push--the-deployed-source-is-the-only-proof).
 
 ## Application management tools
 
@@ -727,7 +764,14 @@ Known limits and behaviors (per official docs):
   is no evidence that nothing changed.
 - **Field descriptions are readable** since 2026-10-01 (per Softr). Before then a description
   could be written but no read returned it.
-- Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging.
+- **`database_create_field` for a DATETIME takes `options: {"includeTime": true}`** (ours, verified
+  2026-09-18). The options shape `database_list_fields` returns for an existing DATETIME field is
+  rejected, so do not copy a field definition from a read into a create.
+- **SINGLE_LINE_TEXT fields carry a 1,024-character `maxLength`** (ours: two fields of a production
+  table, found in a 2026-09-10 schema audit and confirmed live 2026-09-18, recorded in a block's code
+  comment). A block that appends to such a field has to keep the total under it; what a longer write
+  does was not tested. Use LONG_TEXT for anything that grows.
+- Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.
 
@@ -755,7 +799,7 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
 
   See SKILL.md's NavigationAction action-types list.
 - **Softr-native actions:** `BRANCH`, `FILTER`, `WAIT`, `LOOP_ACTION_GROUP` (run each list item through the same steps), `SOFTR_SEND_EMAIL`, `CALL_API` (REST), `WEBPAGE_SCRAPPER`, `PDF_TO_TEXT`, `COMPRESS_FILES` (zip + download link), `TRANSFORM_DATA`, `RESPONDED_TO_WEBHOOK` (custom HTTP response to the webhook caller); Softr DB record CRUD incl. bulk update/delete and find; Softr Apps user management (find / create / delete / deactivate / activate / invite user, send push notification).
-- **`CUSTOM_CODE`:** runs custom **JavaScript or Python** inside a workflow.
+- **`CUSTOM_CODE`:** runs custom **JavaScript or Python** inside a workflow. Its input and output contract (an object `inputData`, the result under `$.body`) is the `CUSTOM_CODE` bullet in the build-loop findings below.
 - **AI actions:** Softr AI, OpenAI, Anthropic, Gemini, and Mistral each ship Write / Summarize / Categorize / Custom-prompt nodes; OpenAI adds gpt-image-2 image generation. Pinecone, Firecrawl, Replicate, and Linkup nodes exist too.
 - **Integration apps (top of 56):** Stripe (36 nodes), QuickBooks (24), ActiveCampaign (23), SharePoint (22), Asana (18), Gmail/Attio/Brevo/Resend (12 each), ClickUp/Zendesk (10), Airtable/Notion/Cal.com/HubSpot/Xero/DocuSign/Apollo (9 each), Sheets/Excel (8), monday/SQL/Jira (7), Slack/Telegram (6), plus Salesforce, Coda, Calendly, Twilio, Zoom, Linear, Trello, form tools (Typeform/Tally/Jotform/Fillout), and more.
 
@@ -765,19 +809,46 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
 - **Test-first is mandated:** every testable node needs a test run before its outputs become referenceable by downstream nodes. Each node carries a `testRunMode` — `REAL_ONLY`, `MOCK_ONLY`, or `MOCK_AND_REAL` — so some nodes can only be tested against real side effects while others mock. See the test-safety rules under build-loop findings below before testing anything against a production workspace.
 - **Workflows are owned by a workspace, and can now be pinned to an app** (verified 2026-10-05 from the tool definitions). `workflow_create` still requires a `workspaceId`; its optional `applicationId` "pins the workflow to it, so it is listed on that app's Workflows tab", and `workflow_list({ applicationId })` lists the workflows pinned to an app. Leave `applicationId` out for a workflow that belongs to the workspace as a whole. Pinning or not, `application_preview` / `application_publish` do not apply to workflows. Link a workflow as `https://studio.softr.io/workflow/{workflowId}`.
 
-**Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows):**
+**Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows; bullets dated later come from a second production build, 2026-09-18/19):**
 
-- **`workflow_create` instantiates an OLD version of the trigger node.** Immediately call `workflow_replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a specific field changed) only exists at v1.2.0; the version `workflow_create` instantiates doesn't have it.
+- **`workflow_create` instantiates an OLD version of the trigger node.** Immediately call `workflow_replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a watched field changes; it takes an UPDATED_AT-type field, see "Trigger scope" below) only exists at v1.2.0; the version `workflow_create` instantiates doesn't have it. Do it before anything references the trigger: the replacement gets a **new node id** (see the `workflow_replace_node` bullet below).
 - **A FILTER condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
   - **The official MCP docs agree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05), and the FILTER spec declares `inputs: {}`. BRANCH conditions were not tested separately here; treat them the same way.
   - **How to build one:** add the FILTER over MCP if that is convenient, then open it in Studio, set its clauses and save. Never trust `inputs.condition` as a record of what the filter does; it can disagree with the path.
   - **How to check one:** read the workflow back with `workflow_get` and find the `paths` entry whose `fromActionId` is the filter; the condition must be there. FILTER nodes cannot be run with `workflow_test_node`, so this read-back is the only check before a real run.
 - **`LOOP_ACTION_GROUP`'s `loopVariables.items` must reference a plain array**, e.g. `$.records` — a `[*]` projection (e.g. `$.records[*].fields.X`) is rejected by the validator. Per-item references **inside** the loop use `{loopActionGroup.<id>:::loopVariables.items.fields.<fieldId>}` (use the bracket form for ids that start with a digit).
+  - **Over a plain array of strings** (a `CUSTOM_CODE` node's `$.body.<key>`, say), the item *is* the value: reference it as bare `{loopActionGroup.<id>:::loopVariables.items}`, nothing after `items` (2026-09-19; accepted by the validator, not yet exercised by a run).
+  - **References into the loop are rejected until the source node's saved sample holds at least one item** (the validator says so). Test the source node on a record that yields a non-empty array before wiring the steps inside the loop.
+  - **To put a step inside the loop**, call `workflow_add_node` with `compositeNodeId: <loopNodeId>`. The step lands in the loop's own `actions` / `paths`, not the workflow's.
+  - **An empty loop does not stop the run** (recorded 2026-09-19). Zero items means zero iterations and a normal completion, and the steps after the loop still run. A guard stamp placed after a loop therefore fires even when nobody was emailed, and consumes the notice. A gate on the item count has to cover the loop and the stamp together; gating only the stamp leaves the guard unset, and the next edit sends again.
 - **`workflow_update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
+- **`CUSTOM_CODE` contract** (2026-09-18/19; found by testing, documented nowhere we know of):
+  - `inputData` must be a JSON **object**, name → value. The `[{key, value}]` shape other `KEY_VALUE_MAP` inputs take fails the run with `script_args must be an object.`
+  - The code reads `inputData.<name>` and ends with a top-level `return { … }`; the body runs wrapped in a function.
+  - **The engine wraps what you return:** the node's output is `{ body: <returned object>, statusCode: 200 }`, so downstream references read **`$.body.<key>`**, never `$.<key>`.
+  - **The order of `inputData` keys is not kept.** The stored map came back reordered (2026-09-19). If the code must read some inputs after others, order them in the code (by key name, say), and assert on sets and counts in tests, not on order.
+  - **There is no native split / list / array-from-text step.** `workflow_list_node_types` has none, and `TRANSFORM_DATA` takes per-field formulas rather than producing a list. Turning a text field of comma-separated addresses into an array a loop can walk takes a `CUSTOM_CODE` node.
+  - Testing it: see the test-safety rules below.
+- **Reference validation runs against saved samples** (2026-09-18/19). `workflow_update_node_inputs` checks every `{outputs.<nodeId>:::$.path}` reference against the referenced node's **saved test sample** and rejects a path that does not resolve there: `path "$.fields.<fieldId>.label" does not resolve against node "…"'s sample output`. A record trigger's sample is not yours to choose: re-running `workflow_test_node` on the trigger returns the same record every time. If that record has the field empty (a blank SELECT has no `.label`), the reference cannot be written over MCP at all. Studio's variable picker offers the path regardless of the sample, so add such a reference in Studio.
+- **Pass link fields bare.** A `[*].label` projection on a link field (`$.fields.<linkId>[*].label`) does not resolve when the link is empty, and kills the node. Pass the bare field (`$.fields.<linkId>`) into a `CUSTOM_CODE` node and read the labels in code (2026-09-19).
+- **`workflow_replace_node` swaps a node's type in place and gives it a new node id** (2026-09-19). The node keeps its place in the graph, which is how a step can be rebuilt as a different type without deleting anything, but every `{outputs.<old id>:::…}` reference to it now points at nothing. Before replacing a node, read the workflow with `workflow_get` and search every input for its id: a node whose output is interpolated into an email body would leave those values blank. `workflow_replace_trigger_node` does the same to the trigger (2026-09-18): new id, so every reference to the trigger has to be re-pointed and the trigger re-tested, which is why it belongs right after `workflow_create`. Both leave the discarded node's sample behind in `nodeSamples`. Nothing references it and it changes nothing, no tool removes it, and it is not evidence that the current node was ever tested.
+- **A workflow's own record write re-fires its record-updated trigger** (seen on a production workflow, 2026-09-01). When the trigger watches the table's last-modified field, the workflow's final write is itself an edit. Two guard patterns, both used in our builds:
+  - **A send-once stamp:** a "…Sent" date field that the filter requires to be empty, written once at the end, outside any loop. It is the dedupe and the loop guard in one.
+  - **Clear the request in the same write:** when the trigger reacts to a request field, the write that acts on it also empties it (`CLEAR_VALUE`), so the re-fire finds nothing to do.
+
+  Never remove the guard, and never relax the filter to something that stays true after the write. The filter itself has to be set in Studio (see the FILTER bullet above).
+- **Trigger scope** (2026-09-18):
+  - `SOFTR_TABLES_RECORD_UPDATED`'s optional `updateField` takes a field of type **UPDATED_AT** (a last-modified field), not any field. A table without one cannot set it, and the trigger then fires on every edit of every record. It is a plain select input: `workflow_get_dynamic_input_options` rejects it.
+  - **A workflow has exactly one trigger**, and "Record added" (`SOFTR_TABLES_NEW_RECORD`) and "Record updated" (`SOFTR_TABLES_RECORD_UPDATED`) are separate trigger types, so reacting to both takes two workflows. Whether creating a record also emits an "updated" event is unknown; make the pair idempotent so it does not matter.
+- **Record-write field modes** (written over MCP 2026-09-18). Each field in a Softr Database record write carries a `modificationType`. `ADD_VALUE` adds to a multi-value field (multi-select, multi-link) and keeps what is there; `REPLACE_VALUE` overwrites the whole value, so on a multi-link it drops every earlier link; `CLEAR_VALUE` empties the field (sent with `value: ""`). Use `ADD_VALUE` to give a record one more link or option. These write steps have not run yet (testing one performs the real write), so how `ADD_VALUE` treats a value that is already present is unverified.
+- **`serialExecution: true`** in a workflow's configuration (set with `workflow_update_configuration`, confirmed by read-back, 2026-09-18) makes runs queue instead of overlapping. We set it on a workflow that appends to a multi-link field: two runs at the same moment would each read-modify-write the same array, and one append could be lost.
+- **`continueOnError` is stored on the path, not on the node** (2026-09-19). Turned on with `workflow_update_node_continue_on_error`, it shows up as a `SUCCEEDED OR FAILED` condition on the node's outgoing `paths` entry. Without it a failed step ends the run, so a guard stamp after it never happens and the whole notice goes out again on the next edit. On the **last step inside a loop** the entry has the condition but **no `toActionId`**, and whether the engine reads that as "carry on with the next item" is unproven. Test it with one deliberately bad item mid-list and check that the items after it still ran.
+- **Time-based sends** (a proof of concept, 2026-09-01): a formula field flips (to `"yes"`, say) on the target day, a filtered view picks up the records where it has flipped, and a "Record enters view" trigger fires when one enters.
 - **Test-safety rules** (which `testRunMode` means what in practice):
   - Record-**write** nodes (`SOFTR_TABLES_UPDATE_RECORD` etc.) are `REAL_ONLY` — **never test them against a production workspace**; the test performs the real write.
   - `SOFTR_SEND_EMAIL` is `MOCK_AND_REAL` — **always pass `mode: "mock"`**.
   - Triggers and `GET_RECORDS` are `REAL_ONLY` but read-only-safe; a record-updated / enters-view trigger test just samples an existing record.
+  - `CUSTOM_CODE` is `REAL_ONLY` too, but a node whose code calls no integration and writes nothing is safe to test, and testing it is how you get the non-empty sample later references need (2026-09-19).
 
 **Why this matters to block work:** Softr Workflows are now the Softr-native answer to the "block writes to its own table, backend cascades the rest" pattern — for **Softr Database backends** what [airtable-automations.md](airtable-automations.md) is for Airtable backends. See the cross-table alternatives in [../datasources/writing.md](../datasources/writing.md#cross-table-operations).
 
