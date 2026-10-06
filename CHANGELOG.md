@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.14.0] - 2026-10-06
+- Release 2.14.0
+- Add Softr runtime and Workflows facts verified on a 2026-09-18/19 production build
+
 ## [2.13.5] - 2026-10-06
 - Release 2.13.5
 - Correct the MCP FILTER-condition claim and eight other conflicts found in the 2026-10-06 audit
