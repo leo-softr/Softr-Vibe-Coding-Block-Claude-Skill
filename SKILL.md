@@ -72,6 +72,8 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
    - Multi-datasource block: every `select:` / `fields:` value is a **plain module-scope identifier** — no ternary, no inline `q.select({...})` inside the hook options (the query returns `fields: {}`; Hard Constraint 24)
    - Detail page: the record is fetched with `useRecord({ select, recordId, enabled: !!recordId })` using `useCurrentRecordId()`, and the code checks `data.id === recordId` before rendering — never `useRecords({ count: 1 })`, which returns the table's FIRST row (Hard Constraint 25)
    - No list query relies on `enabled: false` — `useRecords` fetches anyway; conditional list queries live in a child component mounted only when needed, or carry a match-nothing `where` (Hard Constraint 26)
+   - Every alias a hook's `where` / `orderBy` names is in **that hook's own** `select` — anything else crashes the block at runtime (Hard Constraint 29)
+   - Date-only values are parsed with `toLocalDate()`, never `new Date()` — midnight UTC renders a day early west of Greenwich ([datasources/fields.md](datasources/fields.md#date-only-fields-arrive-as-midnight-utc))
    - No field is "hidden" from some viewers by a conditional / second `select` on the same connection — the browser receives the union of every read select on that connection (Hard Constraint 23)
    - All imports use named imports (no `import React from 'react'`)
    - `export default function Block()` is present
@@ -614,9 +616,15 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     changing the wrapper to take the hook's *result* instead.)
 11. **Airtable, Notion, Google Sheets: use field NAMES, not IDs** — `q.select()` values are field names for these three sources; Softr Database and Supabase use field IDs (Supabase = SQL column name). Getting this wrong fails silently: the block compiles and saves, then renders empty. See [datasources/airtable.md](datasources/airtable.md).
 12. **Record fields nested under `fields`** — Access via `record.fields.alias`, not `record.alias`.
-13. **ONE `useRecords` per datasource** — filter client-side rather than issuing several queries against
-    the same table. A block CAN connect to multiple data sources and call `useRecords` once per source;
-    declare them with `datasource.define()` and pass `from:` on every hook. See
+13. **One `useRecords` per connection [house]** — not a documented platform limit (Softr's developer
+    guide shows one `useRecords` per datasource but states no rule; checked 2026-10-06). Read each
+    connection once and filter client-side when the table is small and every viewer may see all of
+    it anyway. When the data must differ, add connections rather than queries: a second table gets
+    its own connection, and so does a private read of the same table (Hard Constraint 23). A
+    server-side `where` is better for large tables and linked children, but it is a request
+    parameter, never access control. A query mounted in a child component (Hard Constraint 26) is
+    that connection's one read; don't also read the connection in the parent. Declare connections
+    with `datasource.define()` and pass `from:` on every hook. See
     [datasources/multi-datasource.md](datasources/multi-datasource.md). Multiple `useMetric` calls OK.
 14. **React functional components only** — No class components.
 15. **Do NOT `import React from 'react'`** — Use named imports for hooks.
@@ -650,7 +658,9 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     A push that returns `errors: null` can still have left public write access on the block.
     **If any action is still broader than intended, report it WITH its severity and let the builder decide.**
     Check the page's own VIEW permission first (`application_page_get_permissions`): a page gated to logged-in
-    users makes an open action housekeeping, a public page makes it a real hole. Surface the list
+    users makes an open action housekeeping, a public page makes it a real hole. Report the block's own
+    Visibility with it -- it gates the block's reads and sets ADD_RECORD's default, but whether it
+    refuses writes on its own is untested. Surface the list
     either way -- page, block, action type, data source -- and note that a human sets them on the
     block's Actions tab. Do not unilaterally block a publish; it is not your app.
 22. **Blocks cannot import each other -- cross-block consistency is discipline, not architecture [house]**
@@ -700,6 +710,11 @@ Non-negotiable rules. Most are enforced by the Softr platform (compiler, validat
     them takes global CSS across Softr's page structure as well as print CSS in the block. Never
     an in-page "print view" either (Leo rejected it by name). Verified live 2026-09-30. See
     [references/printing.md](references/printing.md).
+29. **`where` / `orderBy` may only name aliases from the same hook's `select`** -- aliases resolve per
+    hook, not per connection. Naming any other alias crashes the whole block at runtime ("Could not
+    find an alias for subject \"undefined\"") although the push compiles clean. Seen live
+    2026-09-18 on a `useMetric`. See
+    [datasources/reading.md](datasources/reading.md#filter-and-sort-aliases-must-be-in-the-same-hooks-select).
 
 ## Style Conventions
 

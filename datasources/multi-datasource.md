@@ -94,7 +94,7 @@ it behaves as a **union** of both branches, not a choice between them. Which is 
 *Verified live 2026-09-18; the block-visibility gate 2026-10-05.*
 
 The records endpoint is per block + connection —
-`/blocks/<blockId>/datasources/<dataSourceId>/records` — and it returns the **UNION of every field
+`/blocks/<blockId>/datasources/<connection>/records` (`<connection>` was recorded as the connection's id in the 2026-09-18 Softr Database capture and seen as its alias in a 2026-10-05 HubSpot capture; unresolved, and it only matters when reading a network log) — and it returns the **UNION of every field
 named by any READ `q.select` attributed to that connection**. Two selects on one connection do
 NOT produce two payloads: every read hook on that connection gets all the fields, for every
 viewer.
@@ -146,8 +146,10 @@ user and logged-out visitors 403 on list and by-id. The gate belongs to the bloc
 connect the same table to an ungated block and it is open again. See
 [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
 
-Alias → field attribution is per connection, so two selects on different connections may reuse
-an alias name (`customer` on both) without colliding — including in `where` filters.
+Two selects on different connections may reuse an alias name (`customer` on both) without
+colliding. Aliases resolve **per hook**, though: a hook's `where` / `orderBy` may name only aliases
+from that hook's own `select`, or the block crashes at runtime — see
+[reading.md](reading.md#filter-and-sort-aliases-must-be-in-the-same-hooks-select).
 
 ## Mutation Actions register per TABLE, not per connection
 
@@ -206,3 +208,11 @@ right tool for:
 `crew-feedback-form.jsx` — a public feedback form that reads a person from **People** by an
 `email` URL param, resolves a **Shifts** record from a job-code param, and writes a row to
 **Feedback** linking both. One block, three sources, no helpers, no `window` globals.
+
+**Read it against the rules above before copying it.** On a public page every logged-out visitor
+may call the People connection, and the endpoint returns every row the Source conditions allow,
+with every field the block's read selects name. The `email` URL param narrows nothing on the
+server: it ends up in a `where`, which is a request parameter the caller controls, and there is no
+logged-in user for a Source condition to match. Select only what the form must show, assume every
+row of it is public, and if that is not acceptable resolve the person server-side (a Softr
+Workflow) instead of reading People from the block.

@@ -85,6 +85,10 @@ Because the parser only inspects your hooks and `q.select` mappings (not the JSX
 
 All mutation hooks expose an `enabled` boolean. You must check it before rendering any mutation UI or calling the mutate function.
 
+The snippets below write `fields: q.select({...})` inline for brevity, as single-datasource
+shorthand. In a block with more than one connection, hoist every `fields:` select to module scope
+and pass the identifier ([multi-datasource.md](multi-datasource.md#select-must-be-a-plain-module-scope-identifier)).
+
 ### useRecordCreate
 
 ```jsx
@@ -677,7 +681,7 @@ Three remaining alternatives, for the cases multi-datasource doesn't cover:
 **Update:** PATCH `/{recordId}` with `{ fields: { fieldId1: "newValue" } }`
 
 Notes:
-- API key is exposed in client-side code -- acceptable for internal portals only
+- The API key ships in the block's source. Anyone who can load the page can read it and use it against the whole database, past page VIEW, block Visibility and Source conditions alike. Use this only on a page limited to a trusted group, and only for what the hooks or a Softr Workflow cannot do
 - When updating linked records or multi-selects, read existing values first, merge, then write
 - Use `fieldNames=true` on GET for human-readable field names
 - Rate limits: Reads 40 req/s, Writes 30 req/s

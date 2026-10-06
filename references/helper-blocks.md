@@ -83,7 +83,11 @@ function getLinkedItems(f) {
     if (x && typeof x === "object") return { id: x.id || "", title: x.label || x.name || x.title || "" };
     return { id: "", title: String(x) };
   }).filter(function(o) { return o.id || o.title; });
-  return [];
+  if (typeof f === "object") {            /* a single link arrives as one { id, label } object */
+    var t = f.label || f.name || f.title || "";
+    return (f.id || t) ? [{ id: f.id || "", title: t }] : [];
+  }
+  return [{ id: "", title: String(f) }];
 }
 ```
 
@@ -362,7 +366,7 @@ When you change a helper's output shape (e.g., `advisorOffice` from array to str
 1. Document the published shape as a comment at the top of the helper file and update all consumers in the same commit.
 2. Version the namespace (`__myapp_projects_v2`) -- old consumers keep reading v1 until migrated.
 
-Defensive consumers can use `Array.isArray(x) ? x.map(...) : x` when shape might vary, but don't lean on this -- it hides bugs.
+Defensive consumers can use `Array.isArray(x) ? x.map(...) : x` when shape might vary, but don't lean on this -- it hides bugs. (That is about the shape of a global *you* publish. Linked-record values read from Softr are different: they arrive as a single `{ id, label }` object or as an array, and must always be normalised -- see [fields.md](../datasources/fields.md).)
 
 ### useState, Not useRef, for IDs Consumed by useMemo
 

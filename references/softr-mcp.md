@@ -50,8 +50,8 @@ map below was checked against the tool lists the server delivered on 2026-09-30 
 **The Workflows tools have since followed** (when exactly is not known; first seen 2026-10-05). The 2026-10-05 roster delivered all 28 as `workflow_*`:
 `workflow_create`, `workflow_get`, `workflow_list`, `workflow_publish`, `workflow_update_node_inputs`,
 `workflow_get_node_specifications`, `workflow_list_node_types`, `workflow_test_node` and the rest,
-i.e. area first, then the old verb and object. [Workflows](#workflows) below still lists the
-pre-rename names. Translate them that way. That roster had no `get_workspace_integrations`;
+i.e. area first, then the old verb and object. [Workflows](#workflows) below uses the new names
+(re-checked against the live roster 2026-10-06: all 28 present). That roster had no `get_workspace_integrations`;
 `integration_list` covers it.
 
 Most new names are the old words reordered. These are the ones you would not guess:
@@ -195,7 +195,7 @@ For block-building work you need **Applications & Forms: Full access** (to creat
 
 ## Vibe coding block tools
 
-Before writing any block code through the MCP, call `vibe_coding_block_get_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree.
+Before writing any block code through the MCP, call `vibe_coding_block_get_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree. On runtime *behaviour* the guide's prose can lag a live capture, and where it does this skill says so: the guide still describes `useRecords({ enabled })` as a way to defer loading (checked 2026-10-06), while a 2026-09-18 network capture showed `useRecords` fetching anyway ([reading.md](../datasources/reading.md#userecords-ignores-enabled-false)). Trust the capture until a newer one says otherwise.
 
 | Group | Tools |
 |---|---|
@@ -250,9 +250,13 @@ context. Keep the local mirror in step mechanically rather than by hand:
    sent, which is what makes it usable here: on this path you never see the merged file yourself.
 
 One encoding trap: JSON `\uXXXX` escapes inside the ops are **decoded to the real characters** on
-Softr's side (`"—"` is stored as `—`). The mirror must therefore hold raw UTF-8 — apply the
+Softr's side (`"\u2014"` is stored as `—`). The mirror must therefore hold raw UTF-8 — apply the
 ops to it *after* JSON-decoding them, never as the escaped text, or the final comparison
 fails on every non-ASCII character.
+The same decoding happens to an agent's own tool-call arguments: a `\u2014` typed into a
+file-writing tool lands on disk as `—` (it put a wrong example into this very paragraph
+twice, 2026-09-18 and 2026-10-06). When a file must hold a literal backslash-u sequence, build the
+backslash at runtime (`chr(92)` in Python) and check the bytes afterwards.
 
 **Reach for the full replace when the change is structural** — reordering JSX, moving logic between
 components, adding a hook — where being sure of "the exact current text" of a dozen scattered fragments
@@ -421,13 +425,17 @@ preserves explicitly set permissions across a recompile, so every recompile need
    the call errors rather than lying, but an agent that batches calls can easily miss which one failed.
 5. If any action is still broader than intended (typically ADD_RECORD at `ALL_USERS`), **report it
    and let the builder decide.** Check the page's own VIEW permission first with
-   `application_page_get_permissions`, because that is what sets the severity:
+   `application_page_get_permissions`, because that is what sets the severity, and report the
+   block's own Visibility with it (`vibe_coding_block_get_settings`): it gates the block's reads
+   and sets ADD_RECORD's default (2026-10-05), but whether it refuses writes on its own is untested
+   ([below](#what-the-server-enforces-on-a-blocks-data-endpoints)):
    - **Page VIEW is gated** (e.g. `LOGGED_IN_USERS`) — an anonymous visitor cannot load the page at
      all, so exploiting the open action means calling its endpoint directly, and the realistic worst
      case is junk records rather than data exposure or deletion. Housekeeping: worth fixing on the
      next Studio pass, not worth holding a release for.
-   - **Page VIEW is `ALL_USERS`** — the action permission is the only gate left. That is a genuine
-     hole and deserves to be called one.
+   - **Page VIEW is `ALL_USERS`** — the action permission is the only gate known to hold on writes
+     (the block's Visibility may also refuse them; untested). That is a genuine hole and deserves
+     to be called one.
 
    Report page, block, action type, data source and current group; say which of the two cases applies;
    note that a human sets them on the block's Actions tab in Studio. Then stop — **do not unilaterally
@@ -438,8 +446,10 @@ preserves explicitly set permissions across a recompile, so every recompile need
    **is** enforced on the block's datasource **records** endpoint (verified live 2026-09-18 — a
    viewer who cannot view the page gets a 403 whose message names "block/action visibility rules";
    see [below](#what-the-server-enforces-on-a-blocks-data-endpoints)). The *action* (write) endpoint
-   was not exercised separately; the message wording suggests the same gate covers it, but that part
-   is inference. So the reason to treat a gated page as low-severity is still the practical
+   refuses outsiders too: on 2026-10-05 a replayed PATCH from outside the block's group got 403
+   ([hubspot.md](../datasources/hubspot.md#writing)). The block and its actions were both limited to
+   that group, so which rule refused it is not known, and whether page VIEW alone gates writes is
+   untested. So the reason to treat a gated page as low-severity is still the practical
    difficulty and low blast radius — and note that "gated to logged-in users" keeps out anonymous
    visitors only: any logged-in user can view that page, and therefore reach its endpoints. Say that
    plainly rather than implying the action is safe.
@@ -462,14 +472,14 @@ Both edit paths recompile, so both reset Action permissions either way (Hard Con
 *Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
 captured from the app iframe); the block-visibility row verified 2026-10-05 (HubSpot; preview link,
 impersonated users, direct POSTs).* A block's data lives behind per-connection endpoints —
-`/blocks/<blockId>/datasources/<dataSourceId>/records` for lists, `/records/<id>` for one record —
-and these are the gates that actually exist on them:
+`/blocks/<blockId>/datasources/<connection>/records` for lists, `/records/<id>` for one record —
+and these are the gates that actually exist on them (`<connection>` was recorded as the connection's id in the 2026-09-18 Softr Database capture and seen as its alias in a 2026-10-05 HubSpot capture; unresolved, and it only matters when reading a network log):
 
 | Gate | Enforced server-side? |
 |---|---|
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
 | **The block's Visibility** (`predefinedUserGroup` + `customUserGroupIds`; `vibe_coding_block_set_visibility`) | **Yes.** A viewer outside the block's group gets the same **403**, on list and by-id, even where the page lets them in. The body reads like a write error on a read: "You cannot add or edit a record because either the block/action visibility rules, user group conditions, or the user/record data in the datasource has changed." Per block: the same table on an ungated block stays open. Five code pushes left the setting intact |
-| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate** |
+| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate.** A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found" |
 | A `where` filter in the block's code | No — it is a request parameter the caller controls |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
 
@@ -506,7 +516,8 @@ verified on HubSpot on 2026-10-05, the same way.* There are two forms, and **the
   field in this form (Leo set it in the Source tab, and it read back that way), and the same form
   works when written with `vibe_coding_block_set_data_source_record_filters`.
   **It fails closed:** a user whose field is empty, or who has no record in the users' data source,
-  gets 0 rows, and a by-id request for a record outside the condition returns 404.
+  gets 0 rows, and a by-id request for a record outside the condition returns 404 (on HubSpot;
+  Softr Database answers HTTP 200 with an empty body).
 - **Use AND between rules.** With one rule OR and AND behave the same, but a second rule added
   under OR widens access (2026-10-05).
 - **The braced user-field spellings fail.** On 2026-09-18, on Softr Database, eleven spellings were
@@ -726,13 +737,13 @@ Softr Workflows are automations built from trigger + action nodes, and the MCP c
 
 | Group | Tools |
 |---|---|
-| Workflow lifecycle | `create_workflow`, `get_workflow`, `get_workflow_url`, `list_workflows`, `rename_workflow`, `update_workflow_configuration`, `publish_workflow`, `unpublish_workflow`, `test_workflow` |
-| Node management | `add_node`, `add_branch_node`, `create_branch`, `delete_node`, `duplicate_node`, `rename_node`, `reorder_node`, `reorder_multiple_nodes`, `replace_node`, `replace_trigger_node`, `update_node_inputs`, `update_node_note`, `update_node_continue_on_error`, `update_node_retry` |
-| Discovery / testing | `list_node_types`, `get_node_specifications`, `get_dynamic_input_options`, `test_node`, `get_node_output` |
+| Workflow lifecycle | `workflow_create`, `workflow_get`, `workflow_get_url`, `workflow_list`, `workflow_rename`, `workflow_update_configuration`, `workflow_publish`, `workflow_unpublish`, `workflow_test` |
+| Node management | `workflow_add_node`, `workflow_add_branch_node`, `workflow_create_branch`, `workflow_delete_node`, `workflow_duplicate_node`, `workflow_rename_node`, `workflow_reorder_node`, `workflow_reorder_multiple_nodes`, `workflow_replace_node`, `workflow_replace_trigger_node`, `workflow_update_node_inputs`, `workflow_update_node_note`, `workflow_update_node_continue_on_error`, `workflow_update_node_retry` |
+| Discovery / testing | `workflow_list_node_types`, `workflow_get_node_specifications`, `workflow_get_dynamic_input_options`, `workflow_test_node`, `workflow_get_node_output` |
 
-These are the names as of 2026-10-01. By 2026-10-05 the server delivered them as `workflow_*`
-(`create_workflow` → `workflow_create`, `update_node_inputs` → `workflow_update_node_inputs`); see
-[the rename note](#tool-names--the-2026-10-01-rename).
+These are the current names (live roster, 2026-10-06). Until 2026-10-01 they had no `workflow_`
+prefix (`create_workflow` → `workflow_create`), and older notes, including project docs, still use
+those; see [the rename note](#tool-names--the-2026-10-01-rename).
 
 **The node catalog is huge** — live-enumerated 2026-08-31: **418 node types (58 triggers + 360 actions) across 56 applications.** The parts that matter most for this skill:
 
@@ -756,13 +767,13 @@ These are the names as of 2026-10-01. By 2026-10-05 the server delivered them as
 
 **Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows):**
 
-- **`create_workflow` instantiates an OLD version of the trigger node.** Immediately call `replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a specific field changed) only exists at v1.2.0; the version `create_workflow` instantiates doesn't have it.
-- **FILTER node conditions are set via `update_node_inputs` with inputName `"condition"`** — the value is an `{operator, conditions: [...]}` object. The condition is stored on the FILTER node's **outgoing path**, the same way the Studio builder wires it.
-  - **The official MCP docs disagree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05).
-  - **What stands on each side:** our 2026-09-01 build did set them this way. The FILTER spec today declares `inputs: {}`, but live FILTER nodes still keep their condition on the outgoing path, so the empty spec does not refute the mechanism.
-  - **Until it's re-checked:** after setting a condition over MCP, read the workflow back (`workflow_get`) and confirm the path condition is there. If it isn't, finish the condition in the builder.
+- **`workflow_create` instantiates an OLD version of the trigger node.** Immediately call `workflow_replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a specific field changed) only exists at v1.2.0; the version `workflow_create` instantiates doesn't have it.
+- **A FILTER condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
+  - **The official MCP docs agree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05), and the FILTER spec declares `inputs: {}`. BRANCH conditions were not tested separately here; treat them the same way.
+  - **How to build one:** add the FILTER over MCP if that is convenient, then open it in Studio, set its clauses and save. Never trust `inputs.condition` as a record of what the filter does; it can disagree with the path.
+  - **How to check one:** read the workflow back with `workflow_get` and find the `paths` entry whose `fromActionId` is the filter; the condition must be there. FILTER nodes cannot be run with `workflow_test_node`, so this read-back is the only check before a real run.
 - **`LOOP_ACTION_GROUP`'s `loopVariables.items` must reference a plain array**, e.g. `$.records` — a `[*]` projection (e.g. `$.records[*].fields.X`) is rejected by the validator. Per-item references **inside** the loop use `{loopActionGroup.<id>:::loopVariables.items.fields.<fieldId>}` (use the bracket form for ids that start with a digit).
-- **`update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
+- **`workflow_update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
 - **Test-safety rules** (which `testRunMode` means what in practice):
   - Record-**write** nodes (`SOFTR_TABLES_UPDATE_RECORD` etc.) are `REAL_ONLY` — **never test them against a production workspace**; the test performs the real write.
   - `SOFTR_SEND_EMAIL` is `MOCK_AND_REAL` — **always pass `mode: "mock"`**.

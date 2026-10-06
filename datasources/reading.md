@@ -65,7 +65,7 @@ var isRefetching = result.isRefetching;
 var items = (data && data.pages) ? data.pages.flatMap(function(p) { return p.items; }) : [];
 ```
 
-**CRITICAL:** Only ONE `useRecords` call **per datasource**. Fetch that table's data in one call and filter client-side. Multiple `useMetric` calls ARE allowed.
+**House rule: one `useRecords` per connection.** It is not a documented platform limit — Hard Constraint 13 in SKILL.md says when to filter client-side, when to add a connection, and when a server-side `where` is the better choice. Multiple `useMetric` calls ARE allowed.
 
 **CRITICAL:** The options object must be an **inline literal** at the call site. Passing it
 through a variable or a wrapper function (`useRecords(buildOpts())`) **fails to compile** —
@@ -80,7 +80,9 @@ A block can connect to **several data sources** and call `useRecords` once per s
 *Verified live 2026-09-18 (network capture).* `useRecords({ ..., enabled: false })` **fetches
 anyway** — with a literal `false` and with a variable alike. `useRecord` is different: it honours
 `enabled: false` and issues no request. (`useLinkedRecords`, `useMetric` and `useChartData` were
-not probed — don't assume either behaviour for them.)
+not probed — don't assume either behaviour for them.) The official developer guide still
+describes `enabled` on `useRecords` as an "optional boolean to defer loading" (checked
+2026-10-06); the capture says otherwise, so trust it until a newer one does not.
 
 So `enabled` cannot make a list query conditional, and it cannot keep a query away from viewers
 who should not run it. Two things that do work:
@@ -171,7 +173,7 @@ var result = useLinkedRecords({
   field: "category",    // the ALIAS from q.select(), NOT the raw field ID
   sortOrder: "ASC",     // "ASC" | "DESC"
   search: "",           // optional search string
-  enabled: true,        // defer loading until needed
+  enabled: true,        // documented as deferral; not verified live (see the useRecords note)
   count: 50,            // optional page size — default 100, max 1000
 });
 
@@ -257,6 +259,26 @@ where: q.and(
 )
 ```
 
+### Filter and sort aliases must be in the same hook's select
+
+*Seen live 2026-09-18 (Softr Database, on a `useMetric`).* Aliases are resolved **per hook**, not
+per connection. A `where` or `orderBy` that names an alias missing from that hook's own `select`
+crashes the whole block at runtime ("Could not find an alias for subject \"undefined\"" and
+Softr's "Oh snap" panel), although the push compiled clean:
+
+```jsx
+// WRONG — "status" is not in this hook's select: compiles, then crashes the block
+var countSelect = q.select({ orderNo: "FIELD_ID1" });
+var open = useMetric({ select: countSelect, metric: metric.count(), where: q.text("status").is("Open") });
+
+// CORRECT — every alias the where / orderBy names is in the hook's own select
+var countSelect = q.select({ orderNo: "FIELD_ID1", status: "FIELD_ID2" });
+```
+
+Adding the field to the select also adds it to the connection's read payload
+([multi-datasource.md](multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)),
+so put a filter on a private field on the connection that is allowed to carry it.
+
 ### Filtering by a linked record (server-side)
 
 *Verified live 2026-09-18 (Softr Database, network capture).* A linked-record field filters on
@@ -275,9 +297,10 @@ var comments = useRecords({
 ```
 
 On the wire the alias is resolved to the field id:
-`{ subject: <fieldId>, type: "ARRAY", operator: "HAS_ALL_OF", value: [orderId] }`. Alias → field
-attribution is **per datasource**, so two selects on different connections may use the same alias
-name for different fields and each filter still resolves against its own connection.
+`{ subject: <fieldId>, type: "ARRAY", operator: "HAS_ALL_OF", value: [orderId] }`. Aliases resolve
+**per hook** ([above](#filter-and-sort-aliases-must-be-in-the-same-hooks-select)), so two selects on
+different connections may use the same alias name for different fields, and each filter resolves
+against its own hook's `select`.
 
 `orderId` must be a real id when the hook runs — `useRecords` cannot be switched off with
 `enabled: false` ([above](#userecords-ignores-enabled-false)), so mount this query in a child

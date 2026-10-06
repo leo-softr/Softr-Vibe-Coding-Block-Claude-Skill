@@ -169,7 +169,7 @@ Create a contact form that creates records in our Airtable Contacts table
 softr-vibe-coding/
 ├── SKILL.md                          # Main skill
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 28 hard constraints
+│                                     # components, settings, 29 hard constraints
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
@@ -190,13 +190,16 @@ softr-vibe-coding/
 │   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
 │   │                                 # Softr DB schema + record tools incl. deletes,
 │   │                                 # app management/scaffolding, Workflows suite
-│   │                                 # (26 tools, 418-node catalog), per-application
+│   │                                 # (28 tools, 418-node catalog), per-application
 │   │                                 # MCP servers, auth, permissions; what the server
 │   │                                 # enforces on block data endpoints, "Preview as"
 │   │                                 # role testing, search-replace on 100KB+ blocks
 │   │                                 # (Sep 18 2026); Oct 1 2026: tool rename map,
 │   │                                 # push verification by sourceSha256, stub tools
-│   │                                 # after a resume, update_field/update_table fixes
+│   │                                 # after a resume, update_field/update_table fixes;
+│   │                                 # Oct 6 2026: MCP-written FILTER conditions are
+│   │                                 # inert (set them in Studio), Workflows tools as
+│   │                                 # workflow_*, denied by-id fetch per backend
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -271,11 +274,14 @@ softr-vibe-coding/
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user; no detail-page
     │                                 # auto-scoping, useRecords ignores enabled:false,
-    │                                 # server-side linked-record filters (Sep 18 2026)
+    │                                 # server-side linked-record filters (Sep 18 2026);
+    │                                 # where/orderBy aliases resolve per hook (Oct 6 2026)
     ├── writing.md                    # Mutations, sequential write queues, uploads,
-    │                                 # linked record format, cross-table writes
+    │                                 # linked record format, cross-table writes;
+    │                                 # Actions register per table (Sep 18 2026)
     ├── fields.md                     # getFieldValue(), field type shapes, record
-    │                                 # structure, debug utilities
+    │                                 # structure, debug utilities; date-only fields
+    │                                 # parsed as local dates (Oct 6 2026)
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
@@ -334,7 +340,7 @@ The skill enforces these automatically, but good to know (verified live against 
 - No `import React from 'react'` — use named imports (`import { useState } from "react"`)
 - Must use `export default function Block()`
 - Wrap layout in `<div className="container py-0"><div className="content">` for app/content blocks (house convention for width alignment with native blocks) — the platform default is actually full width, so full-bleed marketing blocks (heroes, banners, footers) legitimately omit the wrappers and own their gutters
-- Only ONE `useRecords` call per **datasource** — but a block can connect to several sources; declare them with `datasource.define()` and pass `from:` on every hook
+- One `useRecords` per **connection** (house rule) — a block can connect to several sources, including the same table twice; declare them with `datasource.define()` and pass `from:` on every hook
 - `fetchNextPage` never in the render body (infinite loop) — call it from an event handler (Load More `onClick`) or a guarded `useEffect`
 - All hooks declared before any conditional `return` — React error #310
 - Every field value rendered in JSX must pass through `getFieldValue()`

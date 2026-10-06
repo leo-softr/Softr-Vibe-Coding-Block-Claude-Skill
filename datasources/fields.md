@@ -32,12 +32,34 @@ Property priority: `label` first (most common in Softr formatted fields), then `
 
 Apply `getFieldValue()` everywhere you read fields:
 - Table cells, badges, tooltips: `<td>{getFieldValue(f.subject)}</td>`
-- Date parsing: `new Date(getFieldValue(f.dueDate))` -- raw value might be `{label: "2025-12-01"}`
+- Date parsing: `toLocalDate(getFieldValue(f.dueDate))` for date-only fields ([below](#date-only-fields-arrive-as-midnight-utc)), `new Date(...)` for real timestamps -- raw value might be `{label: "2025-12-01"}`
 - Number parsing: `parseInt(getFieldValue(f.count), 10)` -- formula numbers come back as objects
 - String methods: `getFieldValue(f.status).toLowerCase()`
 - Inside `useMemo` normalizers, BEFORE storing into state -- prevents the object from propagating
 
 For companion helpers (`getLinkedNames`, `getLinkedItems`) used in helper block consumers, see [../references/helper-blocks.md](../references/helper-blocks.md).
+
+### Date-only fields arrive as midnight UTC
+
+*Verified live 2026-09-18 (Softr Database).* A date field without a time arrives as midnight UTC.
+`new Date()` parses it as UTC, so anywhere west of Greenwich (New York, for one) date-fns renders
+the **previous day**. Parse date-only values as local dates, and keep the default parse for real
+timestamps:
+
+```jsx
+var DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]00:00(?::00(?:\.0+)?)?(?:Z|\+00:00)?)?$/;
+
+function toLocalDate(raw) {
+  if (typeof raw === "string") {
+    var m = raw.match(DATE_ONLY_RE);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return new Date(raw);
+}
+```
+
+A real timestamp at exactly midnight UTC matches the pattern too, so call `toLocalDate` only on
+fields you know are date-only.
 
 ## Debugging Error #31
 
@@ -78,7 +100,7 @@ var name = f.firstName || "";
 
 ## Debug Utilities
 
-Two throwaway diagnostic blocks you can drop into a page to diagnose data problems. Neither is meant for production -- delete or hide them once the issue is resolved. During development, drop them on a `/debug` page that's only visible to admins, or on a hidden page you navigate to manually.
+Two throwaway diagnostic blocks you can drop into a page to diagnose data problems. Neither is meant for production -- delete or hide them once the issue is resolved. During development, drop them on a `/debug` page whose VIEW permission is limited to admins. A page that is merely left out of the navigation is still reachable by URL, and its blocks' endpoints answer anyone the page lets in (see [softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints)).
 
 ### Field Inspector Block
 
@@ -123,7 +145,7 @@ export default function Block() {
 
 4. **Inline in Studio (one field at a time)** -- in the Data tab, click a field's name to open its edit drawer. The field ID appears next to the "Field name" label (e.g. `ID: 37fts`). Fastest for spot-checking a single field.
 
-5. **Softr Database REST API with `fieldNames=true`** -- runtime inspection from inside a Vibe Coding block (internal-portal blocks only, since this exposes a PAT in client code):
+5. **Softr Database REST API with `fieldNames=true`** -- runtime inspection from inside a Vibe Coding block (only on a page limited to admins, and removed afterwards: the PAT sits in the block's source, and anyone who can load the page can read it and use it against the whole database, past every page, block and Source-condition gate):
 
 ```jsx
 import { useEffect, useState } from "react";
