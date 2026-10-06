@@ -102,6 +102,11 @@ No API rate limits. Softr Database queries run internally without external API c
 - **Formula boolean values are strings.** A formula that evaluates to true returns `"1"`, not `true`. Always compare with `=== "1"` or `=== "0"`.
 - **Field IDs are opaque codes.** You cannot guess them from column names. Look them up via the ranked list above (MCP `database_list_fields` / bundled CLI / network inspector / Studio field drawer) — the generic Field Inspector block does NOT work for Softr Database.
 - **Relationships** work similarly to linked records in Airtable but use Softr's internal record IDs.
+- **A checkbox reads back as a real boolean** (`true` / `false`), not a string like a formula's boolean above (verified live 2026-09-18).
+- **Formula arithmetic is floating-point.** `1.15 * 400` rendered as `459.99999999999994` (seen 2026-09-18; the stored 1.15 was exact, the product was not). Wrap money and any other displayed product in `ROUND(…, 2)`.
+- **An EMAIL field does not enforce one address.** A full read of a production table on 2026-09-01 found EMAIL-typed fields holding comma-separated lists. Split and trim before treating the value as one address. Passed whole into an email's To field, the addresses all see each other.
+- **A link's `label` is the linked table's display field** (verified 2026-09-19). Change that table's display field in Studio and every label changes with it, so anything that matches on a label (block code, a Source condition, a workflow reference such as `[*].label`) silently stops matching. Match on the record id, or read the value from its own field.
+- **Softr's Zapier "Update Record" action replaces a multi-link field's whole set** (confirmed by a Studio test, 2026-09-01). A zap that writes one record id into a link that allows several wipes the earlier links. Write the existing ids plus the new one.
 
 ## Best For
 - New projects starting from scratch

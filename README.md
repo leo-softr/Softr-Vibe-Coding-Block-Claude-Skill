@@ -205,7 +205,10 @@ softr-vibe-coding/
 │   │                                 # replace_node new ids, re-firing triggers,
 │   │                                 # write modes, serialExecution, continueOnError),
 │   │                                 # Softr DB row-gating recipe, what a push leaves
-│   │                                 # alone, DATETIME create shape, offset paging
+│   │                                 # alone, DATETIME create shape, offset paging;
+│   │                                 # OAuth grant per ticked workspace, email
+│   │                                 # senders, formulas fixed at creation, loop
+│   │                                 # counter, workflow time zone and publish state
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -293,7 +296,9 @@ softr-vibe-coding/
     │                                 # parsed as local dates, multi-value lookup shape
     │                                 # (Oct 6 2026)
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
-    ├── softr-database.md             # Native DB — field IDs, no rate limits
+    ├── softr-database.md             # Native DB — field IDs, no rate limits; checkbox,
+    │                                 # formula float, EMAIL lists, link label = display
+    │                                 # field, Zapier replaces multi-links (Oct 6 2026)
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
     ├── google-sheets.md              # Text formatting, 50-100 user cap
     ├── hubspot.md                    # 15 objects (listed ≠ usable), field model,

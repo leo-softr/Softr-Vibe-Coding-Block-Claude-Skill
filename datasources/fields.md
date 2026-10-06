@@ -82,7 +82,7 @@ You'll see exactly which field is an object. Add `getFieldValue()` around it.
 | Date Range | `{ from: string, to: string }` |
 | Rating, Duration | `string or number or null` |
 | Select | `{ label: string, id: string }` |
-| Linked Record (via useRecord/useRecords) | `{ label: string, id: string }` — usually an array of these, but a link can arrive as a **single object** (verified live 2026-09-18); normalise with `Array.isArray(v) ? v : (v ? [v] : [])` |
+| Linked Record (via useRecord/useRecords) | `{ label: string, id: string }` — usually an array of these, but a link can arrive as a **single object** (verified live 2026-09-18); normalise with `Array.isArray(v) ? v : (v ? [v] : [])`. `label` is the linked table's display field, so it changes if that field does (Softr Database, verified 2026-09-19; [softr-database.md](softr-database.md#gotchas)) |
 | Linked Record (via useLinkedRecords) | `{ id: string, title: string }` -- different! |
 | User, Created By, Updated By | `{ avatarUrl, id, name, email }` |
 | Attachment | `{ filename, id, type, url }` |

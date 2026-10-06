@@ -193,6 +193,8 @@ Permissions are chosen per workspace across **three areas with bundled levels** 
 
 For block-building work you need **Applications & Forms: Full access** (to create/edit blocks) plus at least **Databases: View only** (schema discovery). Integrations browsing rides on Applications & Forms read access.
 
+**Workspace membership is not enough.** The OAuth grant covers only the workspaces ticked on the authorization screen. On 2026-09-01 a user who was a member of a client's workspace in Softr still could not reach it through the MCP; re-authorizing the connector with that workspace ticked fixed it. When an app or workspace you can open in Studio is missing from `application_list` / `workspace_list`, check the grant under Settings → API tokens → Authorized apps.
+
 ## Vibe coding block tools
 
 Before writing any block code through the MCP, call `vibe_coding_block_get_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree. On runtime *behaviour* the guide's prose can lag a live capture, and where it does this skill says so: the guide still describes `useRecords({ enabled })` as a way to defer loading (checked 2026-10-06), while a 2026-09-18 network capture showed `useRecords` fetching anyway ([reading.md](../datasources/reading.md#userecords-ignores-enabled-false)). Trust the capture until a newer one says otherwise.
@@ -547,7 +549,7 @@ verified on HubSpot on 2026-10-05, the same way.* There are two forms, and **the
   pick it in a block's Source tab, save, and read `dataSources[].condition` back with
   `vibe_coding_block_get_settings`. That is how the user-field form was found.
 - **CONTAINS against a list of emails has a substring trap:** `bob@x.com` matches a field holding
-  `jbob@x.com`. Prefer IS against a single-email field. If a record must hold several emails, the
+  `jbob@x.com`. Prefer IS against a single-email field, and remember that an EMAIL-typed field can still hold a list ([../datasources/softr-database.md](../datasources/softr-database.md#gotchas)). If a record must hold several emails, the
   delimiter trick the embedded form was meant to provide does not work, so accept the trap or
   split the data.
 - When a row gate must follow something other than the user's email (a company, a team), compare
@@ -613,6 +615,8 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 | Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions`, `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
 | Publish / preview | `application_preview`, `application_publish` |
 | Workspace | `workspace_list`, `workspace_list_email_senders`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
+
+**Email senders, as the MCP shows them** (read 2026-09-10 and 2026-09-18): `workspace_list_email_senders` lists each workspace sender with a `confirmed` flag, and an address that was added but never verified reads `confirmed: false`. `application_get` showed the app's own sender as `<subdomain>@softr.app`. In a workflow, a `SOFTR_SEND_EMAIL` node chooses its sender through the optional `emailSenderSignatureId` input. Before publishing a workflow that must send from a particular address, check that the address is in the list and confirmed.
 
 Combined with the database tools (`database_create` / `database_create_table` / `database_create_field`) and `vibe_coding_block_create` + `application_publish`, the tool set for scaffolding a full app end to end now exists. (Existence-verified only — that pipeline hasn't been run live; treat the first full scaffold as an experiment, not a routine.)
 
@@ -767,6 +771,10 @@ Known limits and behaviors (per official docs):
 - **`database_create_field` for a DATETIME takes `options: {"includeTime": true}`** (ours, verified
   2026-09-18). The options shape `database_list_fields` returns for an existing DATETIME field is
   rejected, so do not copy a field definition from a read into a create.
+- **A formula cannot be changed after creation.** `database_update_field` with a new `formula` is
+  refused: `BAD_REQUEST` "[formula] can only be set when the field is created; delete the field and
+  create it again to change it" (seen 2026-09-18, under the old name `update_field`). Edit the formula
+  in Studio instead.
 - **SINGLE_LINE_TEXT fields carry a 1,024-character `maxLength`** (ours: two fields of a production
   table, found in a 2026-09-10 schema audit and confirmed live 2026-09-18, recorded in a block's code
   comment). A block that appends to such a field has to keep the total under it; what a longer write
@@ -820,6 +828,7 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
   - **Over a plain array of strings** (a `CUSTOM_CODE` node's `$.body.<key>`, say), the item *is* the value: reference it as bare `{loopActionGroup.<id>:::loopVariables.items}`, nothing after `items` (2026-09-19; accepted by the validator, not yet exercised by a run).
   - **References into the loop are rejected until the source node's saved sample holds at least one item** (the validator says so). Test the source node on a record that yields a non-empty array before wiring the steps inside the loop.
   - **To put a step inside the loop**, call `workflow_add_node` with `compositeNodeId: <loopNodeId>`. The step lands in the loop's own `actions` / `paths`, not the workflow's.
+  - **The loop has a `loopCounter` input**, `{ start, end, step, maxIterations }`. `maxIterations` can be set over MCP and reads back (2026-09-19). We have not run a loop long enough to reach the cap.
   - **An empty loop does not stop the run** (recorded 2026-09-19). Zero items means zero iterations and a normal completion, and the steps after the loop still run. A guard stamp placed after a loop therefore fires even when nobody was emailed, and consumes the notice. A gate on the item count has to cover the loop and the stamp together; gating only the stamp leaves the guard unset, and the next edit sends again.
 - **`workflow_update_node_inputs` batches validate against the STORED node state**, not the batch-in-progress — an update that depends on another update in the same batch fails validation. Split dependent updates into sequential calls.
 - **`CUSTOM_CODE` contract** (2026-09-18/19; found by testing, documented nowhere we know of):
@@ -844,6 +853,8 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
 - **`serialExecution: true`** in a workflow's configuration (set with `workflow_update_configuration`, confirmed by read-back, 2026-09-18) makes runs queue instead of overlapping. We set it on a workflow that appends to a multi-link field: two runs at the same moment would each read-modify-write the same array, and one append could be lost.
 - **`continueOnError` is stored on the path, not on the node** (2026-09-19). Turned on with `workflow_update_node_continue_on_error`, it shows up as a `SUCCEEDED OR FAILED` condition on the node's outgoing `paths` entry. Without it a failed step ends the run, so a guard stamp after it never happens and the whole notice goes out again on the next edit. On the **last step inside a loop** the entry has the condition but **no `toActionId`**, and whether the engine reads that as "carry on with the next item" is unproven. Test it with one deliberately bad item mid-list and check that the items after it still ran.
 - **Time-based sends** (a proof of concept, 2026-09-01): a formula field flips (to `"yes"`, say) on the target day, a filtered view picks up the records where it has flipped, and a "Record enters view" trigger fires when one enters.
+- **Each workflow has its own `configuration.timeZone`.** In one workspace every MCP-built workflow read `UTC` and an older one `Europe/Athens` (2026-09-19). Read it with `workflow_get` before relying on dates, times or a time-of-day window inside a workflow.
+- **Read publication state from `workflow_get`.** A workflow that was never published reads `enabled: false` and `enabledVersion: null` (2026-09-01); the one running workflow in the same workspace read `enabledVersion: 0` (2026-09-19).
 - **Test-safety rules** (which `testRunMode` means what in practice):
   - Record-**write** nodes (`SOFTR_TABLES_UPDATE_RECORD` etc.) are `REAL_ONLY` — **never test them against a production workspace**; the test performs the real write.
   - `SOFTR_SEND_EMAIL` is `MOCK_AND_REAL` — **always pass `mode: "mock"`**.
