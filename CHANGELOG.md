@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.13.4] - 2026-10-06
+- Release 2.13.4
+- Add in-block modal above Softr's bars (shadcn Dialog sits under the top bar)
+- Add app frame and app-page layout for Softr sidebar navigation
+
 ## [2.13.3] - 2026-10-05
 - Release 2.13.3
 - Anchor CHANGELOG entries at the commit that introduced the published version
