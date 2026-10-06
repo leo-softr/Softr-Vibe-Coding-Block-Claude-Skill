@@ -380,6 +380,8 @@ This is an **UNOFFICIAL**, community-maintained Claude skill. It is provided **a
 
 Pull requests are what make open source great, and we appreciate the spirit behind them. That said, this skill is maintained for a specific personal workflow, so PRs won't be merged here. We highly recommend forking this repo and making it your own — customize it for your team, your data sources, your design system. That's the beauty of open source.
 
+If you fork it: the publish workflow first runs `python3 .github/scripts/check-links.py`, which fails the run when any relative Markdown link points at a missing file or a missing `#anchor`. Run the same command before pushing.
+
 ---
 
 ## References

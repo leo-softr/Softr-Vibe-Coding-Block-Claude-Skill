@@ -15,6 +15,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Every relative Markdown link must resolve (file and #anchor). Runs first, on every
+      # push, so a broken link fails the run before anything is published. Run it locally
+      # before pushing with: python3 .github/scripts/check-links.py
+      - name: Check relative links in the docs
+        run: python3 .github/scripts/check-links.py
+
       - uses: actions/setup-node@v6
         with:
           node-version: '20'
