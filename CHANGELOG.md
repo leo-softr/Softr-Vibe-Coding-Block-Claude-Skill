@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.13.5] - 2026-10-06
+- Release 2.13.5
+- Correct the MCP FILTER-condition claim and eight other conflicts found in the 2026-10-06 audit
+
 ## [2.13.4] - 2026-10-06
 - Release 2.13.4
 - Add in-block modal above Softr's bars (shadcn Dialog sits under the top bar)
