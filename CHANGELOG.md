@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.14.4] - 2026-10-07
+- Release 2.14.4
+- Add the Safari focus rule to the Combo reference
+
 ## [2.14.3] - 2026-10-07
 - Release 2.14.3
 - Document that the REST API proxy is not access control
