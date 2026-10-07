@@ -329,6 +329,58 @@ the optional *create* row — so arrow-key navigation has one index to walk. Cla
 index (`Math.min(active, rows.length - 1)`): filtering shrinks the list under the highlight.
 Keep the highlighted row in view by scrolling the list only (rule 3 of item 4 above).
 
+## Move focus into the Combo when it opens
+
+When the panel opens, the Combo moves focus into itself: to the search box if it has one,
+otherwise to the trigger. Do not count on the click to do it. **Safari (macOS and iPadOS) and
+Firefox on macOS do not focus a `<button>` when it is clicked** (Chrome does), so on a click-only
+Combo focus stays in whatever field had it, usually the text input above it in a form. Two things then
+break at once: the keys the user types land in that input, and Escape goes past the Combo to the
+next listener. Inside the [in-block modal](common-patterns.md#a-modal-above-softrs-bars), that
+listener closes the modal or asks to discard the typed input, with the list still open.
+
+```jsx
+useEffect(
+  function () {
+    if (!open) return;
+    if (searchable) {
+      if (inputRef.current) inputRef.current.focus({ preventScroll: true });
+    } else if (triggerRef.current) {
+      triggerRef.current.focus({ preventScroll: true });
+    }
+  },
+  [open, searchable]
+);
+```
+
+A click-only list is then driven from the trigger: ↑ ↓ move the highlight, Enter picks, Escape
+closes. Give that trigger `role="combobox"` with `aria-activedescendant` pointing at the
+highlighted row, because `aria-activedescendant` is not valid on a plain button.
+`preventScroll` is there for the same reason as on the search box (rule 3 of item 4).
+
+**Escape closes the list and nothing else.** While the list is open, the Combo's keydown
+handler calls `e.preventDefault()` and `e.stopPropagation()`, closes the list and puts focus
+back on the trigger. React's handler on the Combo root runs inside the shadow root, before the
+event reaches `document`. The in-block modal's document listener returns early on
+`e.defaultPrevented`, so the modal stays open and clean. Either guard alone covers that modal,
+but keep both: another document-level listener may not check `defaultPrevented`.
+
+**To reproduce Safari in any browser,** focus the text field before the Combo, call `.click()`
+on the trigger from the console (a synthetic click does not move focus either), and read
+`activeElement` on the block's shadow root. It must be the search box or the trigger. Test
+typing with real key events. A browser-automation "type" action that inserts text without key
+events drops it into the last focused text field, which makes a correct Combo look broken.
+
+**The incident: Lane County Diaper Bank, 2026-10-07.** A browser check reported that in B4's New
+partner modal, letters typed after opening the click-only "Partner type" list went into
+Organization name, and Escape then showed the modal's "Discard your changes?" strip while the
+list stayed open. Part of that report came from the test tool, whose "type" action wrote into the
+last focused text field. But the code audit it prompted found the real gap: every copy of the
+component moved focus on open only when the list was searchable. On Safari, where a click leaves
+focus where it was, a click-only list never got the keyboard. Eight of the fifteen blocks had
+it. Chrome hid it, because there the click itself focuses the trigger. The effect above fixed
+all eight, rechecked on every page with a synthetic click and real key presses.
+
 ## Variants worth having
 
 - **`bare`** — inline-editor mode. No border, no fill; `triggerContent` (a status chip, a
@@ -375,7 +427,12 @@ Everything else — the trigger, the card, the rows — stays flat.
       on app pages inside Softr's top bar and phone tab bar
 - [ ] Keyboard: ↑ ↓ Enter Esc Tab; the active row kept visible by scrolling the list only
       (never `scrollIntoView`), and the search box focused with `preventScroll`
+- [ ] Opening moves focus into the Combo: the search box, or the trigger on a click-only
+      list, because Safari does not focus a clicked button. Escape on an open list calls
+      `preventDefault` + `stopPropagation` and closes only the list
+      ([Move focus into the Combo when it opens](#move-focus-into-the-combo-when-it-opens))
 - [ ] `aria-haspopup="listbox"`, `aria-expanded`, `role="listbox"` / `role="option"`,
-      `aria-selected`, and an `aria-label` on the trigger
+      `aria-selected`, and an `aria-label` on the trigger; a click-only trigger that carries
+      `aria-activedescendant` also gets `role="combobox"`
 - [ ] Loading and empty states (`"Nothing matches that."`)
 - [ ] No `@/components/ui/select` import anywhere in the file
