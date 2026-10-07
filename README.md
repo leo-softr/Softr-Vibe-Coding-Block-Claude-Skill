@@ -261,16 +261,25 @@ softr-vibe-coding/
 │   │                                 # Imports, hook signatures, mutation shapes,
 │   │                                 # field mapping, component skeleton,
 │   │                                 # Softr navigation variables, container queries
-│   └── searchable-dropdown.md        # THE dropdown pattern for blocks
-│                                     # why native <select> and shadcn <Select> both
-│                                     # break in the shadow DOM, composedPath()
-│                                     # click-outside, A-Z inside the component,
-│                                     # multi-token filter, searchable BY DEFAULT
-│                                     # (bare = click-only; searchable={false} only
-│                                     # for a fixed enum being set — Sep 10 2026),
-│                                     # overflow-clipping ancestors: never clip a cell
-│                                     # holding a Combo, clip-aware drop-up + list
-│                                     # height, list-only scrolling (Sep 30 2026)
+│   ├── searchable-dropdown.md        # THE dropdown pattern for blocks
+│   │                                 # why native <select> and shadcn <Select> both
+│   │                                 # break in the shadow DOM, composedPath()
+│   │                                 # click-outside, A-Z inside the component,
+│   │                                 # multi-token filter, searchable BY DEFAULT
+│   │                                 # (bare = click-only; searchable={false} only
+│   │                                 # for a fixed enum being set — Sep 10 2026),
+│   │                                 # overflow-clipping ancestors: never clip a cell
+│   │                                 # holding a Combo, clip-aware drop-up + list
+│   │                                 # height, list-only scrolling (Sep 30 2026)
+│   └── date-picker.md                # THE date field for blocks: no native
+│                                     # <input type="date"> (its calendar is browser
+│                                     # UI no CSS reaches); the DatePicker kit (API +
+│                                     # full component), the kit-between-markers
+│                                     # convention + sync script, rollout lessons
+│                                     # (clipping, short modal bodies, textClass for
+│                                     # named containers, Escape, backdrop clicks,
+│                                     # deferred focus fix-up, Safari focus,
+│                                     # "yyyy-MM-dd" values), verification (Oct 7 2026)
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)

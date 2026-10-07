@@ -10,9 +10,15 @@ the obvious choices:
 | shadcn `<Select>` / `<Command>` | **Portals to `document.body`, which is outside the block's shadow root**, so the styles arrive stripped. It also cannot be searched. |
 | `Combo` (below) | Local DOM, brand-styled, keyword filter, A→Z, keyboard, create-new, clip-aware drop-up. |
 
+The date field has the same problem with the same answer: `<input type="date">` hands its calendar
+to the browser, so a block uses the in-DOM `DatePicker` kit in [date-picker.md](date-picker.md),
+which follows rule 1 of item 4 below, the Escape rule and the focus-on-open rule of this page.
+
 Copy the component into the block. A Vibe block is one self-contained file — there is no
 shared module to import, so each block carries its own copy. Keep one canonical copy in the
-project (e.g. `Assets/Softr App/Shared/combo.jsx`) and port changes from there.
+project (e.g. `Assets/Softr App/Shared/combo.jsx`) and port changes from there. Pasting it
+verbatim between marker lines that carry its sha makes that port mechanical:
+[date-picker.md → The kit between markers](date-picker.md#the-kit-between-markers).
 
 ## The four things that will bite you
 

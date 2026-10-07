@@ -111,6 +111,10 @@ i.dispatchEvent(new Event('input', { bubbles: true }));
 i.dispatchEvent(new Event('change', { bubbles: true }));
 ```
 
+A block that uses the brand `DatePicker` ([date-picker.md](date-picker.md)) has no date input: the
+field is a button with a ref in `-i`. Click it, then click the day by its ref; each day is a button
+named like `Thursday, October 15, 2026`.
+
 ### 4. Block saves before any click, and prove it
 
 The preview writes to the live data
