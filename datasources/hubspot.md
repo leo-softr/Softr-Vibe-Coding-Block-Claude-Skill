@@ -452,7 +452,10 @@ page ([details](multi-datasource.md#one-connection--one-read-payload-the-union-o
   HubSpot: anyone who can edit that property there can grant the group's access.
 - **`application_list_users` is not a membership check.** It showed `userGroups: []` for every
   user, including members of condition groups that demonstrably applied (verified 2026-10-05).
-  Test membership by what the user can reach, e.g. preview as them against a group-gated block.
+  Test membership by what the user can reach, e.g. preview as them against a group-gated block, or
+  read their groups in the preview
+  ([how](../references/softr-mcp.md#testing-as-any-app-user-without-logins--the-preview-as-switcher);
+  same result on Softr Database, 2026-10-07).
 
 ## Audit trail
 

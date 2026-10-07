@@ -19,7 +19,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints)
 - [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
-- [Application management tools](#application-management-tools) — incl. [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher)
+- [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups) and [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
 - [Softr Database tools](#softr-database-tools)
 - [Workflows](#workflows)
@@ -536,14 +536,19 @@ verified on HubSpot on 2026-10-05, the same way.* There are two forms, and **the
   **It fails closed:** a user whose field is empty, or who has no record in the users' data source,
   gets 0 rows, and a by-id request for a record outside the condition returns 404 (on HubSpot;
   Softr Database answers HTTP 200 with an empty body).
+- **Do not confuse it with the user-group syntax.** A user group's condition names the user field
+  as its **subject**, `USER:<field id>`: one colon, no braces (verified 2026-10-07, see
+  [Condition-based user groups](#condition-based-user-groups)). A Source condition names it in the
+  **value**, `USER:::<field id>`: three colons. The user-group form returned HTTP 400 in a Source
+  condition (below); the Source-condition form has not been tried in a user group.
 - **Use AND between rules.** With one rule OR and AND behave the same, but a second rule added
   under OR widens access (2026-10-05).
 - **The braced user-field spellings fail.** On 2026-09-18, on Softr Database, eleven spellings were
   tried, including `{USER:::<fieldId>}`, `{USER:<fieldId>}` and `{USER:::FIELD:<fieldId>}`. Each
   silently matched nothing. All eleven had braces, so the braceless form is untested on Softr
   Database, not disproved. A subject of `USER:<fieldId>`, the syntax user-group rules use, returned
-  HTTP 400 "Field not found": the user field goes in the value, never the subject. No token for a
-  user group has been found.
+  HTTP 400 "Field not found": the user field goes in the value, never the subject. No token that
+  tests whether the user is in a group has been found.
 - Studio's conditional-filter UI offers the logged-in user's Email and Email-Domain, plus every
   users-table field once users sync from a data source (documented). For a value not listed here,
   pick it in a block's Source tab, save, and read `dataSources[].condition` back with
@@ -641,6 +646,37 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
   read any older logged value as UTC, never as local time.
 
+### Condition-based user groups
+
+*Verified 2026-10-07 on Softr Database, with users synced from a Softr Database table and the user
+connection's field reference key set to `id`. The HubSpot version (2026-10-05) is in
+[../datasources/hubspot.md](../datasources/hubspot.md#user-sync).*
+
+- **`application_update_user_group` sets a group's condition.** It returned the condition exactly as
+  sent. This one, on a "Volunteer" group, tests two single-line text fields of the users table:
+
+  ```json
+  {
+    "logicalOperator": "AND",
+    "expressions": [
+      { "subject": { "field": "USER:YB2ot", "type": "TEXT" }, "operator": "IS_NOT_EMPTY", "value": [] },
+      { "subject": { "field": "USER:uo0TW", "type": "TEXT" }, "operator": "IS", "value": ["Active"] }
+    ]
+  }
+  ```
+
+- **The subject is `USER:<field id>`: one colon, no braces.** A block's Source condition uses a
+  different form, `USER:::<field id>` with three colons, and puts it in the value
+  ([Logged-in-user values in Source conditions](#logged-in-user-values-in-source-conditions)). Do not
+  copy one into the other.
+- **`application_list_users` does not show condition-based membership.** Right after the update, the
+  one user whose record matched (login email set, status Active) still listed `userGroups: []`. The
+  tool shows only manual memberships, such as a user added to Administrator through `userEmails`.
+  Softr evaluates conditions at runtime, so an empty `userGroups` there is not evidence that a
+  condition fails. HubSpot behaved the same way.
+- **Check membership by running the app as that user** and reading the groups the app gives them
+  ([how](#testing-as-any-app-user-without-logins--the-preview-as-switcher), below).
+
 ### Testing as any app user without logins — the "Preview as" switcher
 
 *Verified live 2026-09-18.* The `application_preview` link does not open the app directly: it opens a
@@ -666,6 +702,24 @@ passwords, no test accounts to create:
   `fetch('/studio/impersonate/<softrUserId>')` makes the preview run as that user. The id is the
   user's Softr id from `application_list_users`. It works from a fresh preview link, so it needs no
   Studio session in the browser.
+- **Read a user's groups from the app itself** (verified 2026-10-07, read-only). Mint a fresh
+  `application_preview` link and open it, run the impersonate call above, reload the app iframe,
+  then read `iframe.contentWindow.__softr_current_user.userGroups`.
+  - The link carries `?show-toolbar=true`, so the top document is the toolbar shell and the app runs
+    in `document.querySelector('iframe')` (the `#preview-iframe` of
+    [browser-checks.md](browser-checks.md)). `window.__softr_current_user` exists only in that
+    iframe's `contentWindow`. The top window has no user globals at all.
+  - To reload, set the iframe's `src` again with a fresh `t=<timestamp>` query parameter, after the
+    impersonate call.
+  - Observed group names: a user who matched the Volunteer condition above read
+    `["Logged in users", "All users", "Volunteer"]`; a user with no login email read
+    `["Logged in users", "All users"]`.
+- **`window.__softr_current_user` carries only `name`, `email`, `avatar` and `userGroups`**
+  (verified 2026-10-07). None of the users-table record's other fields were there, on a users table
+  with notes, phone and emergency-contact fields. For a privacy review: syncing a users table does
+  not by itself expose the record's other fields through this global. A block can still ask for
+  them with `useCurrentUser({ properties })`
+  ([../datasources/reading.md](../datasources/reading.md#current-user)).
 - **Press the preview's own `#refresh-button` after a push.** An open preview kept serving the old
   block version until it was pressed (verified 2026-10-05). Minting a fresh link does too (see the
   version note above).

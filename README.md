@@ -208,7 +208,12 @@ softr-vibe-coding/
 │   │                                 # alone, DATETIME create shape, offset paging;
 │   │                                 # OAuth grant per ticked workspace, email
 │   │                                 # senders, formulas fixed at creation, loop
-│   │                                 # counter, workflow time zone and publish state
+│   │                                 # counter, workflow time zone and publish state;
+│   │                                 # Oct 7 2026: condition-based user groups over
+│   │                                 # MCP (subject USER:<field id>, not USER:::),
+│   │                                 # list_users omits conditional membership,
+│   │                                 # reading userGroups in the preview iframe,
+│   │                                 # what __softr_current_user carries
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
