@@ -98,9 +98,46 @@ export default function Block() {
 
 - `useProxyFetch` returns a fetch function that routes requests through Softr's proxy
 - Softr injects the authentication headers configured in the data source automatically
-- API keys are **never exposed** in client-side code
+- API keys are **never exposed** in client-side code. That protects the key, not the data: see [The proxy is not access control](#the-proxy-is-not-access-control)
 - The response is the raw API JSON -- access fields directly (e.g., `item.name`, not `record.fields.name`)
 - **The proxy only supports text payloads** -- streams, `FormData`, and file uploads won't work. Serialize request bodies as JSON/text.
+
+### The proxy is not access control
+
+*Softr engineers, asked 2026-10-07; not tested here.* The proxy does two things:
+
+- It sends requests only to the **origin** set when the REST API data source was created, e.g.
+  `https://api.hubapi.com`, so they can't be redirected to another host.
+- It adds the data source's stored secrets on Softr's server, so the token never reaches the browser.
+
+It checks nothing else. The path, query, method and body come from the browser. A user can copy a
+proxy request from DevTools' Network tab, change the endpoint or record id, and resend it. Softr
+forwards it as is, and its engineers advise against relying on the proxy for security. So:
+
+- **Anyone who can call the proxy can read everything the token can read on that origin.**
+  Filtering in block code, or a URL built from `useCurrentUser().email`, decides what the block
+  shows, not what a user can fetch.
+- **Source conditions don't apply.** The connection's record filters cover the record hooks
+  (`useRecords` and the rest), not `proxyFetch`. This came from a less certain answer in the same
+  thread.
+- **Block Visibility and page permissions may not apply either.** That same answer said "only
+  the record hooks" for them too, and it is unconfirmed. Until it is tested, assume any logged-in
+  user can call the proxy.
+- **`{LOGGED_IN_USER: …}` placeholders don't help.** They are reportedly filled in on the server,
+  but a replayed request can simply leave the placeholder out.
+- **The token's scopes set the blast radius.** Grant only the narrowest scopes the block needs.
+
+Per-user data needs a gate on the server instead:
+
+1. **A native connector with a logged-in-user Source condition.** This is verified on Softr
+   Database and HubSpot; see
+   [softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
+   Softr's engineers asked first why a builder would pick REST over the native integration.
+2. **For data no native connector covers**, copy it with a workflow into a table that a native
+   connector reads, such as a Softr Database table keyed by the user's email, and gate that table
+   with a Source condition. This design is inferred, not built.
+3. **Otherwise keep REST proxy blocks to data that everyone who can reach the page may see**, or
+   to internal tools whose users are trusted with everything the token reads.
 
 ### Multiple datasources
 
@@ -184,6 +221,7 @@ fetch("https://workflows-api.softr.io/v1/workflows/WORKFLOW_ID/executions/EXECUT
 | Pagination | Built-in `fetchNextPage` | Manual via URL params + cursor |
 | Filtering | `q.text()`, `q.number()`, etc. | API query params or client-side |
 | Auth | Handled by Softr | Proxied through Softr (key hidden) |
+| Per-user rows | Source conditions, enforced on the server | None: the browser picks the URL ([why](#the-proxy-is-not-access-control)) |
 | Mutations | `useRecordCreate/Update/Delete` | Direct `fetch()` or `proxyFetch()` |
 
 ## Limitations

@@ -287,7 +287,9 @@ to set a client's links server-side.
 
 - **The step:** a **Run custom code** step (`CUSTOM_CODE` v1.2.0) with the HubSpot integration
   attached. `fetch()` calls to `api.hubapi.com` then carry that integration's credentials, with no
-  token in the code.
+  token in the code. Those credentials carry only the scopes granted when HubSpot was connected.
+  A call to an object Softr's connector doesn't support yet may get HubSpot's 403 (Softr engineer,
+  2026-10-07; the scope list is not published).
 - **Plan and testing:** the step needs a paid Softr plan, and it is `REAL_ONLY`, so a test run
   writes for real.
 - **Limits:** about 2 minutes per run, and up to 20 fetches per second.
@@ -310,7 +312,9 @@ to set a client's links server-side.
   HubSpot itself. The cost is trigger latency (unknown, see below) and a run for every new ticket.
 - **Why the block can't do it itself:** `useProxyFetch` is documented for REST API sources only.
   Call API authenticates only REST_API integrations and needs Professional or higher, so it would
-  need a HubSpot private-app token stored as a REST integration (inferred).
+  need a HubSpot private-app token stored as a REST integration (inferred). Any user who can call
+  the proxy could then use that token for any path on HubSpot's API
+  ([why](rest-api.md#the-proxy-is-not-access-control)).
 - **HubSpot-side route:** a HubSpot workflow's "Create associations" action needs Pro or
   Enterprise, and ticket-based workflows need Service Hub Pro or Enterprise (documented). It
   matches records by exact, case-sensitive property value.
@@ -321,6 +325,12 @@ A connection's **Source conditions are the only server-side row gate**. A `where
 request parameter the caller controls, not access control. See
 [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints)
 (verified 2026-09-18 on Softr Database; on HubSpot 2026-10-05, below).
+
+A **REST API source pointed at HubSpot** (`useProxyFetch` with a private-app token) has no row gate
+at all. The proxy forwards any path on `api.hubapi.com` that the browser sends (Softr engineers,
+2026-10-07); see [rest-api.md](rest-api.md#the-proxy-is-not-access-control). Serve client-facing
+rows from the native connection. Objects it lacks, such as conversations and feedback submissions,
+need one of the server-side routes listed there.
 
 The **block's Visibility** is enforced on the same endpoints, all or nothing (verified 2026-10-05 on
 HubSpot). A block gated to an "Account managers" condition group returned every deal and ticket to
