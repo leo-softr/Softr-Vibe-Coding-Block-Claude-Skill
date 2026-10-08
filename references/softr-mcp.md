@@ -280,7 +280,7 @@ reports neither field. With `includeCode: false`, `vibe_coding_block_get_code` r
 `sourceCode: null`. Verified live 2026-10-01: a deployed block's `sourceSha256` equalled the SHA-256
 of the exact source last pushed to it (taken from the push call), and the read came back at about
 1 KB for a 15 KB block. The same check showed that block's local mirror had picked up three comment
-edits since that push, which is exactly what step 1 below exists to catch. (The digest on push results is per Softr's release notes; no push of ours has shown it yet.)
+edits since that push, which is exactly what step 1 below exists to catch. (The digest on push results was first known from Softr's release notes; our own pushes have returned it since at least 2026-10-08.)
 Right after that release our client's copy of the tool definition did not declare `includeCode`, so
 the argument went out as the string `"false"` and the server still honoured it. Whatever the loaded
 definition says, check that `sourceCode` came back `null`.
@@ -308,10 +308,12 @@ definition says, check that `sourceCode` came back `null`.
 
 Matching hashes prove what Softr stored, not how the block behaves: for that, check it in a fresh preview with saves blocked, per [browser-checks.md](browser-checks.md).
 
-**Hash the exact bytes, trailing newline included.** Softr stores exactly what it receives: across
+**Hash the exact bytes, trailing newline included.** Softr stores exactly the text that reaches it: across
 112 push→fetch pairs between 2026-09-09 and 2026-09-30 the fetched
 `sourceCode` was byte- and MD5-identical to the text sent, including two pushes sent *without* a
-final newline and stored without one. The "deployed block is one byte shorter" we chased on
+final newline and stored without one. (One thing does not reach Softr as written: a `\uXXXX`
+escape in the source arrives decoded, see [below](#unicode-escapes-come-back-decoded).)
+The "deployed block is one byte shorter" we chased on
 2026-09-09 was our own read: an agent that reads a large file in chunks can drop the final
 newline (or a blank line at a chunk boundary) before transmission. A comparison that normalises
 the trailing newline hides exactly that class of error — so do not normalise anything; a mismatch
@@ -355,6 +357,41 @@ from the docs):
   settings edits included. Before calling a block "staged", compare the app's last publish time
   (`application_get`) with the version's `createdAt` (`vibe_coding_block_list_versions`): on
   2026-09-01 a block we believed staged went live with a publish 28 minutes after it was saved.
+
+#### Unicode escapes come back decoded
+
+Verified 2026-10-08 on a large dashboard block pushed in stages with `vibe_coding_block_update_code`
+and `vibe_coding_block_update_code_search_replace`: exactly the calls whose text held a JavaScript
+`\uXXXX` escape came back with a `sourceSha256` that differed from the hash of the planned text. The
+block's accent-folding regex, `/[\u0300-\u036f]/g`, was stored with both escapes replaced by the
+characters themselves, two combining marks sitting raw between the brackets. `\d`, `\D` and `\s` in
+the same block arrived as written.
+
+The decoding happens somewhere between the tool call and storage (the client's JSON handling of
+the argument, or the server), not in Softr's compiler: the stored source text itself changed. It
+looks like the [encoding trap](#which-edit-tool-full-replace-vs-targeted-search-replace) above,
+reaching a backslash-u that was meant to stay in the source. The exception is a lone surrogate:
+`\udc00-\udfff` in the same regexes has no character form, and those pushes stored it unchanged.
+(The `\u{…}` form is untested; treat it the same.)
+
+**So: no `\uXXXX` in pushed source, lone surrogates aside.** Find them before a push with
+`grep -n '\\u[0-9a-fA-F]\{4\}' <file>`, then either:
+
+- **Write the characters themselves**, with a comment saying why, since combining marks and other
+  invisible characters cannot be read in an editor. Spell "backslash-u" out in that comment so it
+  holds no escape either. Check first that the character means the same raw in that spot: a range
+  of combining marks in a character class does (the block's regexes, escaped and raw, matched the
+  same set across all 65,536 BMP code points), but written raw, a `/` ends a regex literal, a `]`
+  closes a class, a backslash or quote changes the token, and U+2028/U+2029 are line terminators a
+  regex literal may not contain.
+- **Build it from code points** where a raw character is unwanted or unsafe:
+  `new RegExp("[" + String.fromCharCode(0x300) + "-" + String.fromCharCode(0x36f) + "]", "g")`,
+  created once at module scope. No backslash-u reaches the tool, so there is nothing to decode.
+  Strings likewise: `String.fromCharCode(0x2014)`, not `"\u2014"`.
+
+If a push has already stored the decoded form, applying the same replacement to the mirror brings
+the hashes back together; confirm the raw characters behave the same (first bullet) before calling
+it done.
 
 ### The array-argument rejection, and why it is a security issue
 
