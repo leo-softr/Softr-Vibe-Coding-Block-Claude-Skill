@@ -353,7 +353,7 @@ no discard prompt, focus is on the date field's trigger); the second Escape reac
 inside the modal: focus lands on the next field, not on the modal panel (lesson 6).
 
 **4. The saved value is byte-identical to the native version's.** Block saves first
-([browser-checks.md → Block saves before any click, and prove it](browser-checks.md#4-block-saves-before-any-click-and-prove-it)),
+([browser-checks.md → Block saves before any click, and prove it](browser-checks.md#6-block-saves-before-any-click-and-prove-it)),
 pick a day, save, and read the aborted request's payload: the field holds the same string the native
 field sent for that day (`"2026-10-15"`, not a timestamp). Clear sends what an emptied native field
 sent, unless the block deliberately changed it (one LCDB block now saves a cleared optional date as

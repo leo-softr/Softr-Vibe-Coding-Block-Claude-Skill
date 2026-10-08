@@ -4,7 +4,8 @@ How to check a deployed block's rendering and behaviour in a Softr preview with 
 [agent-browser](https://github.com/vercel-labs/agent-browser) CLI. **Verified 2026-10-01** with
 agent-browser v0.38.1 on macOS (Node 22) against a real Softr preview; only the commands under
 [Untested but promising](#untested-but-promising) were not run. [Testing Custom Code header
-CSS](#testing-custom-code-header-css) was verified 2026-10-05, except where it says otherwise.
+CSS](#testing-custom-code-header-css) was verified 2026-10-05, except where it says otherwise, and
+[the client's time zone](#1-the-clients-time-zone) on 2026-10-08.
 
 ## When to use it
 
@@ -55,13 +56,54 @@ even Slack ones. Yet it is only a stub that loads `agent-browser skills get core
 
 ## The recipe
 
-### 1. Session, preview cookie, page
+### 1. The client's time zone
+
+Run every check in the time zone of the app's users, never the machine's. A headless Chrome takes
+the zone of the computer it runs on, and a date-only value arrives as midnight UTC
+([fields.md → Date-only fields arrive as midnight UTC](../datasources/fields.md#date-only-fields-arrive-as-midnight-utc)):
+a block that parses it with `new Date()` or `parseISO` shows the right day east of UTC and the day
+before west of it. On 2026-10-08 three blocks of an app for Oregon had passed checks run in
+Europe/Athens (UTC+3) while showing their users in America/Los_Angeles every date-only value a day
+early. A test-data load found it, not the checks.
+
+agent-browser has no time-zone setting (v0.38.1: no flag, and `set` offers none). Chrome takes its
+zone from `TZ` in the environment of the daemon that launches it, so put `TZ` in the `ab` function:
+then the command that starts the daemon carries it, whichever one that is. Check the zone straight
+after launch:
+
+```bash
+ab() { TZ=America/Los_Angeles agent-browser --session softr-check "$@"; }   # the client's IANA zone
+ab open 'about:blank' >/dev/null
+ab eval "Intl.DateTimeFormat().resolvedOptions().timeZone + ' ' + new Date().getTimezoneOffset()"
+#   "America/Los_Angeles 420"   (minutes behind UTC: 420 in summer time, 480 in winter)
+#   "Europe/Athens -180"        = no TZ reached the daemon: the machine's zone
+```
+
+- **`TZ` counts only when the session's daemon starts.** Against a daemon already running,
+  `TZ=America/Los_Angeles agent-browser … eval` still printed `Europe/Athens`. And `ab close` alone
+  is not enough: the daemon outlives it by about a second, and an `open` in that second came back in
+  the old zone. To change zone, close, wait until `agent-browser session list` no longer shows the
+  session, then open again; or use a new session name.
+- **Which zone:** the client's, from the project notes, as an IANA name (`America/Los_Angeles`,
+  `America/New_York`). If the users span zones, run the date check ([step 5](#5-date-only-values-against-the-stored-ones))
+  in each.
+- **Verified 2026-10-08** with agent-browser 0.38.1 on macOS: `about:blank`, `example.com` and a new
+  tab all reported `America/Los_Angeles` and 420, and a mock block rendering
+  `new Date("2026-10-05T00:00:00.000Z")` showed Oct 5 in Athens and Oct 4 in Los Angeles. The zone
+  belongs to the browser, not the page, so it holds on a Softr preview too (inferred, not run
+  there).
+- **Other browsers.** With Playwright (the fallback under [Install](#install)), pass
+  `timezoneId: 'America/Los_Angeles'` to `browser.newContext()` (its documented option; not run
+  here). An in-app Browser pane or the user's own Chrome runs in its machine's zone unless
+  something overrides it: run the probe there before trusting any date it shows.
+
+### 2. Session, preview cookie, page
 
 Work from a scratch directory, not the project: nothing is written to the working folder, and
 screenshots go where you tell them.
 
 ```bash
-ab() { agent-browser --session softr-check "$@"; }   # a function, not a variable: see Gotchas
+ab() { TZ=America/Los_Angeles agent-browser --session softr-check "$@"; }   # step 1; a function, not a variable: see Gotchas
 ab open '<previewUrl>' >/dev/null      # once per session: sets the preview cookie
 ab set viewport 1280 900
 ab open 'https://<subdomain>.preview.softr.app/<page>?recordId=<recordId>&autoUser=true'
@@ -73,7 +115,7 @@ ab wait 2500                           # 2000–3000 ms more, so the block's dat
 this one carries a sign-in token, hence `/dev/null`. The direct URL then loads the app itself, not
 the toolbar shell that frames it, so `document` in `eval` is the app's.
 
-### 2. Reaching into the block
+### 3. Reaching into the block
 
 A block renders inside a shadow root, which CSS selectors and `find` locators do not cross.
 **Refs from the accessibility readout do**: `ab snapshot -i` lists the block's textboxes, buttons
@@ -84,7 +126,7 @@ the ref out in the same shell call, so the readout never enters your context:
 REF=$(ab snapshot -i | grep -o 'textbox "Search by[^[]*\[ref=e[0-9]*' | head -1 | grep -o 'e[0-9]*$'); ab fill "@$REF" 'term'
 ```
 
-### 3. Measuring with `eval`
+### 4. Measuring with `eval`
 
 `ab eval "<expr>"`, or `ab eval --stdin < check.js` for anything longer. An async IIFE is awaited,
 and only the result is printed: return `JSON.stringify(...)` to get one JSON-encoded line. Find the
@@ -115,7 +157,44 @@ A block that uses the brand `DatePicker` ([date-picker.md](date-picker.md)) has 
 field is a button with a ref in `-i`. Click it, then click the day by its ref; each day is a button
 named like `Thursday, October 15, 2026`.
 
-### 4. Block saves before any click, and prove it
+### 5. Date-only values against the stored ones
+
+On every block that shows a date-only field, compare a few shown days with the stored ones, in
+the client's zone ([step 1](#1-the-clients-time-zone)):
+
+1. Read three or more records with the MCP's `database_list_records` and note each date-only value.
+   Its first ten characters are the stored day: `"2026-10-05T00:00:00.000Z"` is 5 October.
+2. Read the same records on the page, by a value that names each one (`innerText` keeps a space
+   between table cells; `textContent` runs them together):
+
+   ```js
+   (() => {
+     const root = [...document.querySelectorAll('*')].map(e => e.shadowRoot).filter(Boolean)
+       .find(s => /<text unique to the block>/.test(s.textContent));
+     if (!root) return 'block not found';
+     const rows = [...root.querySelectorAll('tr, li, [role="row"]')];   // the block's row element
+     return JSON.stringify(['<name 1>', '<name 2>', '<name 3>'].map(n => {
+       const row = rows.find(e => e.textContent.includes(n));
+       return row ? row.innerText.replace(/\s+/g, ' ').trim().slice(0, 160) : n + ': not found';
+     }));
+   })()
+   ```
+
+3. Each shown day must be the stored day. Every one a day early means the block parses date-only
+   values with `new Date()` or `parseISO`: switch it to `toLocalDate`
+   ([fields.md](../datasources/fields.md#date-only-fields-arrive-as-midnight-utc)).
+
+- **A zone west of UTC is what exposes the midnight-UTC bug.** Midnight UTC on 5 October is still
+  5 October anywhere at or east of UTC, and 4 October at 5 pm in Los Angeles. A check in Athens
+  passes a block that is wrong for every user west of UTC, as three blocks did (step 1).
+- **Check each place the block shows the date:** the list, the detail view, and the value an edit
+  form opens with. A form that opens a day early can save the wrong day when the user only changes
+  another field.
+- **A "today" taken as the UTC day is wrong only part of the day.**
+  `new Date().toISOString().slice(0, 10)` is tomorrow from 5 pm in Los Angeles (4 pm in winter), so
+  a morning check misses it: look for it in the source instead.
+
+### 6. Block saves before any click, and prove it
 
 The preview writes to the live data
 ([softr-mcp.md](softr-mcp.md#testing-as-any-app-user-without-logins--the-preview-as-switcher)), so
@@ -139,9 +218,9 @@ Only this update endpoint is verified. Before clicking a create or delete contro
 with `ab network requests` where a write is harmless, never on client data, and block that pattern
 too. Do not assume `*records-trigger*` covers it.
 
-### 5. Click, then read what it sent
+### 7. Click, then read what it sent
 
-Read the record through the database API, click Save by its ref (step 2), then read the record
+Read the record through the database API, click Save by its ref (step 3), then read the record
 again: `updatedAt` and the field should be unchanged. The aborted request is still logged, so you
 see the payload without it reaching the server:
 
@@ -150,7 +229,7 @@ ab network requests --filter records-trigger   # lists the save, with its id
 ab network request <id> --json                 # method: PATCH, postData: {"context":{…},"fields":{"<fieldId>":"2026-10-15"}}
 ```
 
-### 6. Screenshots and cleanup
+### 8. Screenshots and cleanup
 
 ```bash
 ab screenshot ./empty-1280.png         # ✓ Screenshot saved to …   (--full for the whole page)
@@ -177,7 +256,7 @@ a test surface: header code is not known to render there.
 
 ### 1. Before pasting: inject it into the preview
 
-Open the page as in [step 1](#1-session-preview-cookie-page), as the user whose navigation you are
+Open the page as in [step 2](#2-session-preview-cookie-page), as the user whose navigation you are
 styling: on the preview origin run `fetch('/studio/impersonate/<softrUserId>')`, then open the page
 again ([how](softr-mcp.md#testing-as-any-app-user-without-logins--the-preview-as-switcher)). Then
 inject the file exactly as it will be pasted, tagged so that a re-run replaces it:

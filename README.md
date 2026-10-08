@@ -220,7 +220,9 @@ softr-vibe-coding/
 │   │                                 # shell, eval measurements, the records-trigger
 │   │                                 # write guard proven before any click, what a
 │   │                                 # click sent, screenshots to disk (Oct 1 2026);
-│   │                                 # testing Custom Code header CSS (Oct 5 2026)
+│   │                                 # testing Custom Code header CSS (Oct 5 2026);
+│   │                                 # the client's time zone via TZ at launch, and
+│   │                                 # date-only values shown vs stored (Oct 8 2026)
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
