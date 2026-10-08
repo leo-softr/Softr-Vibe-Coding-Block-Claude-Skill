@@ -502,6 +502,8 @@ the popup, or mock on a page that loaded normally (the `?print=1` path), where r
 fresh preview link before you verify anything; otherwise you are testing the old Print. (What else a preview link is, and why
 it is never shared: [softr-mcp.md](softr-mcp.md#application-management-tools).)
 
+**Check a printout for overflow, not only for content.** A `white-space: nowrap` cell (a mono figure column) overflows its column silently when a label gets longer, and the page still prints. Measure `scrollWidth > clientWidth` on those cells in the printout (LCDB QA pass, 2026-10-08: longer month labels overflowed a column with no error). A date stamp in the printout is local time with its UTC offset ([common-patterns.md → CSV export](common-patterns.md#csv-export)). To capture the printout without a pop-up, see the Exports and printouts section of [browser-checks.md](browser-checks.md).
+
 **A browser that is not painting does not run the page.** A hidden browser pane or a background
 tab fires no `requestAnimationFrame` and no IntersectionObserver callbacks, so anything that waits
 on them (a reveal-on-scroll, lazy content, a check timed off a frame) stalls there, and a check

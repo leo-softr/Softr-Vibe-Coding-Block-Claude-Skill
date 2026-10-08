@@ -210,6 +210,8 @@ Before writing any block code through the MCP, call `vibe_coding_block_get_docs`
 
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
 
+**Set a new block's visibility with `vibe_coding_block_set_visibility` right after creating it, before any further code push.** A new block is visible to All users, and ADD_RECORD's default follows the block's visibility at compile time ([why](#the-array-argument-rejection-and-why-it-is-a-security-issue)). So every push to an ungated block reopens its ADD actions to logged-out visitors: a rebuild's pushes left 28 ADD_RECORD actions at All users (LCDB, 2026-10-05). `customUserGroupIds` is accepted only together with `LOGGED_IN_USERS`, and it narrows that group. Running the app as a user outside an Administrator-only block's group confirmed it: that user did not get the block (impersonation, 2026-10-08). Set groups by id, from `application_list_user_groups`, so a group renamed in Studio later changes nothing on the block (checked 2026-10-07).
+
 **Which read to use** (from the tools' own descriptions, 2026-10-01):
 
 - `vibe_coding_block_get_settings` returns the block's settings, its `actions` (type, `dataSourceId`,
@@ -220,9 +222,15 @@ Editable settings via MCP are the same fields as the block's **Content → Setti
   "is a datasource actually wired to this block?" — the compiler never sees the wiring — and each entry's
   `fieldReferenceKey` (`id` or `name`) says how that source's fields must be referenced in `q.select()`.
 - `vibe_coding_block_get_code` with **`includeCode: false`** skips the source text but still returns
-  `sourceSha256` and `sourceBytes` — about 1 KB however large the block is. Use it to [verify a
-  push](#verifying-a-push--the-deployed-source-is-the-only-proof) (verified live 2026-10-01).
+  `sourceSha256` and `sourceBytes`. Use it to [verify a
+  push](#verifying-a-push--the-deployed-source-is-the-only-proof) (verified live 2026-10-01). It drops
+  only the source: the response still carries every data source's field list. It came to about 1 KB for
+  a block with few connections, but about 40 KB on a block with 11, and `vibe_coding_block_get_settings`
+  was the same size (LCDB QA rounds, 2026-10-08). Read it once after a push, not after every call.
 - Push results now report `sourceSha256` and `sourceBytes` too, for the source Softr actually stored.
+  A search-replace result also carries `actions`, so one `includeCode: false` read afterwards is enough.
+- **"Page not found" from a block tool** means `pageId` and `blockId` were passed the wrong way round, or
+  one of them is wrong. Three agents swapped the two (same rounds).
 
 ### Which edit tool: full replace vs. targeted search-replace
 
@@ -246,10 +254,32 @@ context. Keep the local mirror in step mechanically rather than by hand:
 1. Prove deployed == disk first ([below](#verifying-a-push--the-deployed-source-is-the-only-proof)).
 2. Write the ops once, as data. Send them to the tool, and apply the **identical** ops to the local
    mirror with a script that asserts each `search` occurs exactly once before replacing it.
-3. Several rounds of ops are fine — **verify once at the end**: compare the `sourceSha256` of the
-   last push result with the mirror's SHA-256. A mismatch means an op landed differently on one
-   side. The digest describes the source Softr stored after merging your edits, not the edits you
-   sent, which is what makes it usable here: on this path you never see the merged file yourself.
+3. Several rounds of ops are fine, but **each call is its own push**: it compiles and saves on its
+   own. Three things follow.
+   - **Every intermediate state must compile.** Replay the ops on the base and gate the text after
+     each planned call before you send any of them. Top-down ops can leave a helper undefined
+     halfway (only 3 of 54 op prefixes compiled in one plan), so keep the old helper in call 1 and
+     delete it in the last call.
+   - **Write down the `sourceSha256` each call must return, and check it per call**, not only at the
+     end. A mismatch means an op landed differently on one side. The digest describes the source
+     Softr stored after merging your edits, not the edits you sent, which is what makes it usable
+     here: on this path you never see the merged file yourself.
+   - **Each call resets the block's Action permissions and leaves its intermediate code in the
+     draft.** Send the calls back to back, re-apply restricted permissions once after the last call,
+     then read them back. Anyone who publishes in between ships the intermediate state. In one
+     two-call push, an Administrator-only void action was open to any logged-in user for about two
+     minutes, between call 1 and the re-apply (LCDB, 2026-10-08). Mark the calls in their
+     `versionName` ("… (part 1 of 2)").
+
+**Shrink the ops before you send them.** Trim the common prefix and suffix of each search/replace
+pair, then grow the search until it is unique (24 characters or more worked). Check uniqueness in the
+state each op applies to: ops apply in order, and only the first occurrence is replaced. Replay the
+ops on the base to rebuild the target byte for byte. Smaller payloads mean less text retyped through
+the model, and every shrunk push matched its hash on the first try: one plan went from 20,665 B to
+10,721 B, another from 19.8 to 16.5 KB, and one header edit's search from 1,173 B to 40 B (LCDB,
+2026-10-08). A large insertion needs no full replace: one op anchored on a short unique line carried a
+33 KB component, and the returned hash matched the replayed file. On a long one-line header, use a
+short unique tail of the line as the search.
 
 One encoding trap: JSON `\uXXXX` escapes inside the ops are **decoded to the real characters** on
 Softr's side (`"\u2014"` is stored as `—`). The mirror must therefore hold raw UTF-8 — apply the
@@ -289,13 +319,34 @@ definition says, check that `sourceCode` came back `null`.
 
 1. **Before editing, prove deployed == disk.** Call `vibe_coding_block_get_code` with
    `includeCode: false` and compare `sourceSha256` and `sourceBytes` to `shasum -a 256 <file>` and
-   `wc -c < <file>`. If they differ, someone changed the block in Studio since your last push: fetch
-   the full source, diff it against yours and reconcile. Do not overwrite work you have not seen.
+   `wc -c < <file>`. If they differ, the block has changed since your last push: fetch the full
+   source, diff it against yours and reconcile. Do not overwrite work you have not seen.
+   - **A Studio edit is one cause, not the only one.** Another session or agent can push (and
+     publish) in between: a second session pushed to five blocks and published while a QA pass was
+     running, which left every scratch copy stale (LCDB, 2026-10-08). And an agent can push, then die
+     before it writes the mirror: twice the mirror held a version older than the deployed block, and
+     the version history rebuilt what was live.
+   - **So compare again at review time and right before the push**, not only before editing, and
+     start every edit from the project mirror, never from a scratch copy.
+   - **`vibe_coding_block_list_versions` with `includeCode: false` dates every save.** Each entry
+     carries its `title` (the `versionName` you passed, or a generated summary) and its `prompt` (the
+     `userPrompt` you passed). Pass a descriptive `versionName` and `userPrompt` on every push, and
+     the history reads as a log.
 2. Edit the local file. Run a parser and `no-undef` lint on it first — `node --check` does **not**
    accept a `.jsx` extension, so use esbuild (`esbuild file.jsx --loader:.jsx=jsx --jsx=automatic
    --log-level=error --outfile=/dev/null`) plus eslint with `@babel/eslint-parser`. The bugs that
    actually bite Softr blocks are semantic — `useRecordUpdate({ select: … })` instead of `fields:`,
    an invented identifier — and the push is the first thing that reports them.
+   - **This gate is weaker than Softr's compiler for TypeScript.** esbuild strips types without
+     checking them, so a duplicate `type X` passes, and Softr then refuses the push with `Identifier
+     'X' has already been declared` (a reviewed block, refused at the second declaration; LCDB,
+     2026-10-08). The `jsx` loader cannot parse type annotations at all, so TypeScript source in a
+     `.jsx` file needs `--loader:.jsx=tsx`. Add a duplicate-declaration check, for example `tsc
+     --noEmit` failing on TS2300, TS2451 and TS2393, and grep the file for each new top-level name
+     before you add it.
+   - **In any script that asserts a fix, assert on the exact code**, such as `new Date().toISOString()`,
+     never on a bare word a comment may also hold: `assert "toISOString" not in out` failed on the
+     comment that explained the fix (same pass).
 3. Push the **entire** file — or, for a targeted patch on a large block, send search-replace ops
    and apply the identical ops to the mirror
    ([recipe above](#which-edit-tool-full-replace-vs-targeted-search-replace)).
@@ -328,9 +379,30 @@ records the other page's pair. Search-replace would avoid the swap altogether
 ([above](#which-edit-tool-full-replace-vs-targeted-search-replace)) — when the client can send its
 array argument ([below](#the-array-argument-rejection-and-why-it-is-a-security-issue)).
 
+**The `versionId` in a push result is the script's build id, not a version-history id.** It is the
+segment in the path the page loads, `…/vibe-coding/…/<blockId>/<buildId>/index.js`.
+`vibe_coding_block_list_versions` returns `NOT_FOUND` for it, even though that tool's own description
+says it accepts a write tool's `versionId`. Every pushing agent in two QA rounds met both ids, and
+two looked the build id up in `list_versions` and got `NOT_FOUND` (LCDB, 2026-10-08). The two ids do
+two jobs:
+
+- **To prove the preview serves a push**, compare the push result's `versionId` with the build id in the
+  served script's URL. [browser-checks.md](browser-checks.md#2-session-preview-cookie-page) (step 2) has the check.
+- **To name the version**, use the `versionNumber` from `vibe_coding_block_list_versions`, with its list
+  id. Report both ids.
+
+**A push call that times out may still have landed.** Read `sourceSha256` with `includeCode: false`
+before you send anything again. A call that answered "server isn't responding" had landed: the
+read-back matched the planned hash, and nothing was retried (LCDB, 2026-10-08). A re-sent search-replace
+fails on text it already changed, or applies twice where the replacement still contains the search. A
+refused push stores nothing, so read the deployed hash back before you send the fix as well. And
+when the deployed block, the working copy and the mirror already hash the same, skip the push: every
+code write adds a version and resets Action permissions for nothing (a no-op push skipped this way
+in the same rounds).
+
 **Do not read a 100KB block into a model's context to push it.** The full-replace tool takes the
 whole file as a string parameter, so the source has to pass through whatever is making the call.
-Verification no longer has to: the digest is a few hundred bytes. A large multi-block deploy is still
+Verification no longer has to: the digest is a few hundred bytes (the read that returns it can be larger on a block with many data sources, [above](#vibe-coding-block-tools)). A large multi-block deploy is still
 safer farmed out one file per subagent — a fresh context per file means no compaction can land
 mid-file — and the hash comparison is what makes that delegation safe, not trust in the agent. The
 steps that need judgement are the *edit* and the *review of the diff*; the hashing, the compare and
@@ -526,9 +598,24 @@ Both edit paths recompile, so both reset Action permissions either way (Hard Con
 
 *Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
 captured from the app iframe); the block-visibility row verified 2026-10-05 (HubSpot; preview link,
-impersonated users, direct POSTs).* A block's data lives behind per-connection endpoints —
-`/blocks/<blockId>/datasources/<connection>/records` for lists, `/records/<id>` for one record —
-and these are the gates that actually exist on them (`<connection>` was recorded as the connection's id in the 2026-09-18 Softr Database capture and seen as its alias in a 2026-10-05 HubSpot capture; unresolved, and it only matters when reading a network log):
+impersonated users, direct POSTs).* A block's data lives behind per-connection endpoints, and these
+are the gates that actually exist on them. Which name sits in the path matters when you read a network
+log or write a request guard:
+
+- **In a block that declares `datasource.define`, reads use the define name** (HubSpot capture,
+  2026-10-05; Softr Database capture, 2026-10-08). A list is
+  `POST …/blocks/<blockId>/datasources/<name>/records`, and one record is
+  `POST …/datasources/<name>/records/<recordId>`. A `*/datasources/*/records` pattern does not match
+  the single-record read.
+- **Writes do not use the name.** A create is `POST …/datasources/<uuid>/records-trigger/new`, and an
+  update is `PATCH …/records-trigger/<recordId>`. The uuid differed between runs (in the HubSpot capture
+  it changed on recompile), so key write guards and log filters on `records-trigger`, never on the name
+  or the uuid.
+- **One earlier capture is not explained by this.** A 2026-09-18 Softr Database capture recorded a
+  read under the connection's id. That case (possibly a block without `datasource.define`) was not
+  re-checked.
+
+The gates:
 
 | Gate | Enforced server-side? |
 |---|---|
@@ -553,6 +640,11 @@ the page VIEW permission at `LOGGED_IN_USERS` throughout.
 
 This is also what makes the open-`ADD_RECORD` finding above severity-dependent on the page's VIEW
 permission rather than uniformly critical.
+
+**Saves carry the page URL.** Every save body holds `context.pageURL` and `context.URLParameter`. A
+value a block keeps in the URL, such as a `?q=` search holding client names, therefore goes to Softr's
+server with every save on that page (seen on a blocked save, 2026-10-08). Decide on purpose whether
+such a value may sit in the URL, and record the decision.
 
 #### Logged-in-user values in Source conditions
 
@@ -660,23 +752,41 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 
 **Email senders, as the MCP shows them** (read 2026-09-10 and 2026-09-18): `workspace_list_email_senders` lists each workspace sender with a `confirmed` flag, and an address that was added but never verified reads `confirmed: false`. `application_get` showed the app's own sender as `<subdomain>@softr.app`. In a workflow, a `SOFTR_SEND_EMAIL` node chooses its sender through the optional `emailSenderSignatureId` input. Before publishing a workflow that must send from a particular address, check that the address is in the list and confirmed.
 
+**Three setup facts from an app build** (LCDB, 2026-10-05 to 07):
+
+- **A plan caps its custom user groups, so check the cap before designing roles.** The app's public config, `window.application_context` on its `/login` page, carried `numberOfCustomUserGroups` (3 on that plan) and `signUpSettings.policy`. It is a read-only check and needs no login. The cap forced a late redesign from four groups to three.
+- **A new app comes with a default test user** (`testuser@example.com`, seen in the one app we created) in no group. Deactivate it before go-live, or keep it as the no-group test account.
+- **After a subdomain change, the old address returns 404 with no redirect**, so every old link is dead. Re-read `application_get` afterwards for the app's email sender, which showed the subdomain-based address before the change. Whether the sender follows the change was not checked.
+
 Combined with the database tools (`database_create` / `database_create_table` / `database_create_field`) and `vibe_coding_block_create` + `application_publish`, the tool set for scaffolding a full app end to end now exists. (Existence-verified only — that pipeline hasn't been run live; treat the first full scaffold as an experiment, not a routine.)
 
 **Etiquette from the server's own instructions:** after changing a block, link the page as `https://studio.softr.io/applications/{applicationId}/pages/{pageId}`; offer `application_preview` or `application_publish`, but **only publish when the user asks**.
 
 > **application_preview links are auth tokens.** Per the server's own instructions, a preview link **signs its opener in as the user who requested it** and lasts about a day. Give it only to that user, and mint a fresh one with another `application_preview` call rather than re-sending an old link. Never paste a preview link into a shared channel.
 >
-> **A preview link also pins the app version.** Its URL carries `&version=<n>`, so it keeps serving the version it was minted for. That is by design, not a caching bug. After every push, mint a new link before you check anything.
+> **The `&version=<n>` in a preview link is an app-level number, not a block version, and it does not prove which code is served.** By Softr's design a link keeps serving the version it was minted for, but in one app every freshly minted link read the same `&version=153` for about 16 hours, across dozens of block pushes and two app publishes, and each link served the newest block build (LCDB QA pass, 2026-10-07 to 08). Prove what is served by the script's build id, as in [the `versionId` note](#verifying-a-push--the-deployed-source-is-the-only-proof). After every push, still mint a new link (or press the preview's `#refresh-button`) before you check anything. Whether a link minted *before* a push keeps serving the old build was not re-tested.
 
 **Reading pages and blocks:**
 
 - `application_page_get` lists a page's blocks **in page order, with no `order` field**. That field
   was always `null` and was removed on 2026-10-01 (verified live that day; the tool's description
   still mentions it). For a block nested in a column or tab container, the container's slots set its
-  position, not its place in the list.
+  position, not its place in the list. The list is not visual order where shared blocks are involved
+  either: it showed the shared navigation header block after the page's content on every page except
+  Home, in two apps (LCDB, 2026-10-05 to 08).
 - **A block created over MCP still lands at the bottom of the page**, and no tool places or reorders
   blocks yet. Softr has said placement will come later. Until then, a human drags it into place in
   Studio. Say so when you hand the block over.
+- **Studio-only jobs, with no MCP tool** (checked against the roster of 2026-10-08):
+  - setting a page's VIEW permissions (`application_page_get_permissions` only reads them);
+  - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
+  - navigation links (`application_page_get_block` on the shared Navigation block does not return them);
+  - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
+  - the app's Custom Code and theme.
+- **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
+  action permissions and page permissions. Then in Studio, where the MCP cannot see: Page Rules rows
+  and navigation-link visibility. A group that came back clean on both was deleted by hand
+  (LCDB, 2026-10-07).
 - **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
   version's `createdAt` are ISO-8601 UTC with millisecond precision, studio-side and tables-side
   alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
@@ -713,6 +823,13 @@ connection's field reference key set to `id`. The HubSpot version (2026-10-05) i
   condition fails. HubSpot behaved the same way.
 - **Check membership by running the app as that user** and reading the groups the app gives them
   ([how](#testing-as-any-app-user-without-logins--the-preview-as-switcher), below).
+- **After any group change, in Studio or over MCP, read the groups back with
+  `application_list_user_groups`.** A group left in condition mode with nothing filled in reads back as
+  a condition holding one blank rule (no field, no operator). What that rule matches is unverified, so
+  switch the group to a manual list before anyone relies on it. A read-back found this on a group
+  that was meant to be manual (LCDB, 2026-10-07).
+- **Keep the top administrator group a manual list.** A condition on users-table fields hands
+  membership to anyone who can edit those fields in the table, so they could promote themselves.
 
 ### Testing as any app user without logins — the "Preview as" switcher
 
@@ -744,10 +861,17 @@ passwords, no test accounts to create:
   then read `iframe.contentWindow.__softr_current_user.userGroups`.
   - The link carries `?show-toolbar=true`, so the top document is the toolbar shell and the app runs
     in `document.querySelector('iframe')` (the `#preview-iframe` of
-    [browser-checks.md](browser-checks.md)). `window.__softr_current_user` exists only in that
-    iframe's `contentWindow`. The top window has no user globals at all.
+    [browser-checks.md](browser-checks.md)). In the shell, `window.__softr_current_user` exists only
+    in that iframe's `contentWindow`; the shell itself has no user globals.
+  - **On a page URL opened directly on the preview origin, the app is the top window**, and
+    `window.__softr_current_user` (email and groups) is readable there (verified 2026-10-08, for an
+    administrator and a volunteer). That is the flow [browser-checks.md](browser-checks.md) uses.
   - To reload, set the iframe's `src` again with a fresh `t=<timestamp>` query parameter, after the
-    impersonate call.
+    impersonate call. On a direct page URL, reopen the page instead.
+  - **Read the email and groups after every switch, before any role check.** The impersonate fetch
+    returns 200 while the already-open page keeps the old user, until the page is reopened. A mistyped
+    id returns 400 and the preview silently stays as the previous user, so a role check can run as
+    the wrong person without any error (2026-10-08).
   - Observed group names: a user who matched the Volunteer condition above read
     `["Logged in users", "All users", "Volunteer"]`; a user with no login email read
     `["Logged in users", "All users"]`.
@@ -871,6 +995,31 @@ Known limits and behaviors (per official docs):
   comment). A block that appends to such a field has to keep the total under it; what a longer write
   does was not tested. Use LONG_TEXT for anything that grows.
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
+- **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours, LCDB,
+  2026-10-08). Two metrics on different fields returned `BAD_REQUEST` every time; a SUM and a COUNT on
+  the same field worked once. Group-by acceptance was inconsistent across agents on the same day:
+  SELECT and CHECKBOX were refused, while text, LINKED_RECORD, DATETIME by MONTH and DISTINCT on a
+  link each worked in one run and returned `BAD_REQUEST` in another. So prefer filter-only,
+  single-metric calls (one per value or range), and check that the parts add up to the unfiltered
+  total. A filter in a shape the tool does not expect (`{logicalOperator, conditions}`) was ignored
+  with no error, and the count came back as the whole table. The tool expects
+  `{ condition: { operator: "AND"|"OR", conditions: [...] } }`, with field ids in `leftSide`. Compare
+  every filtered count with the unfiltered one. To leave out rows flagged by a checkbox, filter
+  `IS_NOT true` instead of grouping by it.
+- **`database_search_records`:** filters name fields by id in `leftSide`. A sort on `updatedAt` was
+  silently ignored, and a filter on `id` was rejected.
+- **`database_create_field` on a LINKED_RECORD always creates a single-valued inverse** on the target
+  table, named after the source table. Links defined inside `database_create_table` got none (LCDB,
+  2026-10-05). Make the inverse multi-valued (`database_update_field`, `options.allowMultipleEntries:
+  true`) unless one-to-one is meant. Otherwise a second link silently overwrites the first, as in
+  [the single-valued pair trap](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).
+- **On the workspace server, a new database starts with a starter table, "Table 1"** (Name, Description
+  and Status fields). Per the `database_create` tool's own description (checked 2026-10-08), the vibe
+  coding application endpoints create it empty instead. Reshape the starter table with
+  `database_update_table`, `database_create_field` and `database_update_field` rather than adding a
+  table beside it. A database holding it is not empty, so `database_delete` refuses it without `force`.
+- **`database_create` rejected a description with `BAD_REQUEST` once** (2026-10-05). If it does,
+  create the database without one.
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.
 
@@ -911,7 +1060,7 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
 **Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows; bullets dated later come from a second production build, 2026-09-18/19):**
 
 - **`workflow_create` instantiates an OLD version of the trigger node.** Immediately call `workflow_replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a watched field changes; it takes an UPDATED_AT-type field, see "Trigger scope" below) only exists at v1.2.0; the version `workflow_create` instantiates doesn't have it. Do it before anything references the trigger: the replacement gets a **new node id** (see the `workflow_replace_node` bullet below).
-- **A FILTER condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
+- **A Workflow FILTER node's condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). This is about the Workflows FILTER node only. A block's Source condition written with `vibe_coding_block_set_data_source_record_filters` **is** enforced (verified 2026-09-18 and 2026-10-05, [above](#what-the-server-enforces-on-a-blocks-data-endpoints)), so do not route it to Studio. A project agent once applied this rule to a block's Source filter and routed it to Studio for nothing. `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
   - **The official MCP docs agree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05), and the FILTER spec declares `inputs: {}`. BRANCH conditions were not tested separately here; treat them the same way.
   - **How to build one:** add the FILTER over MCP if that is convenient, then open it in Studio, set its clauses and save. Never trust `inputs.condition` as a record of what the filter does; it can disagree with the path.
   - **How to check one:** read the workflow back with `workflow_get` and find the `paths` entry whose `fromActionId` is the filter; the condition must be there. FILTER nodes cannot be run with `workflow_test_node`, so this read-back is the only check before a real run.

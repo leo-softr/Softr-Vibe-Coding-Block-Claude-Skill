@@ -94,10 +94,12 @@ it behaves as a **union** of both branches, not a choice between them. Which is 
 *Verified live 2026-09-18; the block-visibility gate 2026-10-05.*
 
 The records endpoint is per block + connection —
-`/blocks/<blockId>/datasources/<connection>/records` (`<connection>` was recorded as the connection's id in the 2026-09-18 Softr Database capture and seen as its alias in a 2026-10-05 HubSpot capture; unresolved, and it only matters when reading a network log) — and it returns the **UNION of every field
+`/blocks/<blockId>/datasources/<name>/records` (`<name>` is the name given in `datasource.define`; see the note below) — and it returns the **UNION of every field
 named by any READ `q.select` attributed to that connection**. Two selects on one connection do
 NOT produce two payloads: every read hook on that connection gets all the fields, for every
 viewer.
+
+*On `<name>`.* Block reads go to `…/blocks/<block>/datasources/<name>/records`, where `<name>` is the name given in `datasource.define` (seen on Softr Database on 2026-10-08 and on HubSpot on 2026-10-05), while saves go to `…/records-trigger/…` under a UUID. The 2026-09-18 Softr Database capture recorded an id in that position, which is still unexplained. It only matters when reading or routing a network log; the route patterns for failing reads are in the Forcing states section of [browser-checks.md](../references/browser-checks.md).
 
 **So "request the private field only for admins" is not privacy.** A second select, or a ternary
 between a public and an admin select, still ships the private field to every browser that loads

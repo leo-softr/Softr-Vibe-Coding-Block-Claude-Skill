@@ -56,6 +56,7 @@ deployment; treat it as standing platform behavior, not a one-off.
   read-only, so the code says what the platform does.
 - A mutation hook's `fields:` select does **not** join the connection's read union — write-only
   fields are not shipped to the browser by the records endpoint.
+- **Corollary for an admin-only write (a void, an adjustment).** The server enforces it only when it is the block's only action of its type on that table. A void whose table sees no other UPDATE (normal work there only creates rows): restrict that UPDATE_RECORD action to the administrators' group. A stock adjustment written as a new ledger row is an ADD_RECORD, so it is enforceable only if nothing else in the block adds rows to that table. When normal work shares the action (receiving shares ADD_RECORD with the adjustment, toggling shares UPDATE_RECORD with the void), the write can only be hidden in the browser: move it to a separate group-gated block or a workflow if it has to be enforced. In one app, two voids were server-enforced because each was its table's only UPDATE, while one adjustment and one void shared their action with normal work and stayed browser-only (LCDB, 2026-10-07).
 
 Practical upshot for the post-push permission pass (see
 [softr-mcp.md](../references/softr-mcp.md#the-array-argument-rejection-and-why-it-is-a-security-issue)):
@@ -80,6 +81,8 @@ The `enabled` boolean on a mutation hook is a combined signal — it's `true` on
 Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
 
 Because the parser only inspects your hooks and `q.select` mappings (not the JSX tree), inputs rendered conditionally inside `<Dialog>`, `<Sheet>`, or any subtree gated by state are still bound to the Action correctly. Verified by direct experiment, May 2026.
+
+**Keep each `hook.mutateAsync(...)` call on the hook variable inside the function that declares the hook.** If a module-scope helper has to write, pass it the hook (or a callback that calls it). Move the code that does not write to module scope instead: a queue runner's state, row memos, dialog state, paging effects. That also makes it testable on its own. This is by analogy, not tested either way: the parser reads a hook's call site statically, as it does for inline select options and nested update payloads, and a write call moved out of sight might lose its Action with no error (LCDB QA pass, 2026-10-08).
 
 ## Record Mutations
 
@@ -106,6 +109,8 @@ if (createRecord.enabled) {
   createRecord.mutate({ name: "Jane", email: "jane@example.com" });
 }
 ```
+
+`error.message` is the browser's raw text ("Failed to fetch"); in a shipped block, map it through the block's one error helper ([Error Message Formula](../ui-ux-guidelines.md#error-message-formula)).
 
 **Create payloads are FLAT — no `{ fields }` wrapper** (verified live 2026-08-25). The payload's
 keys are the aliases from the hook's `fields:` q.select, at the top level. This is deliberately
@@ -145,6 +150,8 @@ sources (inferred, untested elsewhere). So:
   +4 s; a read right after the write was not measured). Read the table again a few seconds
   later as well; see
   [Fields the source changes after the write](#fields-the-source-changes-after-the-write).
+
+**One hook serving two surfaces** (a row's Save and a dialog's action): a hook-level `onError` cannot know where to show the error. Leave it off and show the error from each handler's catch, with that handler's context: the row toasts, the dialog shows it inside itself (LCDB QA pass, 2026-10-08).
 
 #### CRITICAL: The `useRecordUpdate` payload shape (and the retired `.mutate()`-only rule)
 
@@ -258,6 +265,18 @@ Rules that make this safe:
 - **Guard the created id.** If a create resolves without an id, throw — don't write lines linked
   to `undefined`.
 - **Gate the whole flow on the hooks' `enabled` booleans**, same as any mutation UI.
+
+What a QA pass over 15 blocks added to these rules (LCDB, 2026-10-08), each from a queue that sent stale values, wrote twice, or locked a dialog for good:
+
+- **Lock the inputs after a failure.** Keep them in a `<fieldset disabled>` until Retry or Start over, so a Retry sends what the screen shows. A Retry once sent the values from the first click while the editable form showed new ones. (Inputs inside a disabled fieldset still report `.disabled === false`; test `matches(":disabled")`.)
+- **Set the in-flight guard in a ref, before the first `await`.** State is a render late and a fast double tap gets through it: a deployed block created 2 records on a double click with a 300ms save.
+- **An awaited check before a retry runs in try/catch.** A throw there leaves the dialog locked.
+- **A queue that a later Retry resumes keeps its input in a ref,** not in live dialog state.
+- **Block a new run while any line still needs Retry,** or the pending retry is lost.
+- **A retry re-reads the server after its own failure too,** not only before the first attempt, or it can write a row twice.
+- **Stop the queue when the block unmounts** (a ref the loop checks).
+- **A header saved with a failed line is "not fully saved"** in the footer text, not "not saved".
+- Show the failed step's error inside the dialog, and let the user close it whenever nothing is in flight ([common-patterns.md → Failures, focus and Escape](../references/common-patterns.md#failures-focus-and-escape)).
 
 ### Parallel writes across tables (the one sanctioned parallelism)
 
@@ -550,6 +569,8 @@ createRecord.mutate({ price: 49.99, quantity: 3 });
 
 To clear, `null` works on Softr Database (`""` is invalid for numeric fields). Other data sources not independently verified.
 
+**Range.** A Softr Database NUMBER field declares a minimum of -2,147,483,648 and a maximum of 2,147,483,647 (int32) in the `dataSources` that `vibe_coding_block_get_code` returns. Bound typed quantities to that range in the shared validator ([ui-ux-guidelines.md §11](../ui-ux-guidelines.md#number-inputs)), so an over-range typo is refused before a header is written, not after (a partial save). That the server refuses a larger value was not probed; the limit was read from the schema.
+
 ### Checkbox
 
 Boolean `true` / `false`:
@@ -576,6 +597,8 @@ Verified live 2026-08-25 (Softr Database): DATETIME fields with **date semantics
 a distribution date) take the `"yyyy-MM-dd"` form; **timestamp** fields (`*_at` audit fields)
 take `new Date().toISOString()`. Writing a full timestamp into a date-semantics field invites
 timezone-shift bugs — compare and display such fields on the `yyyy-MM-dd` slice.
+
+**A "today" that a save writes into a date-only field** is `format(new Date(), "yyyy-MM-dd")`, worked out in the click handler. Never `new Date().toISOString().slice(0, 10)`: that is the UTC day, which is tomorrow on a US evening. And never a value computed at render or mount: a verify action stamped the render-time day, which is yesterday on a page left open past midnight (LCDB QA pass, 2026-10-08). The same local-time rule covers a "Generated" stamp in an export or printout: local time with its UTC offset ([common-patterns.md → CSV export](../references/common-patterns.md#csv-export)).
 
 ### Date Range
 
@@ -687,3 +710,14 @@ Notes:
 - Rate limits: Reads 40 req/s, Writes 30 req/s
 
 Verified by direct experiment (May 2026): POST to this endpoint with field IDs as keys writes successfully, returning HTTP 200 and the full record JSON. At that time the endpoint took plain string UUIDs for dropdown writes, and the response returned the dropdown value as a `{id, label}` object (matching the read shape). Note: that observation predates the 2026-08-25 finding that the **in-block hooks** write SELECTs by label — the REST endpoint is a separate surface and may still expect UUIDs; re-verify whichever shape you use here.
+
+### Audit and change-log rows
+
+Cross-table writes often include an audit row (who changed what, when). The write pass and its checker found these gaps (LCDB, 2026-10-08):
+
+- **Stamp who and when (`updated_by`) on every write path,** creates and voids included. Several saves left it empty because the field was missing from the write select.
+- **A change-log row written before a create cannot name the new record.** Write another row once the create's id comes back, and guard the log-first write so it is never re-sent. One override left a row with the record id "pending-create".
+- **Audit rows record the stored value,** not a display default: a row logged "Active" as the old value of a field that was blank.
+- **Reversal rows use one note prefix across blocks.** Three blocks wrote three different prefixes for the same kind of reversal.
+- **First/last date stamps are the min/max of the stored dates,** never `existing || date`: a backdated pickup did not move the first-pickup date.
+- **A "who" the block writes is self-reported**, so it is a convenience, not an audit trail ([softr-database.md → Gotchas](softr-database.md#gotchas)).

@@ -108,6 +108,8 @@ var createRecord = useRecordCreate({
 createRecord.mutate({ name: "Jane", email: "jane@example.com" });   // FLAT — no { fields } wrapper
 ```
 
+`err.message` is the browser's raw text ("Failed to fetch"); in a shipped block, map it through the block's one error helper ([Error Message Formula](../ui-ux-guidelines.md#error-message-formula)).
+
 ## Update (THE CORRECT PATTERN)
 
 ```jsx

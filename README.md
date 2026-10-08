@@ -197,8 +197,9 @@ softr-vibe-coding/
 │   │                                 # (Sep 18 2026); Oct 1 2026: tool rename map,
 │   │                                 # push verification by sourceSha256, stub tools
 │   │                                 # after a resume, update_field/update_table fixes;
-│   │                                 # Oct 6 2026: MCP-written FILTER conditions are
-│   │                                 # inert (set them in Studio), Workflows tools as
+│   │                                 # Oct 6 2026: MCP-written Workflow FILTER conditions
+│   │                                 # are inert (set them in Studio; Source conditions
+│   │                                 # set over MCP do work), Workflows tools as
 │   │                                 # workflow_*, denied by-id fetch per backend;
 │   │                                 # Workflows engine facts (CUSTOM_CODE contract,
 │   │                                 # string-array loops, sample-based validation,
@@ -213,7 +214,14 @@ softr-vibe-coding/
 │   │                                 # MCP (subject USER:<field id>, not USER:::),
 │   │                                 # list_users omits conditional membership,
 │   │                                 # reading userGroups in the preview iframe,
-│   │                                 # what __softr_current_user carries
+│   │                                 # what __softr_current_user carries;
+│   │                                 # Oct 8 2026 (QA pass): a push sent as several
+│   │                                 # calls compiles and resets Action permissions on
+│   │                                 # each call, shrinking search/replace ops, the
+│   │                                 # push result's versionId is the build id, a
+│   │                                 # timed-out push may have landed, endpoint names
+│   │                                 # for reads vs writes, Studio-only jobs, aggregate
+│   │                                 # and search tool limits
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -222,7 +230,21 @@ softr-vibe-coding/
 │   │                                 # click sent, screenshots to disk (Oct 1 2026);
 │   │                                 # testing Custom Code header CSS (Oct 5 2026);
 │   │                                 # the client's time zone via TZ at launch, and
-│   │                                 # date-only values shown vs stored (Oct 8 2026)
+│   │                                 # date-only values shown vs stored (Oct 8 2026);
+│   │                                 # Oct 8 2026 (QA pass): proving the served build
+│   │                                 # from the script URL, measuring and sizes rules,
+│   │                                 # the create-save guard and the request log, forcing
+│   │                                 # states (fake clock, held saves, failed and served
+│   │                                 # reads), exports and printouts without a download
+│   │                                 # or pop-up, double-tap and leave-guard tests
+│   ├── qa-playbook.md                # QA of a whole app, in the order to run it (Oct 8
+│   │                                 # 2026): set-up (draft, served build, client zone,
+│   │                                 # one session per agent), never writing by accident,
+│   │                                 # roles, logged-out access, figures checked against
+│   │                                 # the database, edges tested on purpose, proving a
+│   │                                 # fix before and after in a harness, a live write
+│   │                                 # pass with a read-only checker, QA with several
+│   │                                 # agents and skeptics
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -239,7 +261,11 @@ softr-vibe-coding/
 │   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
-│   │                                 # auth-aware CTA, image masks, blobs, dot lists
+│   │                                 # auth-aware CTA, image masks, blobs, dot lists;
+│   │                                 # Oct 8 2026 (QA pass): a search in the URL, a
+│   │                                 # saved preference, failures, focus and Escape in
+│   │                                 # dialogs, inline confirm in place of a button,
+│   │                                 # drafts that survive a reload, CSV export
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity

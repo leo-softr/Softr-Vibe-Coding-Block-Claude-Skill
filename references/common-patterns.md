@@ -20,6 +20,9 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Measure the block, not the window](#measure-the-block-not-the-window)
 - [Clear Softr's sticky bars](#clear-softrs-sticky-bars)
 - [A modal above Softr's bars](#a-modal-above-softrs-bars)
+- [Inline confirm in place of a button](#inline-confirm-in-place-of-a-button)
+- [Drafts that survive a reload](#drafts-that-survive-a-reload)
+- [CSV export](#csv-export)
 
 ## Cross-Page State with localStorage + URL Parameters
 
@@ -71,6 +74,22 @@ If state should NOT survive logout (e.g. it references record IDs the next user 
 var currentUser = useCurrentUser();
 var key = "softr_myapp_selected_event_" + ((currentUser && currentUser.email) || "anon");
 ```
+
+### A search in the URL
+
+Keep a list's search in the URL (`?q=`) so Back and a reload bring it back. Write it with `replaceState` inside try/catch, and pass the current state through:
+
+```jsx
+try { window.history.replaceState(window.history.state, "", url); } catch (e) {}
+```
+
+Softr's page renderer wraps `pushState` and `replaceState` (read from the renderer's source): it throws on a state that is not an object, and it stamps its own `__histIdx` into the state. Passing `history.state` keeps that index; `null` loses it. With this, going back from a record returned to `?q=…` with the results showing, and a reload kept the search (LCDB QA pass, 2026-10-08).
+
+**What goes in the URL goes to Softr's server.** Every save request carries the page URL and its parameters (`context.pageURL`, `context.URLParameter`), so personal data in a parameter is a decision to record, not a side effect. A blocked save on a page with `?q=<surname>` carried the surname in both fields.
+
+### A preference that follows the user
+
+A preference that should follow the user across devices (a dashboard layout) lives in a table, one row per user per view. Keep a `localStorage` copy only to avoid a jump while the row loads. A `where` on the email is not access control: without a Source condition on `{USER:::EMAIL}`, any logged-in user can read every row, and whether that condition also stops updates to other users' rows is untested. One app shipped its layout table without the condition, and a QA pass found that any login could overwrite another user's row (LCDB, 2026-10-07).
 
 ## Clipboard Copy Button
 
@@ -167,13 +186,15 @@ The hook automatically handles:
 - Softr's in-app confirmation modal when the user clicks an internal Softr link or `<NavigationAction>`.
 - Letting navigation through if the user confirms; cancelling if they decline.
 
-**Most form blocks don't need to wire this manually** — Softr's Vibe Coding bundler often adds the blocker automatically when it detects form dirty state. You only need to add it explicitly for advanced cases:
+**Wire it yourself in every form block, and see it fire in the preview.** Don't count on Softr's bundler to add the blocker. A form block pushed through the MCP had none: after typing rows, a click on a sidebar link left the page with no prompt, and none of that app's 15 block sources called the hook (LCDB QA pass, 2026-10-08; observed from a source grep and one live block, so it is a report of what we saw, not a statement about the bundler). Test it: make the form dirty, click a sidebar link, expect the prompt. The hook itself was not exercised in that app, so see it work before relying on it. It matters most for:
 
 - Multi-step forms where the dirty state spans several panels.
 - Manual dirty tracking that doesn't go through standard form-state hooks.
 - Blocks where you want to block on something other than form dirtiness (e.g., a pending background upload).
 
-**Asking Softr to add the blocker automatically:** when generating or refining a form block in the Vibe Coding editor, you can prompt with "Block the navigation when the form is dirty" and Softr will wire `useNavigationBlocker` for you — useful when you don't want to write the import + hook call yourself.
+The blocker only asks. Rows the user chooses to throw away anyway are gone, so a long entry form also wants [a draft that survives a reload](#drafts-that-survive-a-reload).
+
+**Asking Softr to add the blocker:** the bundler did not add it to a block pushed through the MCP, so wire it yourself. In Studio's own editor, prompting "Block the navigation when the form is dirty" may write the import and the hook call for you (untested here, as no block went through that route). Check that it fires either way.
 
 ## Scroll-Condensing Fixed Header (Landing-Page Hero)
 
@@ -447,6 +468,10 @@ createItem.mutate(payload, {
 
 **Where the id comes from is not always where it goes.** For an `onCreate` inside a Combo — a vendor typed into a picker — the created id is patched into the form and the user keeps editing; there is nothing to open. See [searchable-dropdown.md](searchable-dropdown.md#variants-worth-having). Navigation is for records that have their own page and that the user will work on next.
 
+### New from a search with no results
+
+A New button on a search that found nothing opens the form prefilled from the query: digits go to the phone, and both "Last, First" and "First Last" go to the name fields (that order is what made the search miss). Compare the form's unsaved-changes check against the prefilled draft, not against an empty one, or Cancel asks to discard text nobody typed. A duplicate check before the create says why each match matched and ranks strong reasons above a weak substring match: a household's second parent was not flagged as a duplicate until it matched on the other caregiver and the address (LCDB QA pass, 2026-10-08).
+
 ## Clickable Row with an Inner Link
 
 An index table exists to get the user into a record, so the hit area is the whole row. But a row is not a link: cmd-click, middle-click, right-click → "Copy link" and hover-to-see-the-URL all come from a real `<a>`. Keep both — the row handler for the plain click, an anchor on the name for everything the browser does with anchors — and make sure they do not fight:
@@ -562,6 +587,28 @@ export default function Block() {
 - **`useLayoutEffect`, not `useEffect`.** A passive `useEffect` runs after the browser paints, so the first frame is laid out with the initial guess: the window's width. Beside a sidebar that guess is out by up to 360px, and the layout visibly flips. At a 1200px window with a 360px sidebar the block is 840px, but the first frame would paint the two-column skeleton and then switch to one column. `useLayoutEffect` measures and re-renders before the first paint. (A code-review finding, 2026-10-05; the fix shipped in two blocks.)
 - **Put the ref on the block's outer wrapper, and render that wrapper in every state, loading included.** The effect runs once, so a ref that attaches only after the data loads is never observed. Measure the wrapper, not an element whose width depends on the decision the width drives.
 - **Keep padding off the `@container` element** when CSS and JS both switch on width. Container queries read its content box and `getBoundingClientRect()` reads its border box. With no padding or border they are the same number, so `@min-[860px]:` and `width >= 860` agree.
+- **When JS must agree exactly with a CSS container breakpoint** (the page size of a table that turns into a stacked list at that breakpoint), don't redo the rem math in JS and don't read the window's width. Render a zero-size probe that carries the breakpoint's own classes under the same `@container`, and read whether it is displayed:
+
+  ```tsx
+  // Module scope. The probe shows exactly when the table shows, so JS and CSS cannot disagree.
+  function useTableMode() {
+    const [probe, setProbe] = useState<HTMLElement | null>(null);   // state, not a ref: see below
+    const [tableMode, setTableMode] = useState(false);
+    useLayoutEffect(() => {
+      if (!probe || !probe.parentElement) return;
+      const read = () => setTableMode(probe.getClientRects().length > 0);  // display: none has none
+      read();
+      const ro = new ResizeObserver(read);
+      ro.observe(probe.parentElement);
+      return () => ro.disconnect();
+    }, [probe]);
+    return { tableMode, probeRef: setProbe };
+  }
+  // In the JSX, inside the @container wrapper:
+  // <span ref={probeRef} aria-hidden="true" className="pointer-events-none absolute hidden h-0 w-0 @min-[48rem]:block" />
+  ```
+
+  If the probe mounts only after loading, hold it as state (`ref={setProbe}`) and key the effect on it: a ref with `[]` deps never sees it, and a plain `useEffect` paints 50 rows first. In a harness the page size matched the CSS switch exactly at 767 and 768px (LCDB QA round 2, 2026-10-08). Key a table/stack switch on the content card's own `@container`, not on the block's width: a log table keyed on the block's 47rem still overflowed in its 650px card.
 - The window `resize` listener is only the fallback for a browser without `ResizeObserver`. The observer also sees what a resize event never reports: the sidebar collapsing or being dragged while the window stays the same size.
 - Thresholds one app uses: a chart labels every other month below a 640px block, and list and detail sit side by side from an 860px block.
 
@@ -571,7 +618,7 @@ On a page with Softr navigation, Softr's bars live in the main document, outside
 
 | Bar | Shows at | Element | Height | Position |
 |---|---|---|---|---|
-| Top bar | a window of 768px and up | `#topbar-root` | 56px | sticky, top 0, z-index 800 |
+| Top bar | a window of 768px and up, in an app that has one | `#topbar-root` | 56px | sticky, top 0, z-index 800 |
 | Phone tab bar | a window below 768px | `#bottombar-root` | 57px rendered (`#bottombar-root` and its `ul` both measured 57px; Softr's variable says 55px) | sticky in the page grid's bottom row (not `fixed`), z-index 800 |
 
 The block host hands their sizes to block CSS. `--nav-height` is 56px with the top bar; on phones Softr leaves its own variable empty and the host's fallback gives 0px. `--bottombar-height` is `calc(0px + 55px)` on phones (2px short of the rendered bar) and 0px otherwise. `--sidebar-width` is 280px with the sidebar open, 57px collapsed and 0px on phones. The host maps them from Softr's `:root` variables `--sticky-nav-height`, `--softr-bottombar-height` and `--softr-sidebar-width`, each with a `0px` fallback (all measured live 2026-10-05). The variable table is in [quick-reference.md → Softr navigation variables](quick-reference.md#softr-navigation-variables); the whole page layout is in [native-chrome-styling.md → App frame (navigation layout)](native-chrome-styling.md#app-frame-navigation-layout).
@@ -593,7 +640,7 @@ Measured live 2026-10-05 in the preview at a 1440px window: the pane's top sat a
 **Scripted window scrolls and room checks.** JS sees the window, not the bars. Code that scrolls the window to bring something into view, or asks whether a popover has room above or below, must take the top bar (56px) off the top edge and, on phones, the tab bar (57px as rendered) off the bottom edge. Softr switches its navigation on the window width, so here the window is the right thing to test:
 
 ```tsx
-const TOP_BAR = 56; // Softr's sticky top bar, window 768px and up
+const TOP_BAR = 56; // Softr's sticky top bar, window 768px and up; 0 in an app with no top bar (see below)
 const TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px; --softr-bottombar-height says 55px
 const AIR = 16;
 
@@ -609,12 +656,17 @@ function visibleStrip() {
 function keepInView(el: HTMLElement) {
   const { top, bottom } = visibleStrip();
   const r = el.getBoundingClientRect();
-  if (r.top < top) window.scrollBy(0, r.top - top);
-  else if (r.bottom > bottom) window.scrollBy(0, r.bottom - bottom);
+  // behavior: "instant": the Softr page sets html { scroll-behavior: smooth }, see below.
+  if (r.top < top) window.scrollBy({ top: r.top - top, behavior: "instant" });
+  else if (r.bottom > bottom) window.scrollBy({ top: r.bottom - bottom, behavior: "instant" });
 }
 
 // It issues a window scroll, so call it as setTimeout(() => keepInView(el), 0) (Hard Constraint 17).
 ```
+
+**An app with no top bar.** When the menu lives in the sidebar and Softr shows no top bar on desktop, `--nav-height` is `0px` and `TOP_BAR` is 0, or every scripted scroll holds content 56px lower than it needs to. Set the constant per app, or test the main document for the bar: `document.querySelector(".softr-topbar") ? 56 : 0` (the selector is the one the header CSS scopes on; reading it from block code is untested). Why that layout has no bar: [native-chrome-styling.md → Caveats](native-chrome-styling.md#caveats).
+
+**Scroll with `behavior: "instant"`.** Softr sets `html { scroll-behavior: smooth }` in the preview (and the published app's login page), so a plain `scrollBy` animates. A second scroll issued before the first lands replaces its target, and a measure right after the call reads a position mid-scroll: in one check, repeated `scrollBy` calls netted +26px instead of +135. `keepInView` calls once, so the risk is in code that scrolls again or measures straight after it. A test harness without that CSS rule passes the broken code, so copy the app's `scroll-behavior` into the harness (LCDB QA pass, 2026-10-08). Outside a dialog, prefer `keepInView` to bring a Retry button into view. If you do call `scrollIntoView` on it, pass `block: "center"` and `behavior: "instant"`, because `"nearest"` leaves it at the bottom edge, under a toast or the phone tab bar. Inside a dialog, set the body's `scrollTop` instead ([Failures, focus and Escape](#failures-focus-and-escape)).
 
 The project this comes from hard-coded 72px (a bar plus 16px) at the top, and at the bottom wherever a tab bar could be. That number is a project choice; subtracting the bars is the rule. `visibleStrip` generalises it and is untested as written. A confirm strip that opens below a row, or a drop-up test, uses the same strip in place of `0` and `window.innerHeight`. For the dropdown, see [searchable-dropdown.md → rule 2](searchable-dropdown.md#the-four-things-that-will-bite-you).
 
@@ -639,8 +691,9 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
 
 // Module scope. onDismiss must itself refuse while a save runs (Escape and the backdrop call it too).
-function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, children }: {
-  labelledBy: string; describedBy?: string; onDismiss: () => void; dismissDisabled?: boolean; children: React.ReactNode;
+function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, returnFocusTo, returnFocusFallback, children }: {
+  labelledBy: string; describedBy?: string; onDismiss: () => void; dismissDisabled?: boolean;
+  returnFocusTo?: HTMLElement | null; returnFocusFallback?: string; children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dismissRef = useRef(onDismiss); // the latest handler; the listener is attached once per opening
@@ -650,7 +703,9 @@ function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, chi
     const panel = panelRef.current;
     // Inside a shadow root document.activeElement is the block's host; the root knows the real element.
     const root: any = panel ? panel.getRootNode() : document;
-    const opener = (root.activeElement as HTMLElement | null) || null;
+    // The opener is handed in by the caller (the clicked button, kept in a ref at click): Safari and macOS
+    // Firefox do not focus a clicked button, so root.activeElement can be anything when the dialog opens.
+    const opener = returnFocusTo || (root.activeElement as HTMLElement | null) || null;
 
     // Lock the page behind the modal; the stable gutter stops a sideways jump where scrollbars take space.
     const html = document.documentElement;
@@ -681,14 +736,20 @@ function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, chi
       html.style.overflow = prevOverflow;
       if (prevGutter) html.style.setProperty("scrollbar-gutter", prevGutter);
       else html.style.removeProperty("scrollbar-gutter");
-      if (opener && opener !== panel && opener.isConnected) opener.focus({ preventScroll: true });
+      // The opener, or (a dialog restored at page load has none; the opener left the list) a stable
+      // tabIndex={-1} target found by selector in the root captured at open: the panel is gone by now.
+      const target = opener && opener !== panel && opener.isConnected
+        ? opener
+        : (returnFocusFallback ? root.querySelector?.(returnFocusFallback) as HTMLElement | null : null);
+      target?.focus({ preventScroll: true });
     };
   }, []);
 
   return (
     // z-[1000]: above Softr's top bar, sidebar and phone tab bar (all z-index 800 or below).
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-6">
-      <div aria-hidden="true" className="absolute inset-0 bg-gray-950/50" onClick={() => dismissRef.current()} />
+      {/* preventDefault on pointerdown: pressing the backdrop would move focus to <body> before the click lands. */}
+      <div aria-hidden="true" className="absolute inset-0 bg-gray-950/50" onPointerDown={(e) => e.preventDefault()} onClick={() => dismissRef.current()} />
       <div
         ref={panelRef}
         role="dialog"
@@ -714,14 +775,15 @@ function InBlockModal({ labelledBy, describedBy, onDismiss, dismissDisabled, chi
 }
 
 export default function Block() {
-  // ... state, `active` record, `saving`, a `close` that returns early while saving ...
+  // ... state, `active` record, `saving`, the opener (event.currentTarget kept in a ref at click),
+  //     a `close` that returns early while saving ...
   return (
     <>
       <div className="@container">{/* the block's page */}</div>
       {/* A sibling of the @container wrapper, not a child of it. */}
       {active && (
-        <InBlockModal labelledBy="modal-title" describedBy="modal-desc" onDismiss={close} dismissDisabled={saving}>
-          {/* header with id="modal-title" / id="modal-desc"; give it right padding (pr-12) for the X */}
+        <InBlockModal labelledBy="modal-title" describedBy="modal-desc" onDismiss={close} dismissDisabled={saving} returnFocusTo={openerRef.current} returnFocusFallback="#page-title">
+          {/* header with id="modal-title" / id="modal-desc"; give it right padding (`pl-* pr-14`) for the X */}
           {/* a scrolling body: min-h-0 flex-1 overflow-y-auto */}
         </InBlockModal>
       )}
@@ -732,9 +794,125 @@ export default function Block() {
 
 - **Outside the block's `@container` wrapper.** `@container` sets `container-type: inline-size`, which brings layout containment, and containment on an ancestor can capture `position: fixed` (it becomes the fixed box's containing block). Render the modal as a sibling of that wrapper, then put `@container` on the panel so everything inside it sizes by the panel. The overlay itself is fixed to the window, so its own padding may use `sm:`.
 - **z-index 1000, not 50.** Anything from 801 up clears the bars; 1000 leaves room. It also keeps Softr's links out of reach while an edit is open.
-- **Focus lives in the shadow root.** Read the focused element from `panel.getRootNode().activeElement`; `document.activeElement` is only the block's host. The opener is captured on open, and focus goes back to it on close if it is still on the page.
+- **Focus lives in the shadow root.** Read the focused element from `panel.getRootNode().activeElement`; `document.activeElement` is only the block's host. Focus goes back to the opener on close if it is still on the page. The caller hands the opener in as `returnFocusTo` (the clicked button, kept in a ref at click) and the component falls back to the root's `activeElement` at open, because Safari and macOS Firefox do not focus a clicked button. When there may be no opener, see [Failures, focus and Escape](#failures-focus-and-escape).
 - **Saving.** Disable the X while a save runs, and make the dismiss handler return early while saving, because Escape and the backdrop call the same handler. In the shipped block that handler also asks before discarding unsaved edits.
 - **Scroll lock on `<html>`**, not `body`: the page scroller is the document. Restore both properties exactly as they were.
 - The shipped component also has `animate-in fade-in-0 zoom-in-95` on the panel and `backdrop-blur-[2px]` on the backdrop.
 
 **Status (2026-10-06).** Verified live, harness: the shipped component's exact source was bundled with `deno bundle` and mounted into a shadow root under `#main-content` on the live preview page, rendered with Softr's own React 18.2 (`window.__softr_React` / `window.__softr_ReactDOM`), 1440×900 window with top bar and sidebar. Passed: opens with focus on the panel; covers the top bar and the sidebar; the panel centres at 896px; Tab and Shift+Tab wrap both ways and skip hidden controls; Escape and the X do nothing while saving; Escape, the backdrop and the X close it; `overflow` and `scrollbar-gutter` are restored; focus returns to the opener. **Not yet seen:** the full review block opening the modal with real data — there was no Social Media Manager member to preview as. The trimmed version above was not run on its own. Phones (tab bar) untested.
+
+### Failures, focus and Escape
+
+What a QA pass of 15 app blocks found in dialogs like this one (LCDB QA pass, 2026-10-08): dialogs that could not be closed after a failed save, errors hidden below the fold (21px under it at 1280×800), focus lost to `<body>`, and a page that scrolled from 345 to 880px behind an open dialog.
+
+- **Pass the opener in explicitly** (`returnFocusTo` above). Safari and macOS Firefox don't focus a clicked button, so `root.activeElement` at open is not the opener, and focus was lost on close in Firefox until the caller handed the button over.
+- **Give it a fallback target when there may be no opener.** A dialog restored at page load (a draft) mounts with nothing focused, and an opener that can leave the list (a row that drops out after the save) is gone at close. Pass a selector for a stable `tabIndex={-1}` element (`returnFocusFallback` above) and look it up in the root captured at open: after cleanup, `getRootNode()` no longer finds it.
+- **`preventDefault` on the backdrop's `pointerdown`.** Pressing the mouse on a backdrop moves focus to `<body>` before the click lands, and every close path after that loses focus.
+- **Lock only while a request is in flight.** After a failure Close works again and keeps what was typed. A dialog the user cannot leave is a trap; the same applies to a form locked after a failed step (see [writing.md → Sequential Multi-Row Writes](../datasources/writing.md#sequential-multi-row-writes-mutateasync)).
+- **Put the error in a `role="alert"` well and reveal it by setting the body's `scrollTop`**, re-run whenever the error list changes. Not `scrollIntoView`: it also scrolls the locked page. A harness check "the error is inside the dialog" passed while the error sat below the fold, so compare the error's rect with the scroller's edges.
+- **Page-level scroll and focus effects skip while an `[aria-modal]` dialog is open.** An effect that scrolls or focuses on an async failure otherwise moves the page behind the dialog and lets `focus()` out of the trap.
+- **After a failure, return focus to the action button** unless focus is already in a field. A submit button disabled while saving drops focus to `<body>`. If the clicked control was removed (Retry, Start over), focus the first `:not(:disabled)` control after `setTimeout(…, 0)`, so a fieldset unlocked in the same click is already enabled, from a root captured at open.
+- **A control that unmounts on its own success drops focus to `<body>`.** Discard on a restored-draft note, Set active on an Inactive banner, a paging button on the last page: move focus to a stable, always-mounted target first. For a dismissed note, reuse the form's focus-first-control call (`setTimeout(…, 0)`, through a ref in the shadow root, not `document.getElementById`). For a paging button, keep the footer and make it a `tabIndex={-1}` paragraph ("All N shown") that takes the focus.
+- **Escape closes only the innermost layer**: an open list, a calendar, an inline question, then the dialog. Each inner layer calls `preventDefault` + `stopPropagation`; the modal's listener returns on `defaultPrevented`.
+- **Don't render the dialog as `open && !loadError`.** A background read that fails while it is open would unmount it. Keep an open dialog mounted whatever a read does.
+- **Room for the X at every breakpoint**: set the header's sides separately (`pl-* pr-14`), because `px-*` at a breakpoint overrides `pr-*` ([anti-patterns.md](anti-patterns.md#layout--styling)).
+
+The opener and focus-return changes were checked in a harness in Chromium and in Firefox (27 checks passing in both). The sketch's `returnFocusFallback` writes out what the app did with an element id, and was not run as written; nor has the full set of rules above been run together in one trimmed component.
+
+## Inline confirm in place of a button
+
+When a click needs one more question ("Log anyway?", "Set inactive?"), the question can take the place of the button under the pointer instead of opening a second dialog. It is quick, and it is one click from a write, so it needs guards. These came out of a QA pass over 15 blocks (LCDB, 2026-10-08):
+
+- **Ignore taps for about 400ms after it appears.** A double click on Save otherwise lands on the question and answers it unread. With the guard, a double click 12ms apart sent no write.
+- **Remount it for each question** (`key={text}`), and make `text` carry the values it asked about, so changing a field asks again. Without the remount, a double click on the confirm button answered the next question unread.
+- **Move focus to the safe answer with refs.** React reuses the focused button's DOM node, so focus lands on the new action. Check the shadow root's `activeElement` (`panel.getRootNode().activeElement`) after Enter, not after a mouse click (a click moves focus to the button it hit in Chromium).
+- **Escape closes only the question** and returns focus to the footer. Inside a dialog it must not go on to the "discard your changes?" question ([Failures, focus and Escape](#failures-focus-and-escape)).
+- **The action behind it returns its error** instead of toasting it, so the question can show it in place. It is not dropped by a "one at a time" guard (another row's save in flight silently dropped a confirmed Set inactive), and it swallows a failed re-read after a good write, or a retry writes a second change-log row ([anti-patterns.md](anti-patterns.md#mutations)).
+- **A handler wired as `onClick={fn}` with an optional "confirmed" flag** gets the click event as that flag ([anti-patterns.md](anti-patterns.md#hooks--react)).
+- **Ask only in the direction that takes something away.** Set inactive asks; Set active acts at once ([ui-ux-guidelines.md §15](../ui-ux-guidelines.md#15-error-prevention-and-destructive-actions)).
+
+The arming guard, as a sketch of the mechanism (not a copy of a shipped component):
+
+```tsx
+// Module scope. Mount it as <ConfirmStrip key={text} … />, so each question is a fresh instance.
+function ConfirmStrip({ text, safeLabel, actionLabel, onSafe, onAction }: {
+  text: string; safeLabel: string; actionLabel: string; onSafe: () => void; onAction: () => void;
+}) {
+  const mountedAt = useRef(Date.now());
+  const safeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { safeRef.current?.focus({ preventScroll: true }); }, []);   // the safe answer, by ref
+  const armed = () => Date.now() - mountedAt.current > 400;                   // a double click lands inside this
+  return (
+    <div role="alert">
+      <p>{text}</p>
+      <button type="button" ref={safeRef} onClick={() => armed() && onSafe()}>{safeLabel}</button>
+      <button type="button" onClick={() => armed() && onAction()}>{actionLabel}</button>
+    </div>
+  );
+}
+```
+
+## Drafts that survive a reload
+
+A long entry form (a multi-row hours or distribution entry) loses everything on a reload or an in-app link. [`useNavigationBlocker`](#navigation-blocker-for-unsaved-changes) asks first; a draft in `sessionStorage` is what survives when the user goes anyway (LCDB QA pass, 2026-10-08: after a failed save, a sidebar link and then Back showed "Restored 1 unsaved row" with its people, hours and error text intact).
+
+- **Wrap every storage read and write in try/catch**, and make the form work without it (it can throw in a private window).
+- **Store the signed-in user's email with the draft and drop a mismatch.** `sessionStorage` outlives a Softr sign-out in the same tab, so a draft keyed by record alone would restore one staff member's quantities for the next. Key by record too.
+- **Until the email is known, neither restore the draft nor remove it; restore it when the email resolves.** Don't accept a draft while the user is unknown: on a shared computer that shows the previous person's rows. Whether the email is there at the first render was not proven live, so write the restore to work either way.
+- **Run the restore from an effect keyed on the email, and gate it on nothing else that resolves late** (write access, a mutation's `enabled`, the product list). A restore gated on something late is skipped, and the effect that removes empty drafts then deletes the draft on mount. Measure "dirty" from the form's own state, not from a list that is still loading.
+- **Remove a draft only after the dialog has been open in this mount** (a `seen` ref), never at mount. An effect that saves the empty form on mount wipes the draft it should have read, and so does one that clears storage before the restore has run.
+- **Persist only while no save is running.** A row that was mid-save comes back as failed, with a "may have been saved" note, never as a draft: restoring it as a draft would send the same row twice. Never restore a confirm or review step, which is one click from a write.
+- **A save queue stops when the block unmounts** (a ref the loop checks), or it keeps writing for a page the user has left.
+- **Discard removes only the restored rows**, not the rows typed since. Discard removes its own note, so move focus to a stable control first, and give a dialog restored at load a fallback return-focus target, as it has no opener ([Failures, focus and Escape](#failures-focus-and-escape)).
+
+```tsx
+// Module scope. A sketch of the keying, not a copy of a shipped block.
+const DRAFT_KEY = "softr_myapp_hours_draft";   // namespaced, as in the localStorage section above
+
+function loadDraft(email: string, recordId: string) {
+  if (!email) return null;   // user not resolved yet: no restore, and the caller must not remove the draft either
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null");
+    return d && d.email === email && d.recordId === recordId ? d.rows : null;
+  } catch { return null; }
+}
+
+function saveDraft(email: string, recordId: string, rows: unknown[]) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ email, recordId, rows })); } catch {}
+}
+
+// In Block(): restore when the email becomes known, once. The save/remove effect returns early until then.
+//   const restored = useRef(false);
+//   useEffect(() => {
+//     if (!email || restored.current) return;
+//     restored.current = true;
+//     const rows = loadDraft(email, recordId);
+//     if (rows) setRows(rows);
+//   }, [email, recordId]);
+```
+
+## CSV export
+
+A CSV export is a small feature with six ways to go wrong (LCDB QA pass, 2026-10-08):
+
+- **Name the file for the period shown** (`volunteer-hours-2026-10.csv`), not the export day.
+- **Put a "Generated" line in local time with its UTC offset**: `format(new Date(), "yyyy-MM-dd HH:mm xxx")` gives `2026-10-07 22:49 -07:00`. A UTC stamp read as the next day after 5 pm Pacific.
+- **Prepend a UTF-8 BOM** so spreadsheet apps read accents, built from a code point, with no invisible character in the source and no `\uFEFF` escape ([escapes in pushed source arrive decoded](softr-mcp.md#unicode-escapes-come-back-decoded)).
+- **Give a unit with every figure**, and list an item in a different unit once, apart from the others (wipes counted in packs showed twice, in the size table and again in the CSV).
+- **Prefix free-text cells that start with `=`, `+`, `-` or `@` with an apostrophe**, because a spreadsheet runs them as formulas. Apply it to text, never to numbers. A precaution: no formula ran.
+- **Disable the button until the data it exports has fully loaded**: every page fetched, no read in error.
+
+```tsx
+const CSV_BOM = String.fromCharCode(0xfeff);   // prepend to the file text
+
+function csvCell(v: unknown): string {
+  if (typeof v === "number") return String(v);
+  let t = v == null ? "" : String(v);
+  if (/^[=+\-@]/.test(t)) t = "'" + t;           // text only: a spreadsheet would run it as a formula
+  return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+// new Blob([CSV_BOM + lines.join("\r\n")], { type: "text/csv;charset=utf-8" })
+```
+
+To read what an export contains without downloading it (and to see the BOM, which `Blob.text()` hides), see the Exports and printouts section of [browser-checks.md](browser-checks.md).

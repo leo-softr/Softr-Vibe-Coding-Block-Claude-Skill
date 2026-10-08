@@ -65,6 +65,11 @@ var isRefetching = result.isRefetching;
 var items = (data && data.pages) ? data.pages.flatMap(function(p) { return p.items; }) : [];
 ```
 
+**Two behaviours that look like bugs** (measured with reads aborted, LCDB QA pass, 2026-10-08):
+
+- **The hooks refetch when the window regains focus,** so `isRefetching` turns true with no click. A busy label driven by it flickers each time the user comes back to the tab; drive busy labels from the click.
+- **A failed read is retried about three times before `status` turns `"error"`.** The error shows 6 to 20 seconds after the failure starts (7 to 13 seconds in most checks), and the block shows loading until then. A check that waits 3 to 5 seconds sees "Loading", not the error state.
+
 **House rule: one `useRecords` per connection.** It is not a documented platform limit — Hard Constraint 13 in SKILL.md says when to filter client-side, when to add a connection, and when a server-side `where` is the better choice. Multiple `useMetric` calls ARE allowed.
 
 **CRITICAL:** The options object must be an **inline literal** at the call site. Passing it
@@ -119,6 +124,8 @@ useEffect(function() {
   }
 }, [result.hasNextPage, result.isFetchingNextPage, result.status, result.error, result.fetchNextPage]);
 ```
+
+**A total, count or export built from a paginated list waits until every page has loaded** (`hasNextPage` false) and no read is in error. Until then it shows loading, never a number from the pages so far: a summary line read "0 children" while the children read was still on its first page or had failed, and a history list was capped instead of paged. [Printing](../references/printing.md#4-the-print-button-waits-for-the-data) applies the same rule to Print.
 
 ## useRecord -- Fetch a Single Record
 
@@ -493,6 +500,21 @@ Gate anything role-dependent on `groupsSettled` (show a skeleton until then), so
 flashes the wrong panel. The bound settles a viewer whose list never fills in, instead of leaving
 them on a skeleton.
 
+**Block code can only test group names, so a rename in Studio silently breaks a name check.** `userGroups` items arrive as names (a string, or an object with a `name`; no id was seen), and nothing in the global lets block code gate by group id. Block Visibility and action permissions are set by group id and survive a rename. While a rename is pending, accept both the old and the new name, and drop the old one afterwards: the push and the rename can then land in either order. One block did this in an app that renamed its three groups (LCDB, 2026-10-07).
+
+```jsx
+// Module scope. userGroups items arrive as strings or as objects with a name.
+function groupName(g) { return typeof g === "string" ? g : (g && g.name) || ""; }
+
+// In Block(): this replaces the `isAdmin` line in the example above.
+var isAdmin = userGroups.some(function(g) {
+  var n = groupName(g);
+  return n === "Administrator" || n === "Admin";   // new name, then the old one until the rename is done
+});
+```
+
+Before writing copy such as "they will lose access", check how each group gets its members, a manual list or a condition: that sentence was false for a user added to a group by hand.
+
 ## Metrics
 
 ```jsx
@@ -505,6 +527,10 @@ var result = useMetric({
 });
 // result.data is the aggregated value (number)
 ```
+
+- **A per-item server sum is one `useMetric` per item.** Hooks can't run in a loop over a list of variable length, so mount one inside a module-scope probe component per item, only while the figures are needed, each reporting into a state map. Not yet seen live in a block (built in a QA round that paused before its live check); the structure follows from the rules of hooks.
+- **A metric that is not a finite number shows "unknown," never 0.** `Number(x) || 0` hides a NaN.
+- **Before reusing an existing read for a new figure, check that read's `where`.** A work list assumed an existing read covered on-hand stock, while its `where` cut it to one transaction type (LCDB QA pass, 2026-10-08).
 
 Aggregations: `metric.sum(field)`, `metric.avg(field)`, `metric.max(field)`, `metric.min(field)`, `metric.distinct(field)`, `metric.count()`
 

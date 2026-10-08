@@ -360,6 +360,17 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 - **Error messages:** Always inline, directly below the field. Write as instruction: "Enter a valid email address" not "Invalid email."
 - **Success states:** Show green check icon on validated fields.
 - **Required fields:** Mark explicitly.
+- **A required field has no silent default, and an enumerated required field offers no empty option.** In one app a pre-filled "Parent" was saved on every pickup where nobody changed it, and a required status could be blanked through its empty option. The form's mode follows the record's own type: a group record asks for its number of people, not one person's hours (LCDB QA pass, 2026-10-08).
+- **Dates of things that already happened refuse the future** (a pickup, a receipt). In that app, future-dated rows were counted in this month's tiles.
+- **Implausible amounts ask for confirmation instead of being refused** ([inline confirm](references/common-patterns.md#inline-confirm-in-place-of-a-button)).
+- **A fallback error ("Add a line") shows only when no specific line error did, and the error strip is cleared at the start of every attempt.** In that app, an old save error sat beside a newer field error.
+
+### Number inputs:
+- **A number input reports `""` for text it cannot read** (`5e`, `--5`, `1600-`, and `1,000` in Firefox), and React fires no change while the value stays `""`. So an optional quantity quietly becomes blank or 0. Read `validity.badInput` on both `input` and `change` (or at Save), keep a marker, refuse it with a message, and render `""` so React leaves the typed text alone.
+- **In a browser set to a region that writes a decimal comma, `1,000` is read as 1, not refused.** No `badInput` is raised, so test the raw string as well (headless Chromium on a Mac followed the system region). Probing with `5e` works in any region.
+- **Whole numbers:** test the raw string against `^\d+$` and parse with `Number`, never `parseInt` (`parseInt("1e3")` is 1) or `Math.floor` (2.5 cut to 2). **Money:** a text input with `inputMode="decimal"`.
+- **One validator for Save, the live total and the hint**, with the field's upper bound in it ([writing.md → Number](datasources/writing.md#number)). A total or warning built on an invalid entry stays hidden until the entry is fixed (a total once warned with a wrong figure while one line was invalid).
+- **Test by typing with the keyboard, in Firefox too.** Browser-automation `fill` cannot enter unreadable text. Saved values seen in one QA pass (LCDB, 2026-10-08): "1600-" saved a drive's quantity as blank, "2..5" saved 0 packs, "1,200" wrote 1 (Chromium under a decimal-comma region).
 
 ### Error Message Formula:
 
@@ -368,10 +379,12 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 | Format error | "[Field] needs to be [format]. Example: [example]" |
 | Missing required | "Please enter [what's missing]" |
 | Permission denied | "You don't have access to [thing]. [What to do instead]" |
-| Network error | "We couldn't reach [thing]. Check your connection and [action]." |
+| Network error (a read) | "We couldn't reach [thing]. Check your connection and [action]." For a save, use the helper sentence below |
 | Server error | "Something went wrong on our end. [Alternative action]" |
 
 **Never blame the user.** "Please enter a date in MM/DD/YYYY format" not "You entered an invalid date."
+
+**Network errors come from one helper.** The browser's own words ("Failed to fetch", Safari's "Load failed", "NetworkError") reach users unless something maps them. Map them to one plain sentence through one helper per block, with the same text in every block: "[What] was not saved: the app could not reach the database. Check the connection and try again." Log the raw error with `console.error`. Messages the code writes itself don't go through the helper, `[what]` is singular, and a partial save never reads "was not saved. The family was saved but…". A `TypeError` from a code bug also reads as a connection failure, so look at the console when the message looks wrong (LCDB QA pass, 2026-10-08).
 
 ### Layout:
 - **Single-column forms** are easier to complete than multi-column.
@@ -420,6 +433,8 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 ### Implementation:
 - Check `status === 'pending'` and render skeleton.
 - Check `status === 'error'` and render error state with retry.
+- **Try again re-reads every read that is in error**, not only the main list. A Try again that re-read only the main list left the other reads failed: rows then said "No children on record" and the duplicate check ran without children.
+- **Say "did not load" only after a read has failed;** while it loads, just disable the action. A create that checks for duplicates waits for a complete, successful read of what it checks against (a product was created while the product list had failed, and passed its own duplicate-name check; LCDB QA pass, 2026-10-08).
 - Never render an empty block.
 
 ---
@@ -436,7 +451,8 @@ Empty states are a critical UX moment — not an afterthought. They are onboardi
 
 ### Rules:
 - Do not say "No data" — be specific and human. "You don't have any projects yet."
-- If empty due to search/filter, offer to clear the filter.
+- If empty due to search/filter, offer to clear the filter. When a filter hides every match for the search, say how many it hides and offer to drop only that filter, keeping the search text ("No partners match" while an inactive one did).
+- **Copy fits the role reading it.** Never send a user to a page they cannot open: in one app, empty states told volunteers to use a Settings page that only administrators can open (LCDB QA pass, 2026-10-08).
 - Center-align with generous `py-16` or `py-24` padding.
 
 ---
@@ -452,9 +468,10 @@ Empty states are a critical UX moment — not an afterthought. They are onboardi
 | Skeleton to content | Progressive (no delay) |
 
 ### Rules:
-- **Mutations:** Always show `toast.success()` or `toast.error()`.
+- **Mutations:** successes and row-level results show `toast.success()` or `toast.error()`. A save that fails inside a dialog shows its error inside the dialog instead (`role="alert"`, above the footer): a toast covers the dialog's own buttons and is gone in seconds.
 - **Call `refetch()` before showing success toast** so UI reflects new state.
-- **Button loading states:** Disable and show spinner while pending.
+- **Button loading states:** Disable and show spinner while pending. Busy labels come from the click and reset when that request settles, never from `isRefetching`: Softr's hooks refetch on window focus, so that flag flickers with no click.
+- **At the end of a save, clear or refill the form before dropping the saving flag.** Otherwise Save is enabled again with the old values on screen during the re-read, and a second press writes twice.
 - **Form submission:** Disable submit, show spinner inside button.
 
 ---
@@ -465,6 +482,9 @@ Empty states are a critical UX moment — not an afterthought. They are onboardi
 - **Use before any irreversible action.** Restate what will be deleted, warn it cannot be undone.
 - **Cancel button should be default focused** — keyboard users should not accidentally confirm.
 - For **reversible soft-deletes**, skip the modal. Show undo toast for 5-8 seconds.
+- **Confirm a status change only in the direction that takes something away.** Set inactive asks; Set active acts at once.
+- **A void or reversal lists everything it undoes** (the lines, the sizes, the total), so the question can be answered.
+- **Warn before a write takes a running balance (stock) below zero,** naming the product. A bulk write (a receipt of eight lines) gets a review step that lists each row.
 
 ### Spacing:
 - Never place Delete/Remove adjacent to Save/Confirm.
@@ -473,6 +493,7 @@ Empty states are a critical UX moment — not an afterthought. They are onboardi
 ### Prevent data loss:
 - Prompt "You have unsaved changes. Discard them?" when dismissing with unsaved edits.
 - Never silently discard user input.
+- **Compute "dirty" per field against the values the form opened with,** so Cancel on a form prefilled from a search doesn't ask to discard text nobody typed. A dialog whose write queue has started is no longer dirty: its Cancel reads Close.
 
 ---
 
@@ -496,7 +517,7 @@ Show users what they need now, reveal more on demand.
 | **Tabs** | Multiple views of same data | `Tabs` |
 
 ### Rules:
-- Primary actions and data always on screen.
+- Primary actions and data always on screen. Every stored field the user may need shows on the record's page, not only inside Edit (staff could see a partner's notes and a drive's scheduled date only by opening the editor).
 - Always make it obvious more content exists (chevron, "Show more", count badge).
 - **DO NOT** use modals as a reflex — consider if there is a better place for the interaction first.
 
@@ -529,8 +550,14 @@ Users always need to know: *Where am I? Where can I go? How do I get back?*
 
 ### Mobile adaptation:
 - Transform table rows into **stacked card layouts** on small screens.
-- `hidden md:block` on the table, `block md:hidden` on mobile cards. That is a window breakpoint: beside Softr's sidebar navigation, key the swap to the block's width with container variants instead (`hidden @min-[48rem]:block` / `@min-[48rem]:hidden`, under an `@container` wrapper; see [§21](#21-mobile-first-responsive-design)).
+- `hidden md:block` on the table, `block md:hidden` on mobile cards. That is a window breakpoint: beside Softr's sidebar navigation, key the swap to the `@container` that holds the table with container variants instead (`hidden @min-[48rem]:block` / `@min-[48rem]:hidden`). That container is the block's wrapper, or the card's own when the table sits in a narrower card: one log table keyed on a 47rem block overflowed its 650px card. See [§21](#21-mobile-first-responsive-design).
 - Never require horizontal scrolling for important data.
+
+### Search, caps and columns:
+- **A list's search covers every field the list shows,** including child records shown with it (children under a family, a roster's interests and training). A home search could not find a family by a child's name, and a roster search ignored the interests and training it displayed (two searches that found nothing found 4 and 5 rows after the fix).
+- **No silent caps.** Show "Showing N of M" and page through every matching row: a history list stopped at 200 of 481 rows without a hint.
+- **Size columns from real rows at the block's real width.** Give text columns minimum widths and badges `whitespace-nowrap`, and break emails at the `@` with `<wbr>` ([anti-patterns.md](references/anti-patterns.md#layout--styling)). Names and emails broke mid-word in narrow columns, and a log table overflowed a tablet (which container to key the table/card switch on: Mobile adaptation above).
+- **Rows dated after today stay listed and marked,** not dropped. **An open inline edit closes when the list's period changes,** or it points at a row the new range no longer lists. (The cases in this subsection are from the LCDB QA pass, 2026-10-08.)
 
 ---
 
@@ -547,6 +574,9 @@ Users always need to know: *Where am I? Where can I go? How do I get back?*
 - Every chart needs: title, axis labels, legend (if multi-series), hover tooltip.
 - **Bar charts** for comparisons, **line charts** for trends, **pie/donut charts** sparingly.
 - **Avoid 3D charts** — they distort values.
+- **One counting rule per figure, the same on every page.** Leave voided rows out and drop entities whose rows net to zero (a partner with only voided rows got a row of zeros). Label periods honestly: a clipped month, "to date" for the current year, all from one period helper. In QA of 15 blocks, the "same number on every page" check found 7 of the 15 major findings (LCDB, 2026-10-08).
+- **Print each ratio through one helper, and normalise `-0` in the display formatter** (a report showed "-0 items out" for an empty year, and 72% against 72.1% for the same figure). When splitting a total by a ratio, round one share and give the other the remainder, set a fallback for a zero denominator and say so in its label.
+- **A note that belongs to a row of tiles is a grid item of that grid,** and `grid-rows-subgrid` keeps the figures aligned when a label wraps.
 
 ### Dashboard Anti-Pattern:
 Avoid the "hero metric layout template" — big number, small label, supporting stats, gradient accent strip. This is the most recognizable AI design template and should be avoided unless intentionally chosen.
@@ -574,6 +604,9 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 - **Focus rings:** Never `outline: none` without replacement. Always keep `focus-visible:ring-2`. Focus ring must be 2-3px thick, high contrast, offset from the element.
 - **`focus-within:` for containers, `focus-visible:` for the focusable element itself.** A card or row that *holds* buttons is usually a plain `<div>` and never takes focus, so `focus-visible:` on it is dead CSS that reads like an accessibility feature and does nothing. Use `focus-within:` there, so tabbing to a control inside the card lights the same affordance a mouse user gets from `hover:` -- and keep `focus-visible:ring-2` on the button or link itself. Whenever a card has a `hover:` treatment and contains tab stops, it wants the matching `focus-within:` variant.
 - Tables: proper `<thead>`, `<tbody>`, `<th scope="col">`.
+- **A row button whose accessible name joins several values gets visible `", "` separators or an `aria-label`.** Screen-reader-only spans got padded with stray spaces in Chrome, and names ran together ("Oct 1, 202622 children").
+- **A `::before` hit area is measured from the padding box.** `-inset-y-1` on a 36px pill with a 1px border gives 42px, not 44.
+- **A visually hidden copy of a visible table doubles it for screen readers.** Point a chart's summary at the visible table instead.
 
 ---
 
@@ -583,6 +616,8 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 - **Start with `flex-col`**, stack to `md:flex-row` or grid layouts at larger screens. Beside Softr's sidebar navigation, switch on the block's width instead (`@min-[48rem]:flex-row` under an `@container` wrapper). See [Breakpoint strategy](#breakpoint-strategy) below.
 - **No horizontal overflow.** Use `overflow-x-hidden` as safety net.
 - **Touch targets: 44px minimum.**
+- **Filter pills wrap (`flex-wrap`) instead of scrolling sideways,** and are 44px tall below the phone container width. In one app, type pills were cut off on phones and portrait tablets with no hint, and measured 36px (LCDB QA pass, 2026-10-08).
+- **Measure a lengthened placeholder at every size** (canvas `measureText` with the input's font against its content box): a new search placeholder was cut at three sizes.
 - **Hover states are desktop-only.** Never depend on `:hover` for essential actions.
 - Form fields: `w-full` on mobile.
 - Navigation: collapse to hamburger or bottom nav on small screens. This applies only to navigation a block draws itself. In apps with Softr's sidebar / top-bar navigation layout, Softr switches its own navigation to a phone tab bar below a 768px window: 767px gives the tab bar, 768px gives the top bar and sidebar (verified live 2026-10-05; a top-bar-only app was not checked). On a page with Softr navigation, don't build a second one into the block.
@@ -630,6 +665,11 @@ Consider pointer and hover capabilities, not just viewport width. A laptop with 
 - **Empty states:** Speak directly. "You don't have any projects yet."
 - **Confirmation dialogs:** State the consequences.
 - **Placeholders:** Example values ("you@company.com"), not repeated labels.
+- **Write for the role reading it.** In one app, volunteers were told to do things only administrators can.
+- **Describe end states:** "would then be over the limit", not "would take it over".
+- **A partial save says "not fully saved", never "not saved".** The second invites entering the whole session again.
+- **A hint that names a button comes from the same condition that shows the button.** In one app, a hint named a button that was not on screen.
+- **When a short message becomes a sentence, check every place it shows** for `truncate`, `max-w` or title-only display: in one app a new 100-character error was cut to "the app c…" (LCDB QA pass, 2026-10-08).
 
 ### Voice vs Tone:
 

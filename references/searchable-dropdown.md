@@ -377,7 +377,7 @@ on the trigger from the console (a synthetic click does not move focus either), 
 typing with real key events. A browser-automation "type" action that inserts text without key
 events drops it into the last focused text field, which makes a correct Combo look broken.
 
-**The incident: Lane County Diaper Bank, 2026-10-07.** A browser check reported that in B4's New
+**The incident: LCDB, 2026-10-07.** A browser check reported that in B4's New
 partner modal, letters typed after opening the click-only "Partner type" list went into
 Organization name, and Escape then showed the modal's "Discard your changes?" strip while the
 list stayed open. Part of that report came from the test tool, whose "type" action wrote into the
@@ -438,7 +438,12 @@ Everything else — the trigger, the card, the rows — stays flat.
       `preventDefault` + `stopPropagation` and closes only the list
       ([Move focus into the Combo when it opens](#move-focus-into-the-combo-when-it-opens))
 - [ ] `aria-haspopup="listbox"`, `aria-expanded`, `role="listbox"` / `role="option"`,
-      `aria-selected`, and an `aria-label` on the trigger; a click-only trigger that carries
-      `aria-activedescendant` also gets `role="combobox"`
+      `aria-selected`; a click-only trigger that carries `aria-activedescendant` also gets
+      `role="combobox"`
+- [ ] The trigger is named with `aria-labelledby="<label id> <trigger id>"`, so its accessible
+      name holds the field and the selected value. An `aria-label` with only the field name
+      replaces the button's own text, so a screen reader never hears the value (LCDB QA write
+      pass, 2026-10-08: an edit dialog's dropdowns announced "Partner type" and nothing else,
+      while another block's dropdowns announced both)
 - [ ] Loading and empty states (`"Nothing matches that."`)
 - [ ] No `@/components/ui/select` import anywhere in the file

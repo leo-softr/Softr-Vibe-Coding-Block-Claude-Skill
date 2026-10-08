@@ -33,7 +33,7 @@ Property priority: `label` first (most common in Softr formatted fields), then `
 Apply `getFieldValue()` everywhere you read fields:
 - Table cells, badges, tooltips: `<td>{getFieldValue(f.subject)}</td>`
 - Date parsing: `toLocalDate(getFieldValue(f.dueDate))` for date-only fields ([below](#date-only-fields-arrive-as-midnight-utc)), `new Date(...)` for real timestamps -- raw value might be `{label: "2025-12-01"}`
-- Number parsing: `parseInt(getFieldValue(f.count), 10)` -- formula numbers come back as objects
+- Number parsing: test for blank first, then use `Number` -- formula numbers come back as objects. `const raw = getFieldValue(f.count); const n = raw === "" ? null : Number(raw);` and render blank for `null`. A blank NUMBER arrives as `null` (`getFieldValue` turns it into `""`); `Number(null)` and `Number("")` are both 0, so `Number(getFieldValue(f.count))` alone shows a blank allocation as 0 and reads a blank threshold as 0 (a product was never flagged). `parseInt(…, 10)` gives NaN for a blank and drops decimals. A stored 0 still shows 0 (LCDB QA pass, 2026-10-08)
 - String methods: `getFieldValue(f.status).toLowerCase()`
 - Inside `useMemo` normalizers, BEFORE storing into state -- prevents the object from propagating
 
@@ -60,6 +60,10 @@ function toLocalDate(raw) {
 
 A real timestamp at exactly midnight UTC matches the pattern too, so call `toLocalDate` only on
 fields you know are date-only.
+
+date-fns `parseISO()` reads a date-only value as that instant too, so `format(parseISO(v), …)` shows the day before west of UTC, the same as `new Date(v)` (a list showed 30 of 30 dated rows a day early, LCDB QA pass, 2026-10-08).
+
+**Compare date-only values as `yyyy-MM-dd` text, on `raw.slice(0, 10)`.** A month is `d >= monthStart && d < nextMonthStart`. A raw `date <= "2026-10-31"` drops the last day, because the stored `2026-10-31T00:00:00.000Z` sorts after `2026-10-31`: a month tile left out the month's last day. How the server compares a `q.date` bound with a midnight-UTC value was not verified, so treat a server date range as a pre-filter and decide on the client; reading a day wider than needed is the safe way. For a "today" that a save writes, see [writing.md → Date](writing.md#date).
 
 ## Debugging Error #31
 
