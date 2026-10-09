@@ -11,20 +11,29 @@ strings as the native field, so swapping one for the other changes nothing that 
 |---|---|
 | `<input type="date">` and friends | The calendar pop-up is the browser's: unstyled by any CSS, and different in Chrome, Safari and Firefox. |
 | shadcn `<Popover>` + `<Calendar>` | The Popover portals to `document.body`, outside the block's shadow root, like shadcn `<Select>` in [searchable-dropdown.md](searchable-dropdown.md) — so its styles would stay behind. Inferred from that same portal; not tried in a block. |
-| `DatePicker` (below) | Local DOM, brand-styled, keyboard grid, min / max, Today and Clear, clip-aware placement, `"yyyy-MM-dd"` in and out. |
+| `DatePicker` (below) | Local DOM, brand-styled, keyboard grid, min / max, Today and Clear, clip-aware placement that shrinks to fit a short screen, `"yyyy-MM-dd"` in and out. |
 
 The kit picks a day. A time of day or a month-only value has no kit yet; build one on the same
 rules before adding the native field back.
 
-**Where it comes from.** On 2026-10-07 the Lane County Diaper Bank app (a Softr Database app with
-Softr's sidebar navigation) set out to replace all 21 native date fields across 12 blocks, after
-Leo flagged the browser calendar on the Reports page and again on Inventory's transaction history.
+**Where it comes from.** On 2026-10-07 the LCDB app (a Softr Database app with Softr's sidebar
+navigation) set out to replace all 21 native date fields across 12 blocks, after the browser
+calendar was flagged on the Reports page and again on Inventory's transaction history.
 The component was built once, checked in a React 18.2 shadow-root harness (22 checks, Chromium and
 macOS Firefox), pushed into the Reports and Volunteer Detail blocks first and checked there in a
 browser with saves blocked, then rolled out block by block, each reviewed before its push. The
 reviews produced the eight lessons below. Two of them (2 and 3) were faults in the component
 itself, fixed once in the kit and synced into every block; that sync is why the kit sits between
 markers.
+
+A second round on 2026-10-08 (QA of those 12 blocks on short screens) found the calendar overrunning
+a 392px dialog body at 1280×600, losing a third of its day buttons on a 568×320 landscape phone, and
+ending under Softr's tab bar at the end of a short page on a phone. The first rework failed its
+review (Today and Clear still out of reach at the end of a short page, and a Firefox Tab stop), the
+second failed on Softr's smooth scrolling, which no harness had, and the third was approved after a
+49-case matrix in Chromium, Firefox and WebKit. That is the kit below.
+[Short screens](#short-screens) says what it does now, and
+[Verifying a change to the kit](#verifying-a-change-to-the-kit) says what the round taught.
 
 ## The API
 
@@ -44,6 +53,9 @@ and loses focus, like the Combo).
 | `disabled` | `boolean?` | Disables the trigger and closes an open calendar. |
 | `textClass` | `string?` | The trigger's text size classes. Default `"text-[16px] @min-[48rem]:text-[14px]"`; see lesson 3. |
 
+No prop controls how the panel fits a short screen. That is automatic, on open: see [Short screens](#short-screens).
+Nor is there a prop or constant for Softr's sticky top bar: the kit's strip starts at the top of the window, so an app that shows the bar needs the one-line edit in [Re-skinning the kit](#re-skinning-the-kit).
+
 ```tsx
 // A labelled field. The label keeps htmlFor: a click on it opens the calendar, as it focused the native field.
 <label id="start-label" htmlFor="start" className="mb-1.5 block text-[13px] font-medium">Start date</label>
@@ -54,6 +66,62 @@ Most blocks wrap it once, as they wrap their text inputs (a `DateField` with the
 `type="date"` branch in the block's own field component that renders `DatePicker` instead of an
 `<input>`). The wrapper lives outside the kit's markers, below.
 
+## Short screens
+
+On open, the kit measures the strip of screen the panel can paint into: the window, minus Softr's
+phone tab bar below 768px, cut down by every ancestor that clips (`dpClipBox`). The strip starts at
+the top of the window, so Softr's sticky top bar (56px, from 768px up) is not taken off it; an app
+that shows the bar needs the one-line edit in [Re-skinning the kit](#re-skinning-the-kit). Then the
+kit takes the first of items 1 to 4 that works; items 5 and 6 apply on top of whichever wins.
+Nothing here is a prop.
+
+1. **Down when it fits below, else up when it fits above.** The panel keeps 4px from the trigger
+   and 8px from the strip's edges.
+2. **Scroll the box that clips it.** When it fits neither way, that one box is scrolled by the
+   smaller amount that makes room: up, only as far as the box is already scrolled down, or down.
+   A scroll down stops at the trigger's **bottom** edge, with no 8px margin kept, so in a
+   scrolling dialog body the trigger may scroll fully out of view. Closing the calendar scrolls it
+   back, so focus never returns to a hidden field. The measured case is a dialog body 392px high at
+   1280×600. With the margin kept, the panel ended 6.5 to 7px past the body's edge and its bottom
+   padding was cut. Without it the panel fits, with 0.5 to 1px to spare. Down is the fallback
+   because what hangs past a scroller's bottom extends its scroll range, and what hangs past its
+   top never does.
+3. **The compact grid.** If it still does not fit, the panel is measured again as a compact
+   calendar: 32px days with 13px text (36px and 14px at full size), 36px header buttons and month
+   pills (44px), 8px padding (12px), a 13.5rem grid (16rem), 32px Today and Clear (40px).
+4. **A capped panel.** If even that does not fit (a landscape phone, 568×320), the panel is cut to
+   the room there is, never below 153px (`DP_CAP_MIN`: header, footer, weekday row and one row of
+   days), and its day grid scrolls inside it, with the weekday row stuck at the top. The scroll box
+   has `tabIndex={-1}`: Firefox, unlike Chromium, makes a scroll box a Tab stop, and the order
+   became heading, arrows, grid box, day, Today, Clear. The box carries `data-dp-lip` so the
+   keep-visible scroll leaves room for the stuck row, and that row's height is read, not assumed (a
+   fixed 24px was right only at a 16px root font size).
+5. **On a phone, opening down: a spacer.** The fixed tab bar covers the last 57px of the window, and
+   an absolute panel's bottom edge is where the page ends, so at the end of a short page the page
+   could not scroll Today and Clear clear of the bar. An invisible spacer under the panel (absolute,
+   `aria-hidden`, `pointer-events-none`, 1px wide, 65px high: the bar plus the 8px edge) gives the
+   page that room. It is not added when the panel opens up or sits in a scrolling box.
+6. **A trigger under the tab bar.** Keyboard focus can leave the trigger there, and a turned phone
+   can move it. A panel opening up from it is lifted until it ends 8px above the bar, not 2.5px
+   inside it.
+
+A window resize (a turned tablet or phone) places the open panel again from the full calendar. It
+moves the panel and scrolls no box. The focused day is kept in view the same way as the panel:
+scroll the one clipping box, never `scrollIntoView` (it scrolls every ancestor, the page included),
+from a `setTimeout` (Hard Constraint 17), in up to three passes, because WebKit moves the body's
+scroll when the month grid replaces the day grid.
+
+**Every programmatic scroll says `behavior: "instant"`.** Softr sets `html { scroll-behavior:
+smooth }`. The window rule, and why a smooth scroll breaks code that scrolls and then measures, are in
+[common-patterns.md → Clear Softr's sticky bars](common-patterns.md#clear-softrs-sticky-bars). The kit
+scrolls, measures, then scrolls again, so with smooth scrolling it measured mid-animation and the
+calendar landed outside a landscape phone's strip. What this kit adds: the property is per scroll
+container, so a box that has it animates writes to its `scrollTop` too. Use
+`el.scrollBy({ top, behavior: "instant" })` for boxes as well as the window. In a stress run with
+`scroll-behavior: smooth` on every box, fixing only the window calls left 4 of 6 dialog cases
+failing. The kit calls no `scrollIntoView` or `scrollTo`, and every `focus()` passes `preventScroll`.
+Block code that scrolls and then measures needs the same.
+
 ## The kit between markers
 
 A Vibe block is one file and cannot import another (Hard Constraint 22), so every block that uses
@@ -63,10 +131,12 @@ that showed the bug and in no other. So the copy is never edited in a block. The
 1. **One kit file in the project** holds the component, e.g. `Assets/Softr App/Shared/DatePicker.tsx`.
    It is the only place the component is edited.
 2. **Each block pastes it verbatim, at module scope, between two marker lines.** The start line names
-   the kit file and the first 12 hex of its sha256:
+   the kit file and the first 12 hex of its sha256. That is the sha of the kit file the project keeps,
+   whatever that file holds: saved unchanged, the kit below gives the sha in the example, and a
+   project that re-skins it gets another number.
 
    ```tsx
-   // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 4763ca393a6c - edit there, not here =====
+   // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 3bb0cdae9c91 - edit there, not here =====
    /** DatePicker — brand-styled date field … (the kit file, byte for byte)
    …
    // ===== /DatePicker =====
@@ -88,7 +158,21 @@ that showed the bug and in no other. So the copy is never edited in a block. The
    ([softr-mcp.md → Verifying a push](softr-mcp.md#verifying-a-push--the-deployed-source-is-the-only-proof)),
    re-apply its Action permissions (Hard Constraint 21: every save resets them) and update the
    mirror's header date. The sha in the marker tells anyone reading a deployed block which kit it
-   carries without diffing 700 lines.
+   carries without diffing 800 lines.
+
+**The hash method.** The marker's sha is the sha256 of the kit file's bytes with the final newline
+counted (`shasum -a 256 Shared/DatePicker.tsx`, first 12 hex). The text between a block's markers
+is those same bytes: every line after the start marker, through the newline that ends the last kit
+line. Cut the region without that final newline and it hashes to another number, so a region hash
+quoted without its method cannot be compared with anything. To hash a block's region by hand (a
+block read back from Softr, say), print the lines between the markers, newline included:
+
+```bash
+awk '/^\/\/ ===== DatePicker: verbatim/{f=1;next} /^\/\/ ===== \/DatePicker =====/{f=0} f' block.jsx | shasum -a 256
+```
+
+It prints the kit file's full sha256 when the region is current. `kit-sync.py` refuses a kit file
+that does not end in a newline, because the end marker would then join its last line.
 
 `kit-sync.py` (stdlib Python, keep it beside the kit file; any component can use it — the first
 argument is the marker name):
@@ -102,7 +186,7 @@ argument is the marker name):
   python3 Shared/kit-sync.py sync  DatePicker Shared/DatePicker.tsx */*.jsx
 
 The kit's markers in a block (the start line names the kit file and the first 12 hex of its sha256):
-  // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 f5753a191077 - edit there, not here =====
+  // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 3bb0cdae9c91 - edit there, not here =====
   ...the kit file, byte for byte...
   // ===== /DatePicker =====
 Blocks without the markers are skipped. check exits 1 when any copy differs from the kit; sync rewrites the
@@ -156,11 +240,19 @@ main()
 Tested on 2026-10-07 on copies of two LCDB blocks: `check` passes against their kit, flags both as
 stale against a changed kit, `sync` rewrites only the marked region, and syncing back to the
 original kit gives a file byte-identical to the original block. Blocks without the markers are
-skipped.
+skipped. Run again on 2026-10-08 against the kit below: `check` flagged a block carrying an old sha,
+`sync` rewrote it, and the awk command above then printed the kit file's sha256 for its region.
 
 The same convention fits any shared component, the Combo in
 [searchable-dropdown.md](searchable-dropdown.md) included, whose "keep one canonical copy and port
 changes from there" it makes mechanical.
+
+It also fits shared text. Hard Constraint 22 asks that text which must match across blocks (a
+definitions paragraph) be diffed word for word before a push. Markers make that mechanical: the text
+sits in a module-scope constant between marker lines, and `check` does the diff. Not tried for text
+yet. The script compares the bytes between the markers and does not care what they hold. A helper
+behind a figure that must agree across blocks can sit between markers as code, like any shared
+component.
 
 ## Lessons from the rollout
 
@@ -176,17 +268,13 @@ contains a date field; bound an over-wide child at the child. A scroller the fie
 in (a modal body, a table scroller) is fine, because the placement measures it: the kit's
 `dpClipBox` walks every ancestor, out through the shadow host, as `comboClipBox` does.
 
-**2. In a short modal body, the calendar may scroll its trigger partly out of view.** The panel
-opens down when it fits below, up when it fits above. When it fits neither way, the box that cuts
-it off is scrolled by the smaller amount that makes room. When no scroll makes it fit, it opens
-down and scrolls the box as far as it can, and that limit is the trigger's **bottom** edge, not its
-top. The first version stopped at the trigger's top, to keep the whole field in view. In the
-family page's Add child modal, whose body is short and sized by its content, that left the
-calendar's Today / Clear row below the body's edge, cut off. Allowing the trigger to scroll
-partly away fixed it. Down is the fallback because what hangs past a scroller's bottom extends its
-scroll range, and what hangs past its top never does. The focused day is kept in view the same
-way: scroll the one clipping box, never `scrollIntoView` (it scrolls every ancestor, the page
-included), and issue the scroll from a `setTimeout` (Hard Constraint 17).
+**2. In a short modal body, the calendar may scroll its trigger partly out of view.** The first
+version scrolled the box that cuts the panel off only as far as the trigger's top, to keep the whole
+field in view. In the family page's Add child modal, whose body is short and sized by its content,
+that left the calendar's Today / Clear row below the body's edge, cut off. Allowing the trigger to
+scroll partly away fixed it: the limit is the trigger's **bottom** edge, not its top. The second
+round took the 8px margin off that limit too and added the compact and capped panels; the whole
+ladder is in [Short screens](#short-screens).
 
 **3. Blocks that size controls by named containers pass the text size in.** The trigger must
 look like the block's text inputs, text size included. The kit's default,
@@ -320,8 +408,9 @@ with every form and modal that holds a date field opened, the count across all s
 And `kit-sync.py check` passes, so every marked copy is the current kit.
 
 **2. Nothing clips or covers the open calendar.** Open the calendar in the tight spots: the last
-field of a modal body, a field low in a table scroller, near the window's right edge, at phone
-width (375px, above Softr's tab bar). Then hit-test points on the panel through the shadow root
+field of a modal body (a 392px body at 1280×600), a field low in a table scroller, near the window's
+right edge, at phone width (375px, above Softr's tab bar), on a 568×320 landscape phone, and at the
+end of a short page on a phone. Then hit-test points on the panel through the shadow root
 (`document.elementFromPoint` only returns the host):
 
 ```js
@@ -344,13 +433,17 @@ width (375px, above Softr's tab bar). Then hit-test points on the panel through 
 ```
 
 Wait a beat after opening: when the panel needs room, the placement scrolls a box from a
-`setTimeout`.
+`setTimeout`. A capped panel shows only part of its day grid on open, so for it run the reach test
+in [Verifying a change to the kit](#verifying-a-change-to-the-kit) instead.
 
 **3. Escape order.** With real key presses (`ab press Escape`), in a modal with something typed in
 another field and the calendar open: the first Escape closes the calendar only (the modal is open,
 no discard prompt, focus is on the date field's trigger); the second Escape reaches the modal
 (it closes, or asks to discard). Then the backdrop case of lesson 5, and Tab out of the open calendar
-inside the modal: focus lands on the next field, not on the modal panel (lesson 6).
+inside the modal: focus lands on the next field, not on the modal panel (lesson 6). In Firefox as
+well as Chromium, the Tab order in an open calendar is the heading, Previous month, Next month, the
+active day, Today, Clear; an extra stop before the day is the capped grid's scroll box
+([Short screens](#short-screens), item 4).
 
 **4. The saved value is byte-identical to the native version's.** Block saves first
 ([browser-checks.md → Block saves before any click, and prove it](browser-checks.md#6-block-saves-before-any-click-and-prove-it)),
@@ -358,6 +451,94 @@ pick a day, save, and read the aborted request's payload: the field holds the sa
 field sent for that day (`"2026-10-15"`, not a timestamp). Clear sends what an emptied native field
 sent, unless the block deliberately changed it (one LCDB block now saves a cleared optional date as
 `null`).
+
+**5. Keyboard walks stop at `min` and `max`.** A start calendar whose `max` is the end date stops at
+that date: PageDown lands on the cap, not a month later, and the month arrows stop with it (`min`
+does the same the other way). A test that presses PageDown and expects the same day next month
+fails for the wrong reason. Walk the calendar by reading the focused day's `aria-label`
+(`Thursday, October 15, 2026`) after each key, and compare it with where the cap says it should
+land.
+
+**6. A save-time check the picker makes unreachable.** With `max` set to today, no click reaches a
+future day, so the block's own "The date can't be in the future" message cannot be shown from the
+screen. Keep the check (a draft restored from storage, or a form left open past midnight, can still
+hold such a date) and prove it another way: seed a row with a future date into storage and reload,
+or move the page's clock back after the form has defaulted to today. Report it as proven in the
+harness, not as untested.
+
+**7. The live block carries this kit.** Softr serves the block's `index.js` with comments stripped,
+so the marker's sha is not in it. Fetch that script, not the stylesheet beside it, as in
+[browser-checks.md → 2](browser-checks.md#2-session-preview-cookie-page), and count a code-only
+form that differs between kits. In this kit `"instant"` appears 6 times in the served code (7 in
+the source, one of them a comment) and `scrollBy(0,` never; the earlier kits had 0 and 3. Look
+through the rest of the block for look-alikes first: the Combo has its own `scrollTop +=`.
+
+## Verifying a change to the kit
+
+A change to the kit reaches every block, so it is checked harder than one block's change. These
+come from the 2026-10-08 round, where the kit was built, reviewed three times and re-run until a
+three-engine matrix passed.
+
+**The harness**
+
+- **Give it Softr's smooth scrolling and a tab-bar stand-in**, as in
+  [qa-playbook.md → A local harness](qa-playbook.md#a-local-harness). Then prove the mode is live
+  with a two-line probe: right after a plain `window.scrollBy(0, 100)`, `scrollY` still reads 0;
+  after `scrollBy({ top: 100, behavior: "instant" })` it reads 100. Add a stress mode with
+  `scroll-behavior: smooth` on every box in the shadow root, and make the harness's own scrolls
+  instant too: one `scrollTop +=` in a hit test gave false misses (29 of 49 cases until it was
+  fixed, 48 after).
+- **Test at the end of a short page, not only with filler below.** All 48 of the builder's cases
+  had 900px of content under the field. At the bottom of a short page Today and Clear landed under the
+  phone tab bar, in the old kit and the new.
+- **Build the approved version into the same harness** as a second bundle, and diff the placement
+  per case: panel rect, trigger rect, page scroll, direction, day size, hit count and the Escape
+  result. The diff separates the intended changes (the 6.5px cut gone, the invisible 65px phone
+  spacer) from regressions; 9 of 13 ordinary layouts came out identical. Key the cases on index plus
+  open mode: a click-opened and a keyboard-opened case share a name and overwrite each other in a
+  dict.
+- **Run three engines**: Chromium, Firefox and WebKit (a small macOS WKWebView runner; see
+  [qa-playbook.md → Which engine ran](qa-playbook.md#which-engine-ran)). The Firefox keyboard walk
+  found the grid's Tab stop, which Chromium never shows.
+- **Walk keys at root font sizes 16, 20 and 24px.** The kit sizes in rem (the panel is 18.5rem wide,
+  the weekday row 1.5rem). A modal body fixed in px fails at 20 and 24 through harness geometry: the
+  rem-sized header and footer push it below a 320px window. Size the harness modal in rem, or record
+  those failures as a baseline.
+- **Dry-run the sync** on temp copies of every block, then run the compile gate on each, before the
+  real sync.
+
+**Reach and fit**
+
+- **A reach test holds the page still.** Open the capped panel, then sweep the grid's own scroll
+  (the box marked `data-dp-lip`) in 10px instant steps. For each day, Today and Clear, hit-test two
+  ways: `document.elementFromPoint` must return the block's host, not Softr's tab bar, and the
+  shadow root's `elementFromPoint` must return the button. Count the days hit at open (28 of 42 in
+  one case) and the days reached by scrolling the grid (42 of 42) separately, and confirm the
+  page's scroll stayed 0, so the result does not borrow the page's. A test that scrolls the window
+  to each day passes a panel that opened off the strip, and a count of what is visible at open
+  fails a good capped panel. ArrowDown from today stays put when later days are disabled, so test
+  keyboard reach upward.
+- **Measure against the tab bar's top, not `innerHeight`.** Below 768px the strip ends 57px above the
+  bottom of the window. In a dialog, measure the panel against the body's padding box (top +
+  `clientTop` to + `clientHeight`) and the panel's own bottom padding, then hit-test points in that
+  padding. At 1280×600 the spare room was 1px in one dialog and 0.5px in another, and a screenshot
+  cannot tell that from a 1px fail.
+- **Probe before you call a 1px miss a regression.** Chromium opens a one-row capped grid at
+  `scrollTop` 63 instead of 64 (568×320, a 165px dialog body), so 1px of the active day sits behind
+  the grid's edge. Any arrow key corrects it, Firefox and WebKit pass, and both earlier reworks did
+  the same (the kit from before the round has no capped grid at that size): a baseline entry, not a
+  finding. Firefox can leave a panel 0.4 to 0.5px past its box through scroll rounding; the judge
+  allows 0.5px.
+
+**The pipeline around it**
+
+- **Give the component's review a time box and a way back.** The kit's builder re-ran a three-engine
+  matrix for about 100 minutes while 12 blocks waited. Time-box the review, build it on the
+  builder's saved results, and decide the fallback first: revert to the approved version if it does
+  not pass. The final review passed in under 30 minutes.
+- **Name the kit as deferred in each block check's prompt.** While the kit is under review, or after
+  it fails, blocks are pushed without the new copy on purpose. Mark it deferred, not failed, as in
+  [qa-playbook.md → Running QA with several agents and skeptics](qa-playbook.md#running-qa-with-several-agents-and-skeptics).
 
 ## Re-skinning the kit
 
@@ -377,30 +558,73 @@ which token). Change both, with a find-and-replace per hex over the kit file:
 | `divider` | `#E5E7EB` | The rule above Today / Clear (inline only) |
 | `faint` | `#C4C8CF` | Days outside `min` / `max` |
 
-Also: `DP_FONT_BODY` (the trigger's value, as the block's text inputs) and `DP_FONT_DISPLAY` (the
-calendar), the trigger's height and radius in `DP_TRIGGER` (match the block's inputs), and
-`DP_SOFTR_TOP_BAR`: `0` as verified (LCDB has no top bar), `56` when the app shows Softr's sticky
-top bar, so the calendar never opens up under it (untested at 56; the bar heights are in
-[searchable-dropdown.md](searchable-dropdown.md#the-four-things-that-will-bite-you)). After a
-re-skin, the kit file's sha changes; sync it into every block.
+Also: `DP_FONT_BODY` (the trigger's value, as the block's text inputs), `DP_FONT_DISPLAY` (the
+calendar) and the trigger's height and radius in `DP_TRIGGER` (match the block's inputs). The layout
+constants below drive the placement arithmetic; change them with care, and re-run the short-screen
+cases after any change.
+
+| Constant | Kit value | Sets |
+|---|---|---|
+| `DP_PANEL_REM` | `18.5` | Panel width in rem: 296px, fits a 343px phone column |
+| `DP_GAP` | `4` | Trigger to panel, px |
+| `DP_EDGE` | `8` | Room kept free at the edges of the strip the panel can paint into, px |
+| `DP_CAP_MIN` | `153` | The least a capped panel is cut to, px: header, footer, weekday row and one row of days |
+| `DP_SOFTR_TAB_BAR` | `57` | Softr's phone tab bar below 768px, measured, px. The phone spacer is this plus `DP_EDGE` |
+| `DP_DAY_FULL`, `DP_DAY_DENSE` | `h-9 w-9 text-[14px]`, `h-8 w-8 text-[13px]` | Day size at full and at compact size |
+
+**Softr's sticky top bar.** The kit does not clear it. `dpClipBox` starts the strip at
+`let top = 0;`, which suits an app with no top bar. The skill's 2.16.0 copy of the 2026-10-07 kit had
+a constant, `DP_SOFTR_TOP_BAR` (`0`, or `56` for an app that shows the bar). It is gone: the
+approved short-screen kit, embedded below, has no such constant, so a project that had set it to 56
+loses the setting when it takes this kit. For an app with the bar, change that one line in
+`dpClipBox` to `let top = phone ? 0 : 56;` (`phone` is declared just above it; the bar shows from
+768px up, and a phone has the tab bar instead). Without the edit, a calendar that opens up can land
+under the bar. Untested at 56; the bar heights are in
+[searchable-dropdown.md](searchable-dropdown.md#the-four-things-that-will-bite-you). Make the edit in
+the project's kit file, and keep it there when you take a newer copy of the kit from this page.
+After a re-skin, the kit file's sha changes; sync it into every block.
 
 ## The kit file
 
-Below is the whole kit, ready to save as the project's kit file. It is the LCDB kit (sha256
-`f5753a191077…`, deployed 2026-10-07) with its comments made client-neutral and `DP_SOFTR_TOP_BAR`
-added; at `0` it behaves exactly as deployed. This copy (sha256 `4763ca393a6c…`) passed the same
-22 harness checks in Chromium 149 on 2026-10-07; the Firefox run was not repeated for it.
+Below is the whole kit, ready to save as the project's kit file. It is the LCDB kit approved on
+2026-10-08. Its code is the approved file's, byte for byte. Only comments differ, worded to make
+sense outside the project: the one name in the first comment is "LCDB", and a block label, a
+style-guide file name, a place name, a colour name and a note on the top bar are replaced by plain
+wording. The project's own file keeps the original comments, so its sha256 is `7766c741b271…` and
+its markers carry that. The text below is 807 lines and ends with one newline. Saved as a file it
+has sha256 `3bb0cdae9c911fbfc21451c05e9c0802f3fafaf6713d10e2def676da28f863ec` (`shasum -a 256`,
+final newline counted; the method is under
+[The kit between markers](#the-kit-between-markers)).
+
+The approved file passed a 49-case matrix (22 at the end of a short page, 12 with the trigger under
+the tab bar, 6 in a 392px dialog body, 9 at ordinary sizes) with smooth scrolling off, on for the
+page, and on for every box. Chromium 149 passed 48 of 49 each time (the miss is the 1px Chromium
+case in [Verifying a change to the kit](#verifying-a-change-to-the-kit)), Firefox 157 and macOS
+WebKit 49 of 49, and the low-field cases 11 of 11 in Chromium and Firefox. A reviewer then
+re-measured it by hand in Chromium (40 of 41) and walked the keys in Firefox. Not tested: iPhone
+Safari itself (only macOS WKWebView ran), the phone spacer on an inner Softr page whose document may
+not scroll, and Safari releases older than the current WKWebView's handling of `behavior: "instant"`.
 
 <details>
-<summary>DatePicker.tsx (694 lines)</summary>
+<summary>DatePicker.tsx (807 lines)</summary>
 
 ```tsx
-/** DatePicker — brand-styled date field for Softr Vibe Coding blocks, replacing native <input type="date">: its
- * calendar pop-up is browser UI that no CSS reaches, so this one is drawn in the block's own DOM. Paste everything below
- * this comment at MODULE scope (never inside Block()). From softr-vibe-coding references/date-picker.md: the Lane County
- * Diaper Bank kit of 2026-10-07 (sha256 f5753a191077), comments generalized and DP_SOFTR_TOP_BAR added (0 = the
- * verified behaviour). That kit passed 22 checks in a React 18.2 shadow-root harness with Tailwind v4 (Chromium 149 and
- * macOS Firefox 157, TZ America/Los_Angeles, today fixed at 2026-10-07) and shipped in 12 blocks.
+/** DatePicker — brand-styled date field for Softr Vibe Coding blocks (LCDB), replacing native
+ * <input type="date">: its calendar pop-up is browser UI that no CSS reaches, so this one is drawn in the block's own
+ * DOM. Paste everything below this comment at MODULE scope (never inside Block()). Built 2026-10-07; 22 checks pass
+ * in a React 18.2 shadow-root harness with Tailwind v4 (Chromium 149 and macOS Firefox 157, TZ America/Los_Angeles,
+ * today fixed at 2026-10-07). Fixed the same day after the rollout checks: a calendar in a short modal body may now
+ * scroll its trigger partly out of view rather than cut off the Today/Clear row (closing scrolls the trigger back into
+ * view), and the text size is a prop. Short screens (2026-10-08): in a scrolling box the calendar may scroll its trigger
+ * out of view down to the trigger's bottom edge (no 8px margin), so a 392px dialog body holds it; where even that is
+ * not enough it switches to a compact grid (32px days, 13px text), and where the compact grid does not fit either it is
+ * capped at the room there is and its day grid scrolls inside it (a landscape phone, 568x320). Review fixes (2026-10-08):
+ * a panel opening down on a phone carries an empty spacer below it, so the page can scroll Today and Clear clear of the
+ * fixed tab bar even at the end of a short page; a panel opening up from a trigger that sits under the tab bar is lifted
+ * clear of it; the capped grid is not a Tab stop (Firefox made it one); the stuck weekday row is measured, not 24px; and
+ * the keep-visible scroll makes up to three passes (WebKit moves the body's scroll when the month grid replaces the day grid).
+ * Smooth scroll (2026-10-08): Softr's page sets html { scroll-behavior: smooth }, which animates every scrollBy and scrollTop
+ * write and restarts each from where the page is at that moment, so every scroll here says behavior: "instant".
  *
  * Imports it needs (merge the names into the block's existing import lines):
  *   import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -412,14 +636,14 @@ added; at `0` it behaves exactly as deployed. This copy (sha256 `4763ca393a6c…
  *   <DatePicker id="start" labelledBy="start-label" value={start} onChange={setStart} max={end} clearable />
  * value, min and max are "yyyy-MM-dd" strings or ""; onChange(next) receives "yyyy-MM-dd", or "" from Clear.
  * textClass sets the trigger's text size. The default suits blocks that size controls by the nearest container; a block
- * that sizes them by named containers passes its own (e.g. "text-[16px] @min-[48rem]/page:text-[14px]").
+ * that sizes them by named containers passes its own (e.g. "text-[16px] @min-[48rem]/page:text-[14px] ...").
  * The label's htmlFor may stay: a click on the label opens the picker, as it focuses a native date field.
  * Nothing between the field and the scroller it belongs to may clip (overflow-hidden, truncate, line-clamp): the
  * calendar is an absolute panel in the block's DOM (softr-vibe-coding references/searchable-dropdown.md, rule 1).
  */
 
-// Brand tokens this component uses (the project's DESIGN.md): a copy, because blocks cannot import each other (Hard
-// Constraint 22). Tailwind class strings repeat some as literal hex; each says which. Re-skin both.
+// Brand tokens this component uses: a copy, because blocks cannot import each other (Hard Constraint 22).
+// The values match the blocks' C object. Tailwind class strings repeat some as literal hex; each says which.
 const DP_C = {
   primary: "#680058",
   primaryDeep: "#4E0042", // hover on primary
@@ -437,8 +661,8 @@ const DP_FONT_DISPLAY = "'Poppins', ui-sans-serif, system-ui, sans-serif"; // th
 const DP_PANEL_REM = 18.5; // panel width: 296px, fits a 343px phone content column
 const DP_GAP = 4; // trigger to panel
 const DP_EDGE = 8; // room kept free at the edges of the strip the panel can paint into
-const DP_SOFTR_TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px
-const DP_SOFTR_TOP_BAR = 0; // 56 when the app shows Softr's sticky top bar (window 768px and up); untested at 56
+const DP_CAP_MIN = 153; // the least a capped panel is cut to: header, footer, weekday row and one row of days
+const DP_SOFTR_TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px (this kit assumes no sticky top bar)
 const DP_WEEKDAYS = [
   ["Su", "Sunday"],
   ["Mo", "Monday"],
@@ -453,25 +677,28 @@ const DP_WEEKDAYS = [
 // #680058 = DP_C.primary · #4E0042 = DP_C.primaryDeep · #030712 = DP_C.ink · #6B7280 = DP_C.muted
 // #F3F4F6 = DP_C.canvas · #C4C8CF = DP_C.faint
 const DP_DAY =
-  "mx-auto flex h-9 w-9 items-center justify-center rounded-full text-[14px] leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]";
+  "mx-auto flex items-center justify-center rounded-full leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]";
+const DP_DAY_FULL = "h-9 w-9 text-[14px]";
+const DP_DAY_DENSE = "h-8 w-8 text-[13px]"; // the compact calendar: 32px days
 const DP_DAY_SELECTED = "bg-[#680058] font-semibold text-white hover:bg-[#4E0042]";
 const DP_DAY_TODAY = "font-semibold text-[#680058] hover:bg-[#F3F4F6]";
 const DP_DAY_IN = "text-[#030712] hover:bg-[#F3F4F6]";
 const DP_DAY_OUT = "text-[#6B7280] hover:bg-[#F3F4F6]";
 const DP_DAY_OFF = "cursor-default text-[#C4C8CF]";
-// Months in the month / year view: same states, as 44px pills.
+// Months in the month / year view: same states, as 44px pills (36px in the compact calendar).
 const DP_MONTH =
-  "flex h-11 w-full items-center justify-center rounded-full text-[14px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]";
-// Month arrows: 44px targets. aria-disabled (not disabled), so an arrow keeps focus when it reaches min or max.
+  "flex w-full items-center justify-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]";
+// Month arrows: 44px targets (36px in the compact calendar). aria-disabled (not disabled), so an arrow keeps focus when
+// it reaches min or max.
 const DP_ICON_BTN =
-  "flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058] aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:bg-transparent";
+  "flex items-center justify-center rounded-full transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058] aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:bg-transparent";
 // The trigger is the blocks' text input: 44px. Its text size comes from the textClass prop: by default 16px below a
 // 48rem container (stops iOS zoom) and 14px from it.
 // #D1D5DB = DP_C.border · #680058 = DP_C.primary (focus border and ring; kept while the calendar is open)
 const DP_TRIGGER =
   "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#D1D5DB] bg-white px-3 text-left transition-colors focus:border-[#680058] focus:outline-none focus:ring-2 focus:ring-[#680058]/25 aria-expanded:border-[#680058] aria-expanded:ring-2 aria-expanded:ring-[#680058]/25 disabled:cursor-not-allowed disabled:opacity-60";
 
-type DpPlace = { up: boolean; x: number; maxW: number | null; ready: boolean };
+type DpPlace = { up: boolean; x: number; maxW: number | null; capH: number | null; pad: number; lift: number; ready: boolean };
 
 // "yyyy-MM-dd" -> a local-midnight Date, or null. Never new Date("yyyy-MM-dd"): that is UTC midnight, a day early
 // west of Greenwich. Rejects impossible dates (2026-02-30) instead of rolling them over.
@@ -500,12 +727,12 @@ function dpClamp(d: Date, min: Date | null, max: Date | null) {
   return d;
 }
 
-// The strip of screen the panel can paint into: the window (minus Softr's bars), cut down by every ancestor that
-// clips, as comboClipBox in searchable-dropdown.md. Also returns the boxes that set the top and bottom edges (null =
-// the window), for the nudge in dpPlace.
+// The strip of screen the panel can paint into: the window (minus Softr's phone tab bar), cut down by every ancestor
+// that clips, as comboClipBox in searchable-dropdown.md. Also returns the boxes that set the top and bottom edges
+// (null = the window), for the nudge in dpPlace.
 function dpClipBox(node: HTMLElement) {
   const phone = window.innerWidth < 768;
-  let top = phone ? 0 : DP_SOFTR_TOP_BAR;
+  let top = 0;
   let left = 0;
   let right = window.innerWidth;
   let bottom = window.innerHeight - (phone ? DP_SOFTR_TAB_BAR : 0);
@@ -539,7 +766,7 @@ function dpClipBox(node: HTMLElement) {
     // Where the parent chain ends at the shadow root, carry on from its host.
     el = el.parentElement || (el.getRootNode ? (el.getRootNode() as any).host : null) || null;
   }
-  return { top, bottom, left, right, topEl, bottomEl };
+  return { top, bottom, left, right, topEl, bottomEl, phone };
 }
 
 // Can this edge box (null = the window) be scrolled, and how far is it scrolled now?
@@ -551,38 +778,51 @@ function dpScrollable(el: HTMLElement | null) {
 
 // focus({ preventScroll: true }) does not reveal what it focuses. When the active day sits past the edge of the box
 // that clips it (a short modal body), scroll that one box just far enough; never scrollIntoView, which scrolls every
-// ancestor including the page.
+// ancestor including the page. With a scroll box inside another (the capped day grid in a modal body) one pass may not
+// be enough: WebKit resets the grid's scroll and moves the body's when the day grid becomes the month grid, so the box
+// that cuts the element off nearest changes after the first scroll. Measure and scroll again, up to three passes.
 function dpKeepVisible(el: HTMLElement) {
-  const clip = dpClipBox(el);
-  const r = el.getBoundingClientRect();
-  if (r.bottom > clip.bottom - DP_EDGE && dpScrollable(clip.bottomEl)) {
-    const by = r.bottom - (clip.bottom - DP_EDGE);
-    if (clip.bottomEl) clip.bottomEl.scrollTop += by;
-    else window.scrollBy(0, by);
-  } else if (r.top < clip.top + DP_EDGE && dpScrollable(clip.topEl)) {
-    const by = clip.top + DP_EDGE - r.top;
-    if (clip.topEl) clip.topEl.scrollTop -= by;
-    else window.scrollBy(0, -by);
+  for (let pass = 0; pass < 3; pass++) {
+    const clip = dpClipBox(el);
+    const r = el.getBoundingClientRect();
+    // The stuck weekday row of a capped day grid, as tall as it is drawn (it follows the root font size).
+    const lipRow = clip.topEl?.hasAttribute("data-dp-lip") ? clip.topEl.querySelector("th") : null;
+    const lip = lipRow ? lipRow.getBoundingClientRect().height : 0;
+    // The margin shrinks when the box is barely taller than the element and that row: the element must still fit.
+    const m = Math.max(0, Math.min(DP_EDGE, (clip.bottom - clip.top - lip - r.height) / 2));
+    if (r.bottom > clip.bottom - m && dpScrollable(clip.bottomEl)) {
+      const by = r.bottom - (clip.bottom - m);
+      // Instant, not the page's smooth scroll: the next pass measures where this one landed.
+      if (clip.bottomEl) clip.bottomEl.scrollBy({ top: by, behavior: "instant" });
+      else window.scrollBy({ top: by, behavior: "instant" });
+    } else if (r.top < clip.top + m + lip && dpScrollable(clip.topEl)) {
+      const by = clip.top + m + lip - r.top;
+      if (clip.topEl) clip.topEl.scrollBy({ top: -by, behavior: "instant" });
+      else window.scrollBy({ top: -by, behavior: "instant" });
+    } else {
+      return; // inside every box, or nothing left that can scroll
+    }
   }
 }
 
-// Where the panel goes. Down when it fits below, else up when it fits above. When it fits neither way (a short modal
-// body, a small window), the box that cuts it off is nudged by the smaller scroll that makes it fit with the trigger
-// still in view: up into room above (only as far as that box is scrolled down), or down into room below. When no
-// nudge makes it fit: down, scrolled as far as the trigger allows, so the rest can be scrolled to (what hangs past a
-// scroller's bottom extends its scroll range; past its top it never does); with no scroller at all, the larger side.
-// Horizontally it hangs from the trigger's left edge and shifts left to stay inside the strip.
-function dpPlace(wrapper: HTMLElement, panelH: number) {
-  const clip = dpClipBox(wrapper);
-  const r = wrapper.getBoundingClientRect();
+// Where a panel of height h goes. Down when it fits below, else up when it fits above. When it fits neither way (a short
+// modal body, a small window), the box that cuts it off is nudged by the smaller scroll that makes it fit with the
+// trigger still in view: up into room above (only as far as that box is scrolled down), or down into room below. When
+// no nudge makes it fit: down, scrolled as far as the trigger allows, so the rest can be scrolled to (what hangs past
+// a scroller's bottom extends its scroll range; past its top it never does); with no scroller at all, the larger side.
+// fit says whether the whole panel then lies inside the box (the 8px margin may be spent when scrolling down).
+function dpFit(clip: ReturnType<typeof dpClipBox>, r: DOMRect, h: number) {
   const below = clip.bottom - r.bottom - DP_GAP - DP_EDGE;
-  const above = r.top - clip.top - DP_GAP - DP_EDGE;
-  let up = below < panelH && above >= panelH;
+  // Up, the panel ends DP_GAP above the trigger, but never under the strip's bottom edge: a trigger can sit under the phone
+  // tab bar (keyboard focus leaves it there, a turned phone moves it), and dpPlace then lifts the panel clear of the bar.
+  const above = Math.min(r.top - DP_GAP, clip.bottom - DP_EDGE) - clip.top - DP_EDGE;
+  let up = below < h && above >= h;
   let scroller: HTMLElement | Window | null = null;
   let scrollBy = 0; // positive scrolls down (the content moves up)
-  if (below < panelH && above < panelH) {
-    const needUp = panelH - above; // scroll the top box back this far to make room above
-    const needDown = panelH - below; // scroll the bottom box on this far to make room below
+  let fit = true;
+  if (below < h && above < h) {
+    const needUp = h - above; // scroll the top box back this far to make room above
+    const needDown = h - below; // scroll the bottom box on this far to make room below
     const topScroll = clip.topEl ? clip.topEl.scrollTop : window.scrollY;
     const canUp =
       dpScrollable(clip.topEl) && topScroll >= needUp && r.bottom + needUp <= clip.bottom - DP_EDGE;
@@ -595,12 +835,35 @@ function dpPlace(wrapper: HTMLElement, panelH: number) {
     } else if (canDown) {
       up = false;
       scroller = clip.bottomEl || window;
-      // Up to the trigger's bottom edge, not its top: in a short modal body the whole calendar then fits, and only
-      // part of the trigger scrolls out of view.
-      scrollBy = Math.max(0, Math.min(needDown, r.bottom - clip.top - DP_EDGE));
+      // Down to the trigger's bottom edge, with no margin: in a short modal body the whole calendar then fits, and the
+      // trigger scrolls out of view (closing brings it back). The 8px margin below the panel is spent first.
+      scrollBy = Math.max(0, Math.min(needDown, r.bottom - clip.top));
+      fit = scrollBy + 0.5 >= needDown - DP_EDGE;
     } else {
       up = above > below;
+      fit = false;
     }
+  }
+  return { up, scroller, scrollBy, fit, below, above };
+}
+
+// Where the panel goes (dpFit), and how tall it may be. canCap: the compact calendar is already on show, so a panel that
+// still fits nowhere is cut to the most the box can show once scrolled to it (where nothing scrolls: to the larger
+// side), never below DP_CAP_MIN, and its day grid scrolls inside it. Horizontally it hangs from the trigger's left edge
+// and shifts left to stay inside the strip.
+function dpPlace(wrapper: HTMLElement, panelH: number, canCap: boolean) {
+  const clip = dpClipBox(wrapper);
+  const r = wrapper.getBoundingClientRect();
+  let a = dpFit(clip, r, panelH);
+  let capH: number | null = null;
+  if (!a.fit && canCap) {
+    capH = Math.max(DP_CAP_MIN, Math.min(panelH, clip.bottom - clip.top - 2 * DP_EDGE - DP_GAP));
+    a = dpFit(clip, r, capH);
+    if (!a.fit) {
+      capH = Math.max(DP_CAP_MIN, Math.min(capH, Math.max(a.below, a.above)));
+      a = dpFit(clip, r, capH);
+    }
+    if (capH >= panelH) capH = null;
   }
   const remPx = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   const room = clip.right - clip.left - 2 * DP_EDGE;
@@ -608,7 +871,23 @@ function dpPlace(wrapper: HTMLElement, panelH: number) {
   let x = 0;
   if (r.left + w > clip.right - DP_EDGE) x = clip.right - DP_EDGE - w - r.left;
   if (r.left + x < clip.left + DP_EDGE) x = clip.left + DP_EDGE - r.left;
-  return { up, x: Math.round(x), maxW: w < DP_PANEL_REM * remPx ? Math.floor(w) : null, scroller, scrollBy };
+  // Up from a trigger that sits within DP_GAP + DP_EDGE of the strip's bottom edge or past it (under the phone tab bar): the
+  // panel is lifted until it ends DP_EDGE above that edge. dpFit has counted the room above from there.
+  const lift = a.up ? Math.max(0, Math.ceil(r.top - DP_GAP - (clip.bottom - DP_EDGE))) : 0;
+  return {
+    up: a.up,
+    x: Math.round(x),
+    maxW: w < DP_PANEL_REM * remPx ? Math.floor(w) : null,
+    scroller: a.scroller,
+    scrollBy: a.scrollBy,
+    fit: a.fit,
+    capH,
+    lift,
+    // Down into the window on a phone: the page only scrolls as far as its own content, and an absolute panel reaches the
+    // document's end at its own bottom edge, where the fixed tab bar covers the last 57px (Today and Clear). This much
+    // empty room below the panel lets the page scroll it clear of the bar. Up, or in a scrolling box: not needed.
+    pad: !a.up && !clip.bottomEl && clip.phone ? DP_SOFTR_TAB_BAR + DP_EDGE : 0,
+  };
 }
 
 function DatePicker({
@@ -645,7 +924,10 @@ function DatePicker({
   const [view, setView] = useState<"days" | "months">("days");
   const [focusDate, setFocusDate] = useState<Date>(() => dpToday());
   const [today, setToday] = useState<Date>(() => dpToday());
-  const [place, setPlace] = useState<DpPlace>({ up: false, x: 0, maxW: null, ready: false });
+  const [place, setPlace] = useState<DpPlace>({ up: false, x: 0, maxW: null, capH: null, pad: 0, lift: 0, ready: false });
+  const [dense, setDense] = useState(false); // the compact calendar: for a strip too short for the full one
+  const [tick, setTick] = useState(0); // a window resize starts the placement over, from the full calendar
+  const resized = useRef(false); // that placement moves the panel only; it scrolls no box
 
   const selected = dpParse(value);
   const minD = dpParse(min);
@@ -662,7 +944,8 @@ function DatePicker({
     // The selected day, else today, else the nearest day min / max allow.
     setFocusDate(dpClamp(selected || t, minD, maxD));
     setView("days");
-    setPlace({ up: false, x: 0, maxW: null, ready: false });
+    setPlace({ up: false, x: 0, maxW: null, capH: null, pad: 0, lift: 0, ready: false });
+    setDense(false);
     focusPending.current = true;
     setOpen(true);
   }
@@ -670,7 +953,15 @@ function DatePicker({
     setOpen(false);
     setView("days");
     focusPending.current = false;
-    if (refocus) triggerRef.current?.focus({ preventScroll: true });
+    if (refocus) {
+      triggerRef.current?.focus({ preventScroll: true });
+      // The open calendar may have scrolled its box until the trigger sat partly out of view: bring it back once the
+      // panel is gone, so focus never lands on a hidden trigger. Only this one box scrolls (Hard Constraint 17).
+      window.setTimeout(() => {
+        const t = triggerRef.current;
+        if (t && t.isConnected) dpKeepVisible(t);
+      }, 0);
+    }
   }
   function pick(d: Date) {
     if (!dpAllowed(d, minD, maxD)) return;
@@ -682,24 +973,32 @@ function DatePicker({
     setFocusDate(dpClamp(d, minD, maxD));
   }
 
-  // Place the panel before it paints: measured hidden, then shown up or down, shifted to stay inside the strip.
+  // Place the panel before it paints: measured hidden, then shown up or down, shifted to stay inside the strip. A panel
+  // that fits nowhere is measured again as the compact calendar; one that still fits nowhere is capped (dpPlace).
   useLayoutEffect(() => {
     if (!open) return;
     const wrap = rootRef.current;
     const panel = panelRef.current;
     if (!wrap || !panel) return;
-    const p = dpPlace(wrap, panel.offsetHeight);
-    setPlace({ up: p.up, x: p.x, maxW: p.maxW, ready: true });
-    if (p.scroller && p.scrollBy !== 0) {
+    const p = dpPlace(wrap, panel.offsetHeight, dense);
+    if (!p.fit && !dense) {
+      setDense(true);
+      return;
+    }
+    setPlace({ up: p.up, x: p.x, maxW: p.maxW, capH: p.capH, pad: p.pad, lift: p.lift, ready: true });
+    const moveOnly = resized.current;
+    resized.current = false;
+    if (!moveOnly && p.scroller && p.scrollBy !== 0) {
       const sc = p.scroller;
       const by = p.scrollBy;
       // Hard Constraint 17: programmatic scrolls go through setTimeout. Only this one box scrolls (no scrollIntoView).
       window.setTimeout(() => {
-        if (sc === window) window.scrollBy(0, by);
-        else (sc as HTMLElement).scrollTop += by;
+        // Instant: dpKeepVisible measures next, and a smooth scroll would still be moving.
+        if (sc === window) window.scrollBy({ top: by, behavior: "instant" });
+        else (sc as HTMLElement).scrollBy({ top: by, behavior: "instant" });
       }, 0);
     }
-  }, [open]);
+  }, [open, dense, tick]);
 
   // Move focus into the calendar on open, and onto the active day or month after keyboard moves and view changes.
   // Done here, not by the click: Safari and macOS Firefox do not focus a clicked button, and a synthetic .click()
@@ -732,15 +1031,14 @@ function DatePicker({
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, [open]);
 
-  // A window resize (a turned tablet) re-places the open panel.
+  // A window resize (a turned tablet) re-places the open panel, from the full calendar again.
   useEffect(() => {
     if (!open) return;
     const onResize = () => {
-      const wrap = rootRef.current;
-      const panel = panelRef.current;
-      if (!wrap || !panel) return;
-      const p = dpPlace(wrap, panel.offsetHeight);
-      setPlace({ up: p.up, x: p.x, maxW: p.maxW, ready: true });
+      resized.current = true;
+      setDense(false);
+      setPlace((p) => ({ ...p, capH: null }));
+      setTick((n) => n + 1);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -815,6 +1113,7 @@ function DatePicker({
     weeks.push(row);
   }
   const heading = view === "days" ? format(focusDate, "MMMM yyyy") : String(year);
+  const capped = place.capH !== null; // the compact calendar, cut to the room there is: its day grid scrolls
 
   return (
     <div ref={rootRef} className="relative">
@@ -894,12 +1193,14 @@ function DatePicker({
             if (next === triggerRef.current && triggerPointer.current) return; // the trigger's click will toggle
             closePicker(false);
           }}
-          className={`absolute z-40 w-[18.5rem] rounded-xl border bg-white p-3 outline-none ${
-            place.up ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
+          className={`absolute z-40 w-[18.5rem] rounded-xl border bg-white outline-none ${dense ? "p-2" : "p-3"} ${
+            capped ? "flex flex-col" : ""
+          } ${place.up ? "bottom-full mb-1" : "top-full mt-1"}`}
           style={{
             left: place.x,
             maxWidth: place.maxW ?? undefined,
+            maxHeight: place.capH ?? undefined,
+            marginBottom: place.up && place.lift ? DP_GAP + place.lift : undefined,
             visibility: place.ready ? "visible" : "hidden",
             borderColor: DP_C.border,
             boxShadow: DP_SHADOW_MENU,
@@ -907,7 +1208,10 @@ function DatePicker({
             color: DP_C.ink,
           }}
         >
-          <div className="flex items-center justify-between">
+          {place.pad ? (
+            <div aria-hidden="true" className="pointer-events-none absolute left-0 top-full w-px" style={{ height: place.pad }} />
+          ) : null}
+          <div className="flex shrink-0 items-center justify-between">
             <button
               type="button"
               aria-label={view === "days" ? `${heading}, choose month and year` : `${heading}, back to days`}
@@ -916,7 +1220,9 @@ function DatePicker({
                 setView(view === "days" ? "months" : "days");
               }}
               // #F3F4F6 = DP_C.canvas · #680058 = DP_C.primary
-              className="-ml-1 inline-flex h-11 items-center gap-1 rounded-full pl-2.5 pr-2 text-[15px] font-semibold transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]"
+              className={`-ml-1 inline-flex ${
+                dense ? "h-9 text-[14px]" : "h-11 text-[15px]"
+              } items-center gap-1 rounded-full pl-2.5 pr-2 font-semibold transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]`}
             >
               {heading}
               <ChevronRight
@@ -931,7 +1237,7 @@ function DatePicker({
                 aria-label={view === "days" ? "Previous month" : "Previous year"}
                 aria-disabled={prevOff || undefined}
                 onClick={() => step(-1)}
-                className={DP_ICON_BTN}
+                className={`${DP_ICON_BTN} ${dense ? "h-9 w-9" : "h-11 w-11"}`}
               >
                 <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
               </button>
@@ -940,7 +1246,7 @@ function DatePicker({
                 aria-label={view === "days" ? "Next month" : "Next year"}
                 aria-disabled={nextOff || undefined}
                 onClick={() => step(1)}
-                className={DP_ICON_BTN}
+                className={`${DP_ICON_BTN} ${dense ? "h-9 w-9" : "h-11 w-11"}`}
               >
                 <ChevronRight className="h-[18px] w-[18px]" aria-hidden="true" />
               </button>
@@ -953,7 +1259,19 @@ function DatePicker({
           </div>
 
           {/* Both views are the same height, so switching never moves the panel. */}
-          <div className="mt-1 h-[16rem]">
+          <div
+            className={
+              !dense
+                ? "mt-1 h-[16rem]"
+                : capped
+                  ? "mt-0.5 min-h-0 shrink overflow-y-auto overscroll-contain"
+                  : "mt-0.5 h-[13.5rem]"
+            }
+            // A scroll box is a Tab stop in Firefox (not in Chromium): tabIndex -1 keeps it out of the order. Its mousedown is
+            // already cancelled by the panel, so a press on it takes no focus either.
+            tabIndex={capped ? -1 : undefined}
+            data-dp-lip={capped && view === "days" ? "" : undefined}
+          >
             {view === "days" ? (
               <table
                 role="grid"
@@ -968,7 +1286,9 @@ function DatePicker({
                         key={short}
                         scope="col"
                         abbr={long}
-                        className="h-7 p-0 text-center text-[12px] font-medium"
+                        className={`${dense ? "h-6" : "h-7"} p-0 text-center text-[12px] font-medium ${
+                          capped ? "sticky top-0 z-[1] bg-white" : ""
+                        }`}
                         style={{ color: DP_C.muted }}
                       >
                         {short}
@@ -996,7 +1316,7 @@ function DatePicker({
                                 : DP_DAY_OUT;
                         return (
                           // Keyed by position, so a month change keeps the focused button in the DOM.
-                          <td key={i} role="gridcell" aria-selected={isSel} className="p-0 py-px text-center">
+                          <td key={i} role="gridcell" aria-selected={isSel} className={dense ? "p-0 text-center" : "p-0 py-px text-center"}>
                             <button
                               type="button"
                               tabIndex={active ? 0 : -1}
@@ -1005,7 +1325,7 @@ function DatePicker({
                               aria-label={format(d, "EEEE, MMMM d, yyyy")}
                               aria-current={isToday ? "date" : undefined}
                               onClick={() => pick(d)}
-                              className={`${DP_DAY} ${tone}`}
+                              className={`${DP_DAY} ${dense ? DP_DAY_DENSE : DP_DAY_FULL} ${tone}`}
                               // Today: a 1px primary ring, inline so it does not rest on Tailwind's ring variables.
                               style={isToday && !isSel && ok ? { boxShadow: `inset 0 0 0 1px ${DP_C.primary}` } : undefined}
                             >
@@ -1022,7 +1342,7 @@ function DatePicker({
               <div
                 role="grid"
                 aria-label={`Months of ${year}`}
-                className="flex h-full flex-col justify-center gap-3"
+                className={`flex flex-col justify-center ${dense ? "gap-2" : "gap-3"} ${capped ? "h-[13.5rem]" : "h-full"}`}
                 onKeyDown={onMonthKey}
               >
                 {[0, 1, 2, 3].map((r) => (
@@ -1046,7 +1366,7 @@ function DatePicker({
                             aria-label={format(first, "MMMM yyyy")}
                             aria-current={isNow ? "date" : undefined}
                             onClick={() => chooseMonth(m)}
-                            className={`${DP_MONTH} ${tone}`}
+                            className={`${DP_MONTH} ${dense ? "h-9 text-[13px]" : "h-11 text-[14px]"} ${tone}`}
                             style={isNow && !isSel && ok ? { boxShadow: `inset 0 0 0 1px ${DP_C.primary}` } : undefined}
                           >
                             {format(first, "MMM")}
@@ -1060,13 +1380,18 @@ function DatePicker({
             )}
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t pt-2" style={{ borderColor: DP_C.divider }}>
+          <div
+            className={`${dense ? "mt-1 pt-1" : "mt-2 pt-2"} flex shrink-0 items-center justify-between border-t`}
+            style={{ borderColor: DP_C.divider }}
+          >
             <button
               type="button"
               disabled={todayOff}
               onClick={() => pick(today)}
               // #680058 = DP_C.primary · #F5EAF3 = DP_C.primaryTint
-              className="-ml-1 inline-flex h-10 items-center rounded-full px-3 text-[14px] font-semibold text-[#680058] transition-colors hover:bg-[#F5EAF3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className={`-ml-1 inline-flex ${
+                dense ? "h-8 text-[13px]" : "h-10 text-[14px]"
+              } items-center rounded-full px-3 font-semibold text-[#680058] transition-colors hover:bg-[#F5EAF3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent`}
             >
               Today
             </button>
@@ -1078,7 +1403,9 @@ function DatePicker({
                   closePicker(true);
                 }}
                 // #6B7280 = DP_C.muted · #F3F4F6 = DP_C.canvas · #030712 = DP_C.ink · #680058 = DP_C.primary
-                className="-mr-1 inline-flex h-10 items-center rounded-full px-3 text-[14px] font-medium text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#030712] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]"
+                className={`-mr-1 inline-flex ${
+                  dense ? "h-8 text-[13px]" : "h-10 text-[14px]"
+                } items-center rounded-full px-3 font-medium text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#030712] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#680058]`}
               >
                 Clear
               </button>
@@ -1099,9 +1426,12 @@ function DatePicker({
 - [ ] The kit pasted verbatim between its markers, at module scope; `kit-sync.py check` passes
 - [ ] Block-specific code (wrapper, imports, `textClass`) outside the markers
 - [ ] No clipping class between the field and its scroller
+- [ ] Short screens: the whole calendar, or every day by scrolling a capped grid, plus Today and Clear, can be hit in a 392px dialog body at 1280×600, on a 568×320 landscape phone and at the end of a short page at 375×812
 - [ ] Trigger text size matches the block's inputs (`textClass` where containers are named)
 - [ ] Escape closes only the calendar; the second Escape reaches the modal
 - [ ] Backdrop click with a calendar open: closes only the calendar, or asks to discard
 - [ ] A modal's focus fix-up deferred with `setTimeout(…, 0)`; Tab out of the calendar reaches the next field
 - [ ] Values are `"yyyy-MM-dd"` strings; compared as strings; displayed through a local date
 - [ ] The saved payload is the same string the native field sent
+- [ ] A save-time check that `max` makes unreachable (a future date) is proven another way
+- [ ] The served block carries the current kit: a code-only count, not the marker

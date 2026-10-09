@@ -227,6 +227,15 @@ Editable settings via MCP are the same fields as the block's **Content → Setti
   only the source: the response still carries every data source's field list. It came to about 1 KB for
   a block with few connections, but about 40 KB on a block with 11, and `vibe_coding_block_get_settings`
   was the same size (LCDB QA rounds, 2026-10-08). Read it once after a push, not after every call.
+- `vibe_coding_block_list_versions` with **`includeCode: false`** and **`limit: 1`** is the cheap "did
+  anything change" read. It returns the newest entry only, with its list id, `versionNumber`, `title`,
+  `prompt` and `createdAt`, and no source and no data-source list, so it is far smaller than
+  `vibe_coding_block_get_code` or `vibe_coding_block_get_settings` (the sizes above). A QA pass used it
+  per block to show that nobody pushed during the run: the newest `createdAt` was earlier than the
+  first save (LCDB QA round 2, 2026-10-08). It sees code writes only: a settings-only change adds no
+  version, and Source conditions and Action permissions are not versioned
+  ([below](#vibe-coding-gotchas-official)). Whether connecting or disconnecting a data source adds a
+  version was not tested.
 - Push results now report `sourceSha256` and `sourceBytes` too, for the source Softr actually stored.
   A search-replace result also carries `actions`, so one `includeCode: false` read afterwards is enough.
 - **"Page not found" from a block tool** means `pageId` and `blockId` were passed the wrong way round, or
@@ -996,16 +1005,20 @@ Known limits and behaviors (per official docs):
   does was not tested. Use LONG_TEXT for anything that grows.
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
 - **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours, LCDB,
-  2026-10-08). Two metrics on different fields returned `BAD_REQUEST` every time; a SUM and a COUNT on
-  the same field worked once. Group-by acceptance was inconsistent across agents on the same day:
-  SELECT and CHECKBOX were refused, while text, LINKED_RECORD, DATETIME by MONTH and DISTINCT on a
-  link each worked in one run and returned `BAD_REQUEST` in another. So prefer filter-only,
-  single-metric calls (one per value or range), and check that the parts add up to the unfiltered
-  total. A filter in a shape the tool does not expect (`{logicalOperator, conditions}`) was ignored
-  with no error, and the count came back as the whole table. The tool expects
-  `{ condition: { operator: "AND"|"OR", conditions: [...] } }`, with field ids in `leftSide`. Compare
-  every filtered count with the unfiltered one. To leave out rows flagged by a checkbox, filter
-  `IS_NOT true` instead of grouping by it.
+  2026-10-08, both rounds of a QA pass). Two metrics in one call were refused more often than not.
+  In the first round, two metrics on different fields returned `BAD_REQUEST` every time, and a SUM
+  and a COUNT of the same field worked once. In the second round a SUM and a COUNT of one field
+  returned `BAD_REQUEST`, with and without `displayFormat`, and so did a COUNT added to a grouped SUM
+  call; yet a SUM grouped by MONTH alone (no `displayFormat`) or by one field worked, and so did one
+  call with a COUNT of a second field, the date, beside the SUM. Group-by acceptance was
+  inconsistent across agents on the same day too: SELECT and CHECKBOX were refused, while text,
+  LINKED_RECORD, DATETIME by MONTH and DISTINCT on a link each worked in one run and returned
+  `BAD_REQUEST` in another. So prefer filter-only, single-metric calls (one per value or range), and
+  check that the parts add up to the unfiltered total. A filter in a shape the tool does not expect
+  (`{logicalOperator, conditions}`) was ignored with no error, and the count came back as the whole
+  table. The tool expects `{ condition: { operator: "AND"|"OR", conditions: [...] } }`, with field ids
+  in `leftSide`. Compare every filtered count with the unfiltered one. To leave out rows flagged by
+  a checkbox, filter `IS_NOT true` instead of grouping by it.
 - **`database_search_records`:** filters name fields by id in `leftSide`. A sort on `updatedAt` was
   silently ignored, and a filter on `id` was rejected.
 - **`database_create_field` on a LINKED_RECORD always creates a single-valued inverse** on the target

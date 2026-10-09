@@ -221,7 +221,9 @@ softr-vibe-coding/
 │   │                                 # push result's versionId is the build id, a
 │   │                                 # timed-out push may have landed, endpoint names
 │   │                                 # for reads vs writes, Studio-only jobs, aggregate
-│   │                                 # and search tool limits
+│   │                                 # and search tool limits; Oct 8 2026 (QA round 2): the
+│   │                                 # aggregate metric limits merged, list_versions with
+│   │                                 # limit 1 as the cheap did-anything-change read
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -236,7 +238,13 @@ softr-vibe-coding/
 │   │                                 # the create-save guard and the request log, forcing
 │   │                                 # states (fake clock, held saves, failed and served
 │   │                                 # reads), exports and printouts without a download
-│   │                                 # or pop-up, double-tap and leave-guard tests
+│   │                                 # or pop-up, double-tap and leave-guard tests;
+│   │                                 # Oct 8 2026 (QA round 2): the build proof finds /index.js
+│   │                                 # (a comment marker cannot prove a build), walking a
+│   │                                 # successful save with a fetch wrapper, a focus recorder
+│   │                                 # and an Escape spy, failing one read, a click under the
+│   │                                 # phone tab bar, ab select on pickers, aborted requests
+│   │                                 # carry no status
 │   ├── qa-playbook.md                # QA of a whole app, in the order to run it (Oct 8
 │   │                                 # 2026): set-up (draft, served build, client zone,
 │   │                                 # one session per agent), never writing by accident,
@@ -244,7 +252,9 @@ softr-vibe-coding/
 │   │                                 # the database, edges tested on purpose, proving a
 │   │                                 # fix before and after in a harness, a live write
 │   │                                 # pass with a read-only checker, QA with several
-│   │                                 # agents and skeptics
+│   │                                 # agents and skeptics; Oct 8 2026 (QA round 2): the checker
+│   │                                 # reads screenshots, proves no push, lists links-only
+│   │                                 # changes
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -307,7 +317,8 @@ softr-vibe-coding/
 │                                     # (clipping, short modal bodies, textClass for
 │                                     # named containers, Escape, backdrop clicks,
 │                                     # deferred focus fix-up, Safari focus,
-│                                     # "yyyy-MM-dd" values), verification (Oct 7 2026)
+│                                     # "yyyy-MM-dd" values), verification (Oct 7 2026),
+│                                     # short-screen fit + kit testing (Oct 8 2026)
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)

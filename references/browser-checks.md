@@ -9,7 +9,11 @@ CSS](#testing-custom-code-header-css) was verified 2026-10-05, except where it s
 the measuring and sizes rules in step 4, the create-save guard in step 6, [Forcing
 states](#forcing-states) and [Exports and printouts](#exports-and-printouts) come from one
 end-to-end QA pass of a 15-block app on 2026-10-08 (LCDB QA pass); a snippet marked as a sketch was
-run on a local test page, not on a Softr preview.
+run on a local test page, not on a Softr preview. The corrected build proof in step 2, the click
+under the tab bar in step 3, the focus recorder and Escape spy in step 4, [walking a successful
+save](#walk-a-successful-save-without-writing), the one-source route, the note on aborted requests in
+step 7 and two Gotchas come from the second round of that pass, the same day (LCDB QA round 2), run
+on a Softr preview.
 
 ## When to use it
 
@@ -140,7 +144,7 @@ and one only the new build has (save it as a file and run it with `ab eval --std
 ```js
 (async () => {
   const u = performance.getEntriesByType('resource').map(r => r.name)
-    .find(n => n.includes('/vibe-coding/') && n.includes('<blockId>'));
+    .find(n => n.includes('/vibe-coding/') && n.includes('<blockId>') && /\/index\.js(\?|$)/.test(n));
   if (!u) return 'script not found: the block has not loaded yet';
   const t = await (await fetch(u)).text();
   return JSON.stringify({ versionId: u.split('/').slice(-2, -1)[0],
@@ -148,12 +152,29 @@ and one only the new build has (save it as a file and run it with `ab eval --std
 })()
 ```
 
-`versionId` must equal the push result's, and `old` must be 0 and `now` at least 1 (the snippet ran
-on a local test page with the same URL shape, not on a preview). **Never text-search the whole page
-HTML for the string:** Softr also inlines the block's source, comments included, so an old string
-can still match inside a comment that is never shown (LCDB QA pass, 2026-10-08: a search of the
-page matched a code comment; the served `index.js` held "Reload the page and try again." once and
-the removed "Refreshing" zero times).
+`versionId` must equal the push result's, and `now` must be at least 1. `old` must be 0 once
+look-alikes outside the changed code are ruled out; better, pick an old string that has none (below).
+The first form of the snippet ran on a local test page with the same URL shape; the `/index.js` form
+ran on previews in the second round.
+
+- **The find must require `/index.js`.** The block's `index.css` loads from the same build folder, so
+  its URL also holds the block id, and it comes first in resource timing. A find on the block id
+  alone fetches the stylesheet, every string count reads 0, and a good build looks stale (eight
+  checking agents hit this, 2026-10-08).
+- **A version marker in a comment cannot prove the build.** The served `index.js` is compiled and
+  holds no comments, so a sha line in a comment, such as a shared component's marker, counts 0 in
+  every build. Count a code-only form that differs between the versions instead, and expect the
+  count of code hits only: in the pass, a call only the new component makes (`behavior: "instant"`)
+  read 6, because the source held 7 and one of them was in a comment.
+- **Pick the old string with no look-alike in the block.** The old kit wrote both
+  `scrollBy(0, by)` and `scrollTop += by`, and `scrollBy(0, by)` read 0 on the new build. The block's
+  own Combo has a `scrollTop +=` too, so that string read 1 on a new build against 3 on an old one,
+  not 0. Search the rest of the block for look-alikes before you choose the old string.
+
+**Never text-search the whole page HTML for the string:** Softr also inlines the block's source,
+comments included, so an old string can still match inside a comment that is never shown (LCDB QA
+pass, 2026-10-08: a search of the page matched a code comment; the served `index.js` held "Reload
+the page and try again." once and the removed "Refreshing" zero times).
 
 ### 3. Reaching into the block
 
@@ -176,6 +197,11 @@ after the name misses it.
   return the element you mean, such as the modal backdrop and not the panel. The second call alone
   ignores a fixed light-DOM bar on top, so a phone-size test that uses only it passes under the tab
   bar (LCDB QA pass, 2026-10-08).
+- **A ref under Softr's phone tab bar is not clicked.** At a phone size `ab click @ref` stops with
+  "covered by a.softr-nav-link" (seen at 568×320) instead of scrolling the element clear. In one
+  `eval`, scroll it to the middle of the strip with an instant scroll, then click in the next call:
+  `window.scrollTo({ top: scrollY + el.getBoundingClientRect().top - 100, behavior: 'instant' })`,
+  with `el` found as in step 4 (the page scrolls smoothly otherwise: see the measuring rules).
 - **A backdrop has no accessible name, so no ref.** Pick a point outside the panel that the hit test
   shows is the backdrop, then send the whole press and release the backdrop's guards listen to:
   `ab mouse move X Y`, `ab mouse down`, `ab mouse up` (LCDB QA pass, 2026-10-08: a backdrop click
@@ -217,9 +243,13 @@ named like `Thursday, October 15, 2026`.
 **Measuring rules.** Measure every claim instead of eyeballing it; each of these once turned a wrong
 "pass" into a finding (LCDB QA pass, 2026-10-08).
 
-- **Prove the console capture on every load.** Run `ab console --clear` and `ab errors --clear`
-  before each `open`, then log a probe after it (`ab eval "console.error('probe')"`) and see it
-  listed. An empty console proves nothing until the probe shows.
+- **Prove the console capture on every load.** Run `ab console --clear` before each `open`, then
+  log a probe after it (`ab eval "console.error('probe')"`) and see it listed. An empty console
+  proves nothing until the probe shows.
+- **Read page errors with `ab errors --json`.** In agent-browser 0.38.1, `ab errors --clear` clears
+  nothing and plain `ab errors` prints only a "✗". The list is `data.errors[].text` in the JSON.
+  Throw one probe error first (`ab eval "setTimeout(() => { throw new Error('probe-1') })"`), see
+  it listed, and filter it out by its text when you count what the page itself threw.
 - **Numbers, not looks.** A label is on one line when its height equals one line. "No sideways
   scroll" is `scrollWidth - clientWidth` of 0 on the document, the block and every scroller. Touch
   targets are 44px or more on phones. Save a screenshot to disk at every size.
@@ -242,8 +272,35 @@ named like `Thursday, October 15, 2026`.
 - **Sample fast states with a 25 ms recorder.** An interval that logs a button's text and disabled
   flag, started from an idle page: a snapshot or screenshot can trigger Softr's refetch on window
   focus and show the busy state early.
+- **Record focus over time, not once.** A single read cannot tell "never lost" from "restored". The
+  same 25 ms interval on the shadow root's and the document's `activeElement`, logging only changes,
+  showed focus drop to `<body>` while a save ran (a button that disables itself) and the return
+  afterwards:
+
+  ```js
+  (() => {
+    const root = [...document.querySelectorAll('*')].map(e => e.shadowRoot).filter(Boolean)
+      .find(s => /<text unique to the block>/.test(s.textContent));
+    if (!root) return 'block not found';
+    window.__focus = []; let last = ''; clearInterval(window.__focusTimer);
+    const name = e => e ? e.tagName + (e.id ? '#' + e.id : '') + ' ' + (e.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30) + (e.matches(':disabled') ? ' [disabled]' : '') : 'none';
+    window.__focusTimer = setInterval(() => {
+      const now = 'doc=' + (document.activeElement ? document.activeElement.tagName : '-') + ' shadow=' + name(root.activeElement);
+      if (now !== last) { window.__focus.push([Date.now() % 100000, now]); last = now; }
+    }, 25);
+    return 'recording';
+  })()
+  ```
+
+  Start it from an idle page, act, then read `window.__focus` (the snippet ran on a local test page).
 - **To find what moved the page**, wrap `window.scrollBy` and log its arguments, `scrollY` and a
-  timestamp. To check Escape order, add a spy on the document's bubbling `keydown`.
+  timestamp.
+- **Prove Escape order with a spy on `document`.** Add a bubbling `keydown` listener that logs each
+  Escape, open the inner layer (a calendar in a dialog) and press a real `ab press Escape`. Read the
+  empty log together with the dialog count (`[role="dialog"]` still there) and focus back on the
+  trigger: the three together show the calendar stopped the key before the dialog saw it, which an
+  empty log alone does not. What the second Escape should do is in [date-picker.md → Verifying a
+  block](date-picker.md#verifying-a-block) (step 3 there).
 - **Truncation, placeholders and text under a close button:** `scrollWidth > clientWidth` everywhere
   a message shows (a 100-character message was cut to "This line was not saved: the app c…"), canvas
   `measureText` for a placeholder, and `Range.getClientRects` for header text under an absolutely
@@ -365,7 +422,8 @@ Do not assume `*records-trigger*` covers it. The URL shapes are in
   entry is not a new save.
 - **A run-wide proof needs the log kept.** If you never clear it, one filtered read at the end
   shows that the whole run wrote nothing. Clearing per click loses that, so keep each per-click
-  read, or do not clear.
+  read, or do not clear. The `/records-trigger-probe-*` guard probes are themselves listed under the
+  `records-trigger` filter, so subtract them by their path, or read the log right after each click.
 - **At the end, summarise every non-GET request by method and endpoint**, not only
   `records-trigger`. A block's reads are POSTs to `…/datasources/<name>/records`, so count them by
   URL with `records-trigger` left out, never by method. A clean run showed 332 POSTs, all reads,
@@ -384,7 +442,9 @@ ab network request <id> --json                 # method: PATCH, postData: {"cont
 ```
 
 Read the body and URL from `postData`. An aborted save has no response, because nothing reached the
-server. For requests that complete, `--json` carries a `responseBody` field (reads, and saves in a
+server: in `--json` it has a `method` and `postData` but no `status` field, which tells it from a
+save that completed. A run that wrote nothing listed only `records-trigger` entries without a
+`status`. For requests that complete, `--json` carries a `responseBody` field (reads, and saves in a
 write pass), though one run saw none for a save. So prove every save by reading the row back through
 the MCP, not from the logged response.
 
@@ -500,6 +560,10 @@ write guard in this session too). Start the session with it, as above:
 
 Read `window.__writes` afterwards. In the pass, five blocks each sent exactly one write on a double
 tap, with the button disabled while it waited. Click as [step 7](#7-click-then-read-what-it-sent) says.
+Use one fetch wrapper per page load, and reload between them. The wrapper in
+[Walk a successful save without writing](#walk-a-successful-save-without-writing) also replaces
+`window.fetch`; stacked on this one, a probe sent through its saved `__origFetch` goes through this
+wrapper and looks blocked.
 
 **Fail only some requests** with the same wrapper: reject from the Nth request to one read URL on
 (the 4th and later reads of one table), and check that no page shows a figure built from half the
@@ -513,13 +577,21 @@ where `<name>` is the name in `datasource.define`. None of these patterns matche
 
 ```bash
 ab network route '*/blocks/<blockId>/datasources/*/records' --abort   # every read of one block
-ab network route '*/datasources/<name>/records' --abort               # one read
+ab network route '*/blocks/<blockId>/datasources/<name>/records' --abort   # one read of one block
 ab network route '*/datasources/<name>/records/*' --abort             # a single-record read (…/records/<id>)
 ab network unroute '<the same pattern>'                               # never bare: see step 8
 ```
 
 - **Say which reads you broke.** A detail page's single-record read ends in `/records/<id>`, which the
-  list pattern does not match: with the list pattern the lists failed while the profile still loaded.
+  list pattern does not match: on a block that loaded its profile that way, the lists failed with the
+  list pattern while the profile still loaded.
+- **To fail one source, scope the route to its block and name.** Whether the block-wide pattern also
+  fails the main record depends on how the block reads it. A block that loads its main record with a
+  list read (a filtered `useRecords` to `…/datasources/<name>/records`) loses it too: the page shows
+  its whole-page error and the state under test, such as one empty list, never renders. A single-record
+  read (`…/records/<id>`) survives the pattern, as the bullet above says. The route in the second line
+  above failed only the list it named. A pattern with the name alone (the third line) would also match
+  any other block that defines the same name.
 - **Prove the route with a `fetch` to the exact URL** before you reload, as for the write guard.
 - **The error state comes only after the hooks' retries**: 6 to 20 s in the pass. Hold the abort until
   it shows, sampling at 3, 6, 9, 12 and 20 s; letting go early lets a retry succeed. Do
@@ -560,31 +632,74 @@ ab network route '*/datasources/<name>/records' --body "$(cat fake.json)"
 - **Change a setting only in page memory or in a served read, never in the table.** A monthly cap of
   12 was set to 2 in the page's memory to open its warning windows; the Settings table was never touched.
 
-### "Saved, but a line failed"
+### Walk a successful save without writing
 
-To reach the state where a record saved and one of its lines did not, stub `window.fetch` for the one
-create URL (a sketch, run on a local test page, not on a preview):
+To reach what happens after a save (a form refilled, a toast, where focus lands, the payload a void
+sends) in a check that must write nothing, wrap `window.fetch` so it answers the `records-trigger`
+calls you chose with a success and rejects every other one. A wrapped call never leaves the page,
+and the `*records-trigger*` abort route stays behind the wrapper, so a save you did not plan still
+cannot reach the server. A wrapper like this walked saves on previews in the second round; the snippet
+below is that pattern, run on a test page with the same URL shapes:
 
 ```js
 (() => {
-  window.__realFetch = window.__realFetch || window.fetch.bind(window);   // a second run would wrap the stub
-  window.fetch = (input, init) => {
-    const url = typeof input === 'string' ? input : (input && input.url) || '';
-    if (/\/records-trigger\/new$/.test(url) /* && the create you mean: match its body, or count calls */)
-      return Promise.resolve(new Response(JSON.stringify({ record: { id: 'qa-fake-1', fields: {} } }),
+  if (!window.__origFetch) window.__origFetch = window.fetch;   // keep the real one: a second run would wrap the wrapper
+  window.__saves = [];                                          // what the page tried to save, for the report
+  window.__plan = ['ok', 'ok'];                                 // the next saves answer in this order; any other save fails
+  window.fetch = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || String(input);
+    if (!/records-trigger/.test(url)) return window.__origFetch.apply(this, arguments);
+    const method = (init && init.method) || 'GET';
+    let fields = {}; try { fields = JSON.parse(init.body).fields || {}; } catch (e) {}
+    const step = window.__plan.shift() || 'fail';
+    window.__saves.push({ method, path: url.replace(/^.*\/datasources\//, ''), fields, step });
+    if (step === 'ok') {
+      const id = method === 'PATCH' ? url.split('/records-trigger/')[1].split(/[?/]/)[0] : 'qa-fake-' + window.__saves.length;
+      return Promise.resolve(new Response(JSON.stringify({ record: { id, fields } }),
         { status: 200, headers: { 'content-type': 'application/json' } }));
-    return window.__realFetch(input, init);
+    }
+    return new Promise((_, rej) => setTimeout(() => rej(new TypeError('Failed to fetch')), 400));
   };
+  return 'wrapped';
 })()
 ```
 
-Return `{ record: { id, fields } }` with a JSON `content-type`. For the create, `network route --body`
-was not enough: it sends no content type and the Softr SDK refused the response (reads served with
-`--body` worked, above). Keep the original `fetch` in a global first, because a second run
-otherwise leaves `window.fetch` undefined. Keep the `*records-trigger*` abort behind the stub, so the
-stubbed create is the only one that answers and every other write is still blocked. The footer then
-read "The allotment is saved, but 2 size lines are not", Close and Retry worked, and the
-tables were unchanged afterwards.
+- **Return `{ record: { id, fields } }` with a JSON content type**, the update's id taken from the URL.
+  `network route --body` sends no content type, and the Softr SDK refused the response (reads served
+  with `--body` worked, above). Keep the real `fetch` in a global first (`__origFetch` in the
+  snippet): a second run otherwise wraps the wrapper, or leaves `window.fetch` undefined.
+- **The plan answers by order, not by table.** The save URL carries a data-source uuid, not the
+  name ([softr-mcp.md](softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints)), so the URL
+  cannot say which table a save is for. The field ids in `fields` can: to answer one table's save and
+  fail another's, edit the `step` line to test a field id in `fields`.
+- **Read wrapped calls from `window.__saves`, not from the network log.** A call the wrapper handles
+  never reaches `ab network requests`, so [step 7](#7-click-then-read-what-it-sent) finds no entry
+  for it. `window.__saves` holds each call's method, path, fields and answer: the payload of a void
+  or a reversal is there, for the report.
+- **Judge the screen's reaction to the answer.** The next read returns the real, unchanged rows, so
+  a list does not change. The form refilled, the toast and the focus are what to check, with the
+  recorders of [step 4](#4-measuring-with-eval).
+- **Prove the abort route separately, and never send the step 6 probe through the wrapper.** The
+  wrapper answers or rejects every `records-trigger` call itself, so the guard probe of [step
+  6](#6-block-saves-before-any-click-and-prove-it) sent through `window.fetch` is handled by the
+  wrapper, not by the route. While a plan is loaded it also takes the probe for a planned save, uses
+  up an `'ok'` and prints "NOT BLOCKED 200". Prove the route before you install the wrapper, and
+  again after through the saved original: `window.__origFetch.call(window,
+  '/records-trigger-probe-' + Date.now())` must fail with "Failed to fetch" while a plain probe still
+  reaches a 404. A reload removes the wrapper: install it and probe again after every load.
+- **One fetch wrapper per page load; reload between them.** Stacked with the wrapper of
+  [Hold a save in flight](#hold-a-save-in-flight), `__origFetch` is that other wrapper, so a probe
+  sent through it goes through the hold wrapper and looks blocked.
+- **Read the rows back through the MCP afterwards**, as for any check that must not write.
+
+### "Saved, but a line failed"
+
+This is the walk with a plan of one. After the wrapper above is in place, set `window.__plan =
+['ok']`: the record's header create gets the success and every save after it (the line creates) is
+rejected, so the record saved and its lines did not. The rules above apply unchanged: the response
+shape, the saved original `fetch` and the abort route kept behind the wrapper. A stub that answered
+only the header's create reached this state in the pass. The footer read "The allotment is saved,
+but 2 size lines are not", Close and Retry worked, and the tables were unchanged afterwards.
 
 ## Exports and printouts
 
@@ -802,11 +917,16 @@ on the published app, logged out.
   `✗ Element not found`, and `find` locators fail the same way (upstream issue
   vercel-labs/agent-browser#1266, open since April 2026). Use refs, or `eval`.
 - **Refs change on every page load, and on any DOM change.** Grep again after each `open` or reload,
-  take the ref from a snapshot in the same command as the click, and take a second snapshot after
-  opening a dialog or a list (the first can miss it). A new row's list may need a second open before
-  its option refs appear. While an `aria-modal` dialog is open, `snapshot -i` lists only the dialog.
+  and take the ref from a snapshot in the same command as the click. After opening a dialog or a
+  list, check for `[role="dialog"]` in the shadow root and snapshot again until its controls appear:
+  the first snapshots can miss it, and once it took three calls. Do not decide the click did nothing
+  before then. A new row's list may need a second open before its option refs appear. While an
+  `aria-modal` dialog is open, `snapshot -i` lists only the dialog.
 - **Grep by the role the markup really has.** A segmented control built from radio inputs reads as
   `radio "X"`, not `tab`.
+- **`ab select` does nothing on a searchable picker.** One with `role=combobox` is not a native
+  `<select>` ([searchable-dropdown.md](searchable-dropdown.md)): `ab select` prints "Done" and the value
+  stays. Click the control by its ref, then click the option by its ref from a second snapshot.
 - **`fill` has traps.** On a number input that holds text it appends ("-3" then "2.5" gave "-32.5").
   `fill ''` empties the input but leaves React's state on the old value. `fill` with an empty ref
   types into whatever has focus. Inside a disabled fieldset only the page's copy changes. A fill also
@@ -828,6 +948,12 @@ on the published app, logged out.
   (step 2).
 - **The preview URL is a sign-in token.** Never share it ([why](softr-mcp.md#application-management-tools)).
 - **Attachment URLs are re-signed on every read:** compare by id, filename and size, never by URL.
+- **agent-browser answers `beforeunload` dialogs on its own**, so a reload test of a dirty form
+  passes silently: the prompt never shows and the page just reloads. Turn the handling off
+  (`--no-auto-dialog` on the command, or `AGENT_BROWSER_NO_AUTO_DIALOG` in the environment; both
+  from the 0.38.1 `--help`, not tried here) and check with `ab dialog status`, or record the dialog,
+  before you count a reload as a pass. The prompt that `useNavigationBlocker` raises on in-app links
+  is a `window.confirm`: [common-patterns.md → Navigation Blocker for Unsaved Changes](common-patterns.md#navigation-blocker-for-unsaved-changes).
 
 ## Measured
 

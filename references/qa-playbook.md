@@ -7,7 +7,8 @@ shapes in [datasources/](../datasources/overview.md).
 
 **Verified 2026-10-08.** Written from one end-to-end QA pass of a 15-block back-office app on Softr
 Database (LCDB QA pass): 68 findings, two rounds of fixes and a live write pass. Each rule below
-cost someone a wrong result first.
+cost someone a wrong result first. The second round of the pass, the same day, added the walk of a
+successful save and what the read-only checker does (LCDB QA round 2).
 
 ## When to use it
 
@@ -141,9 +142,9 @@ curl -s -o /dev/null -w '%{http_code}\n' "https://$HOST/sign-up"   # 404 when si
 
 Measure, do not eyeball. The rules are in
 [browser-checks.md → step 4](browser-checks.md#4-measuring-with-eval): prove the console capture on
-every load, numbers for heights and scroll widths, an error inside its dialog's edges, a shadow root
-without `innerText`, and the sizes to check, which include the width a block really gets beside a
-sidebar.
+every load, numbers for heights and scroll widths, an error inside its dialog's edges, focus
+recorded over time, Escape order proven by a spy on `document`, a shadow root without `innerText`,
+and the sizes to check, which include the width a block really gets beside a sidebar.
 
 - **Hit-test in two parts before a coordinate click.** `document.elementFromPoint` must be the
   block's host and `root.elementFromPoint` the element you mean. The shadow root alone ignores
@@ -200,10 +201,14 @@ A page can look right and be wrong, and a browser cannot tell. Compare it with t
 
 The happy path passed everywhere. The real bugs were on these edges, and several checks passed
 without reaching the step they asserted (LCDB QA pass, 2026-10-08). The mechanics for the
-first four are in [browser-checks.md → Forcing states](browser-checks.md#forcing-states).
+first five are in [browser-checks.md → Forcing states](browser-checks.md#forcing-states).
 
 - **A fake clock**: month end, year end, a clock change.
 - **Held saves and double taps** ([step 7](browser-checks.md#7-click-then-read-what-it-sent)).
+- **A save that succeeds, walked without writing**: the form refilled, the toast and where focus
+  lands, the payload a void sends ([Walk a successful
+  save](browser-checks.md#walk-a-successful-save-without-writing)). Focus is recorded over time, not
+  read once ([step 4](browser-checks.md#4-measuring-with-eval)).
 - **Partial and total read failures**, then every Try again and every section after it.
 - **Served reads** for empty-like values: `null`, `''`, `0`, and the field missing. A blank number
   is not zero: `Number(null)` and `Number("")` are both 0, and a partner with no monthly allocation
@@ -325,7 +330,20 @@ owner's go-ahead: the preview writes live data. On 2026-10-08 it ran after the o
   `updated_by`, which stays on the editor.
 - **Run a separate read-only checker afterwards** that recomputes the figures and the counts
   ([Never writing by accident](#never-writing-by-accident),
-  [Checking numbers](#checking-numbers-against-the-database)).
+  [Checking numbers](#checking-numbers-against-the-database)). It also does three things the
+  agents' reports cannot:
+  - **It reads the agents' screenshots.** Two polish findings, a label wrapped onto a second line
+    and a panel left under the form after a save, showed only in the pictures and were in neither
+    agent's report. Hand it the screenshot folder, and have it open the shots of every state the
+    agents changed.
+  - **It proves that no block was pushed during the pass.** The newest version's `createdAt` must be
+    earlier than the first save, both in UTC. One `vibe_coding_block_list_versions` call with
+    `includeCode: false` and `limit: 1` per block is far smaller than reading the block
+    ([softr-mcp.md → Which read to use](softr-mcp.md#vibe-coding-block-tools)).
+  - **It splits the changed existing records into edited and links only.** When a new row links to a
+    record, Softr updates the record's inverse link list, and its `updatedAt` moves though nobody
+    edited it (two records in the second round's pass). List those as "links only" in the manifest,
+    after checking field by field that nothing else changed.
 - **Re-check live after publishing:** the [logged-out checks](#logged-out) again, every block's
   deployed hash against your copy, and the checker's figures once more.
 
