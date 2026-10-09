@@ -173,7 +173,12 @@ softr-vibe-coding/
 │                                     # Oct 8 2026 (QA pass): checklist items for date-only values
 │                                     # and a save's "today", blank NUMBERs, failed reads and failed
 │                                     # saves in dialogs, the navigation blocker, and a router row
-│                                     # for the QA playbook; Oct 9 2026 (QA round 3): keep Block()
+│                                     # for the QA playbook; Hard Constraints 20-22 extended (a
+│                                     # relative link depends on the target page's slug, a push
+│                                     # sent as several calls resets restricted actions after each
+│                                     # call, one counting rule per figure); Oct 8 2026 (QA round
+│                                     # 2): the date-picker router row names short-screen
+│                                     # placement; Oct 9 2026 (QA round 3): keep Block()
 │                                     # small by moving state, queues and effects to module scope
 │
 ├── ui-ux-guidelines.md               # Design reference
