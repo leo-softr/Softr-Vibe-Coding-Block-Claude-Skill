@@ -84,6 +84,8 @@ Because the parser only inspects your hooks and `q.select` mappings (not the JSX
 
 **Keep each `hook.mutateAsync(...)` call on the hook variable inside the function that declares the hook.** If a module-scope helper has to write, pass it the hook (or a callback that calls it). Move the code that does not write to module scope instead: a queue runner's state, row memos, dialog state, paging effects. That also makes it testable on its own. This is by analogy, not tested either way: the parser reads a hook's call site statically, as it does for inline select options and nested update payloads, and a write call moved out of sight might lose its Action with no error (LCDB QA pass, 2026-10-08).
 
+Moving that code out also keeps `Block()` small. The LCDB pass held `Block()` under about 30,000 B by moving dialog state, write queues, row memos and effects into custom hooks and functions at module scope (moving the state of two dialogs freed 3.35 KB in one block). 30,000 B is the budget that pass kept; whether Softr enforces a limit was not checked.
+
 ## Record Mutations
 
 All mutation hooks expose an `enabled` boolean. You must check it before rendering any mutation UI or calling the mutate function.
@@ -274,6 +276,7 @@ What a QA pass over 15 blocks added to these rules (LCDB, 2026-10-08), each from
 - **A queue that a later Retry resumes keeps its input in a ref,** not in live dialog state.
 - **Block a new run while any line still needs Retry,** or the pending retry is lost.
 - **A retry re-reads the server after its own failure too,** not only before the first attempt, or it can write a row twice.
+- **Disable Retry while its server check runs.** That check is awaited, and a second press during it starts a second retry. Set the same in-flight ref before the check, not after it.
 - **Stop the queue when the block unmounts** (a ref the loop checks).
 - **A header saved with a failed line is "not fully saved"** in the footer text, not "not saved".
 - Show the failed step's error inside the dialog, and let the user close it whenever nothing is in flight ([common-patterns.md → Failures, focus and Escape](../references/common-patterns.md#failures-focus-and-escape)).

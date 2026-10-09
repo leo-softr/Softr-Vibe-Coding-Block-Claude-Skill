@@ -165,6 +165,17 @@ colliding. Aliases resolve **per hook**, though: a hook's `where` / `orderBy` ma
 from that hook's own `select`, or the block crashes at runtime — see
 [reading.md](reading.md#filter-and-sort-aliases-must-be-in-the-same-hooks-select).
 
+**Before you change a connection's selects, check what the connection already reads** (LCDB QA
+pass, 2026-10-08):
+
+- **Adding a field to a `select`:** confirm that the field id is in that connection's field list in
+  `vibe_coding_block_get_code`'s `dataSources` (the list comes back with `includeCode: false` too),
+  rather than assuming the table's field is wired to the block.
+- **Adding a second read `select` on the same connection:** every alias that both selects use must
+  map to the same field id. The server returns one combined field list for the connection (above),
+  so an alias that points at two different fields in two selects leaves one hook reading the wrong
+  one.
+
 ## Mutation Actions register per TABLE, not per connection
 
 *Verified live 2026-09-18.*

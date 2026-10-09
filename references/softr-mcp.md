@@ -281,7 +281,10 @@ context. Keep the local mirror in step mechanically rather than by hand:
      `versionName` ("… (part 1 of 2)").
 
 **Shrink the ops before you send them.** Trim the common prefix and suffix of each search/replace
-pair, then grow the search until it is unique (24 characters or more worked). Check uniqueness in the
+pair, then grow the search until it is unique (24 characters or more worked). Keep long runs of hyphens
+(comment rule lines such as `// ----------`) out of a search string and anchor on the text beside the
+rule line instead. The log gives no reason; two likely ones are that a rule line repeats through a
+file, and that a long run of one character is easy to miscount when it is retyped. Check uniqueness in the
 state each op applies to: ops apply in order, and only the first occurrence is replaced. Replay the
 ops on the base to rebuild the target byte for byte. Smaller payloads mean less text retyped through
 the model, and every shrunk push matched its hash on the first try: one plan went from 20,665 B to
@@ -1006,14 +1009,16 @@ Known limits and behaviors (per official docs):
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
 - **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours, LCDB,
   2026-10-08, both rounds of a QA pass). Two metrics in one call were refused more often than not.
-  In the first round, two metrics on different fields returned `BAD_REQUEST` every time, and a SUM
-  and a COUNT of the same field worked once. In the second round a SUM and a COUNT of one field
-  returned `BAD_REQUEST`, with and without `displayFormat`, and so did a COUNT added to a grouped SUM
-  call; yet a SUM grouped by MONTH alone (no `displayFormat`) or by one field worked, and so did one
-  call with a COUNT of a second field, the date, beside the SUM. Group-by acceptance was
-  inconsistent across agents on the same day too: SELECT and CHECKBOX were refused, while text,
-  LINKED_RECORD, DATETIME by MONTH and DISTINCT on a link each worked in one run and returned
-  `BAD_REQUEST` in another. So prefer filter-only, single-metric calls (one per value or range), and
+  A metric is `{ field, aggregation }` inside `metrics`: the key is `aggregation`, not `function`
+  (an easy slip). In the first round, two metrics on different fields returned `BAD_REQUEST` every
+  time, and a SUM and a COUNT of the same field worked once; one metric per call worked with a DAY,
+  MONTH or YEAR grouping, a text group-by and a filter. In the second round a SUM and a COUNT of one
+  field returned `BAD_REQUEST`, with and without `displayFormat`, and so did a COUNT added to a
+  grouped SUM call; yet a SUM grouped by MONTH alone (no `displayFormat`) or by one field worked, and
+  so did one call with a COUNT of a second field, the date, beside the SUM. Group-by
+  acceptance was inconsistent across agents on the same day too: SELECT and CHECKBOX were refused,
+  while text, LINKED_RECORD, DATETIME by MONTH and DISTINCT on a link each worked in one run and
+  returned `BAD_REQUEST` in another. So prefer filter-only, single-metric calls (one per value or range), and
   check that the parts add up to the unfiltered total. A filter in a shape the tool does not expect
   (`{logicalOperator, conditions}`) was ignored with no error, and the count came back as the whole
   table. The tool expects `{ condition: { operator: "AND"|"OR", conditions: [...] } }`, with field ids

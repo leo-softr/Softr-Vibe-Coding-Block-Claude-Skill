@@ -450,7 +450,8 @@ active day, Today, Clear; an extra stop before the day is the capped grid's scro
 pick a day, save, and read the aborted request's payload: the field holds the same string the native
 field sent for that day (`"2026-10-15"`, not a timestamp). Clear sends what an emptied native field
 sent, unless the block deliberately changed it (one LCDB block now saves a cleared optional date as
-`null`).
+`null`). When you read the native field before the swap, read its `.value`: the text it shows
+follows the browser's locale ([browser-checks.md → 4](browser-checks.md#4-measuring-with-eval)).
 
 **5. Keyboard walks stop at `min` and `max`.** A start calendar whose `max` is the end date stops at
 that date: PageDown lands on the cap, not a month later, and the month arrows stop with it (`min`

@@ -236,6 +236,13 @@ i.dispatchEvent(new Event('input', { bubbles: true }));
 i.dispatchEvent(new Event('change', { bubbles: true }));
 ```
 
+**Read a native date input's `.value`, not its shown text.** The browser draws the field in the
+machine's locale: 7 October reads `07/10/2026` in a UK-locale browser and `10/07/2026` in a US one,
+so the shown text depends on the machine that runs the check, while `.value` is always
+`yyyy-mm-dd`. It matters wherever a native date input is left: an old block, the filter inputs of
+[native-block-filters.md](native-block-filters.md), and the before-and-after comparison when a field
+is swapped for the brand picker (LCDB QA pass, 2026-10-08).
+
 A block that uses the brand `DatePicker` ([date-picker.md](date-picker.md)) has no date input: the
 field is a button with a ref in `-i`. Click it, then click the day by its ref; each day is a button
 named like `Thursday, October 15, 2026`.
@@ -316,7 +323,8 @@ named like `Thursday, October 15, 2026`.
 buttons on the landscape phone; nothing at the usual sizes showed it). Beside a sidebar, a block in
 a 1024 window is only about 730–745px wide (measure it), which is under 48rem: a block whose
 container queries switch at 48rem shows its phone layout on a tablet. Loop in zsh with two
-variables, and print `innerWidth` each time so a shot that did not resize is caught:
+variables (or in a bash script, which does split an unquoted variable), and print `innerWidth`
+each time so a shot that did not resize is caught:
 
 ```bash
 for W H in 1280 900 1024 768 375 812; do ab set viewport $W $H; ab wait 1200; ab eval "innerWidth + 'x' + innerHeight"; done
@@ -357,7 +365,20 @@ the client's zone ([step 1](#1-the-clients-time-zone)):
   passes a block that is wrong for every user west of UTC, as three blocks did (step 1).
 - **Check each place the block shows the date:** the list, the detail view, and the value an edit
   form opens with. A form that opens a day early can save the wrong day when the user only changes
-  another field.
+  another field. **Repeat the comparison at every size** ([step 4](#4-measuring-with-eval)): a phone
+  or tablet layout (stacked cards from a container query) can format the date through a different
+  code path from the desktop table, so a day can be right at 1280 and wrong at 375. Only date-only
+  fields get this check; a real timestamp (created at, entered at) is an instant, so compare it as
+  one in the client's zone, not by its stored day.
+- **Review in the code what each save writes; a read-only check cannot see it.** For every save,
+  list the date fields it sets. A date-only field takes `format(new Date(), "yyyy-MM-dd")` worked
+  out in the click handler: never `toISOString().slice(0, 10)` (the UTC day), and never a `today`
+  worked out at render time, which goes stale only on a page left open past midnight, so no morning
+  check shows it ([writing.md → Date](../datasources/writing.md#date)). A timestamp takes
+  `toISOString()`. A panel that opens only after a save (a duplicate warning behind Create) cannot
+  be reached in a write-blocked check: show in the code that it formats through the same function
+  as a surface you can see. In the LCDB pass a Verify action wrote the render-time `today` (fixed
+  2026-10-08), and a duplicate-family panel was cleared this way.
 - **A "today" taken as the UTC day is wrong only part of the day.**
   `new Date().toISOString().slice(0, 10)` is tomorrow from 5 pm in Los Angeles (4 pm in winter), so
   a morning check misses it: look for it in the source instead, and run the "today" checks inside
@@ -455,7 +476,9 @@ the MCP, not from the logged response.
   `ab mouse move X Y`, then `ab mouse down`, `ab mouse up`, `ab mouse down`, `ab mouse up`; it sent
   one write on a preview. The shorter form is `ab dblclick @<ref>`, run on a preview dialog in the
   second round. Then read the code for the guard: it is set before the first `await` and held in a
-  ref as well as state.
+  ref as well as state. A Retry button is disabled while the server check before the retry runs,
+  or a second press starts a second retry ([writing.md → Sequential Multi-Row
+  Writes](../datasources/writing.md#sequential-multi-row-writes-mutateasync)).
 - **Force-click a control that should be disabled** and count the writes sent. A click that prints
   "Done" proves nothing: `ab click` reports success on a disabled control and does nothing.
 - **Prove a lock by the payload and by `el.matches(':disabled')`.** Inputs inside a disabled
@@ -596,6 +619,14 @@ ab network unroute '<the same pattern>'                               # never ba
 - **The error state comes only after the hooks' retries**: 6 to 20 s in the pass. Hold the abort until
   it shows, sampling at 3, 6, 9, 12 and 20 s; letting go early lets a retry succeed. Do
   not wait for `networkidle` (step 2).
+- **A route can only abort a read or answer it with a body; it cannot delay one.** To sample a busy
+  state (a Try again that is checking) you have only those retries to work in, so start the 25 ms
+  recorder of [step 4](#4-measuring-with-eval) first. A `fetch` wrapper that holds the read, like the
+  one in [Hold a save in flight](#hold-a-save-in-flight) adapted to reads, should give more time; it
+  was not tried on reads. Anchor its match at the end of the path, for example
+  `/\/datasources\/<name>\/records(\?|$)/`: a substring match on `…/datasources/<name>/records` also
+  catches that source's saves (`…/records-trigger/<id>`) and single-record reads (`…/records/<id>`),
+  which would be logged as reads and held. Keep the `*records-trigger*` abort route behind it.
 - **Find the block's root by text present in both states**, such as the h1: the normal text is gone
   in the error state.
 - **A busy "Try again" shows only after the data has loaded once.** With no data yet, the error
@@ -603,8 +634,8 @@ ab network unroute '<the same pattern>'                               # never ba
   Load the page, add the route, then trigger a background re-read without a click:
   `window.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus'))`.
   It refetched on one block and not on another (probably only once the data is stale). If nothing
-  re-reads, abort the read, reload, wait for the error (about 11 s), then install the fetch patch,
-  unroute, and press Try again.
+  re-reads, abort the read, reload, wait for the error (about 11 s), then install the read-holding fetch
+  wrapper (the one in the bullet above, so untried as said there), unroute, and press Try again.
 - **Test Try again by failing every read, restoring them, pressing it once, and then checking every
   section.** A Try again that re-reads only the main list leaves the other failed reads failed:
   after it, every row said "No children on record" and the duplicate check ran with no children.
@@ -910,9 +941,10 @@ on the published app, logged out.
   in more than ten checks of one pass: see Sizes in step 4.
 - **More shell slips that spoil a run.** zsh: `echo ====` fails with "== not found" and stops the
   chain (quote it), a function named like an alias will not define, and `"$d[^[]…"` inside a
-  double-quoted pattern is read as an array subscript. macOS: there is no `timeout`, `sed -i` needs
-  `''` (patch with Python instead), and a stray `cat > file` inside a multi-line command waits for
-  input until the call times out at 120 s: run hash loops from a script file, with `< /dev/null`.
+  double-quoted pattern is read as an array subscript. macOS: there is no `timeout` (start the
+  command in the background, wait, then kill it), `sed -i` needs `''` (patch with Python instead),
+  and a stray `cat > file` inside a multi-line command waits for input until the call times out at
+  120 s: run hash loops from a script file, with `< /dev/null`.
 - **Selectors stop at the shadow root.** `ab fill 'input[placeholder^="…"]' 'x'` gives
   `✗ Element not found`, and `find` locators fail the same way (upstream issue
   vercel-labs/agent-browser#1266, open since April 2026). Use refs, or `eval`.
@@ -948,12 +980,15 @@ on the published app, logged out.
   (step 2).
 - **The preview URL is a sign-in token.** Never share it ([why](softr-mcp.md#application-management-tools)).
 - **Attachment URLs are re-signed on every read:** compare by id, filename and size, never by URL.
-- **agent-browser answers `beforeunload` dialogs on its own**, so a reload test of a dirty form
-  passes silently: the prompt never shows and the page just reloads. Turn the handling off
+- **agent-browser answers dialogs on its own: `beforeunload`, and the `window.confirm` that
+  `useNavigationBlocker` raises on a sidebar link, the phone tab bar or in-app Back.** A reload test of
+  a dirty form passes silently (the prompt never shows and the page just reloads), and a click on a
+  sidebar link navigates as if the user had pressed OK. Where the page ended up therefore proves
+  nothing: record that a dialog appeared, and what it said. Turn the handling off
   (`--no-auto-dialog` on the command, or `AGENT_BROWSER_NO_AUTO_DIALOG` in the environment; both
   from the 0.38.1 `--help`, not tried here) and check with `ab dialog status`, or record the dialog,
-  before you count a reload as a pass. The prompt that `useNavigationBlocker` raises on in-app links
-  is a `window.confirm`: [common-patterns.md → Navigation Blocker for Unsaved Changes](common-patterns.md#navigation-blocker-for-unsaved-changes).
+  before you count a test as a pass. What the blocker shows and where it fires:
+  [common-patterns.md → Navigation Blocker for Unsaved Changes](common-patterns.md#navigation-blocker-for-unsaved-changes).
 
 ## Measured
 

@@ -170,7 +170,10 @@ A page can look right and be wrong, and a browser cannot tell. Compare it with t
   a one-day range read against the server. In one report the nearest rows were Dec 29 and Jan 2.
 - **Read the live table before you trust a counting rule.** Old or migrated rows may have empty
   links and drop out of past years. Check what one linked row stands for: a link counted child
-  rows, not visits, with voided rows included.
+  rows, not visits, with voided rows included. Before a fix changes a `select`, make the two checks in
+  [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects):
+  the field is in the connection's field list, and a shared alias maps to the same field id in both
+  selects.
 - **Pair each before and after with an independent count.** `DISTINCT` on a link field counted
   distinct people in one call (it worked in one run and was refused in another): 57 + 296 + 43 = 396
   showed that a tile reading 442 was wrong, and later matched the fixed tile. When the call is
@@ -185,8 +188,9 @@ A page can look right and be wrong, and a browser cannot tell. Compare it with t
   include it: build the fixture and watch it fire.
 - **Rows shown rounded to two decimals can differ from their total by 0.01 per row.** That is
   display rounding, not a bug: allow a tolerance of 0.01 times the row count.
-- **Name the figure you now expect after each fix** (for example "442 → 396"), so the fixer and the
-  final cross-check prove the fix with a number.
+- **Have the QA synthesis name, for each finding, the fix site (the block and the code), the exact
+  change, and the figure you now expect after the fix** (for example "September children 442 →
+  396"). The fixers and the final cross-check work from that line and prove each fix with a number.
 - **Date-only values and boundaries** have their own steps: [browser-checks.md → step
   5](browser-checks.md#5-date-only-values-against-the-stored-ones).
 - **Every filter must be seen to narrow the result**, with row counts with and without it: filters
@@ -385,4 +389,6 @@ owner's go-ahead: the preview writes live data. On 2026-10-08 it ran after the o
 - **A per-block pipeline** that held: author, two reviews, fixes, a hash-verified push, action
   permissions re-applied and read back (a push resets them), a browser check at the sizes in
   [browser-checks.md → step 4](browser-checks.md#4-measuring-with-eval) with saves blocked, and a
-  live write pass only where one is approved.
+  live write pass only where one is approved. A stage with nothing to do returns a placeholder
+  string, never `null`: a `null` drops the item from every later stage. One block needed no edit or
+  review, so its review stage returned `null` and it never got its sync (LCDB QA pass, 2026-10-08).

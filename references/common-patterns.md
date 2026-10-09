@@ -85,6 +85,8 @@ try { window.history.replaceState(window.history.state, "", url); } catch (e) {}
 
 Softr's page renderer wraps `pushState` and `replaceState` (read from the renderer's source): it throws on a state that is not an object, and it stamps its own `__histIdx` into the state. Passing `history.state` keeps that index; `null` loses it. With this, going back from a record returned to `?q=…` with the results showing, and a reload kept the search (LCDB QA pass, 2026-10-08).
 
+Softr's link handling acts only when the click lands on the link element itself. A link in a block's shadow root that wraps other elements (a card, an icon beside text) therefore mostly causes a full page load instead of an in-app navigation, and Back then restores the URL the block last wrote with `replaceState`.
+
 **What goes in the URL goes to Softr's server.** Every save request carries the page URL and its parameters (`context.pageURL`, `context.URLParameter`), so personal data in a parameter is a decision to record, not a side effect. A blocked save on a page with `?q=<surname>` carried the surname in both fields.
 
 ### A preference that follows the user
@@ -191,7 +193,7 @@ The hook automatically handles:
 - **The prompt is a native `window.confirm`**: "You have unsaved changes that will be lost if you navigate away from this page. Do you want to continue?" It fires on sidebar links, on the phone tab bar and on in-app Back and Forward. A reload shows the browser's own `beforeunload` prompt instead. A clean form prompts for nothing.
 - **A form dialog hides the links.** A modal with a fixed full-screen backdrop (the in-block pattern in [A modal above Softr's bars](#a-modal-above-softrs-bars), `z-[1000]`) covers the sidebar and the phone tab bar, so while one is open the user cannot reach them. The blocker matters for forms that sit on the page itself, and for Back and Forward.
 - **A link that calls `history.back()` itself** (a "Back to list" link) on a page opened by a full page load leaves the app's history, so the blocker may not catch it. Test such links separately.
-- To test the prompt in a headless browser, see [browser-checks.md → Gotchas](browser-checks.md#gotchas): the tool may answer the reload prompt for you.
+- To test the prompt in a headless browser, see [browser-checks.md → Gotchas](browser-checks.md#gotchas): agent-browser answers this confirm and the reload prompt by itself, so a click that navigates proves nothing until you have recorded that the dialog appeared.
 
 **Wire it yourself in every form block, and see it fire in the preview.** Don't count on Softr's bundler to add the blocker. A form block pushed through the MCP had none: after typing rows, a click on a sidebar link left the page with no prompt, and none of that app's 15 block sources called the hook (LCDB QA pass, 2026-10-08; observed from a source grep and one live block, so it is a report of what we saw, not a statement about the bundler). Test it: make the form dirty, click a sidebar link, expect the prompt. The hook was later wired into five form blocks of that app by hand and exercised live on 2026-10-08 (see "Measured live" above); see it fire in yours before relying on it. It matters most for:
 
