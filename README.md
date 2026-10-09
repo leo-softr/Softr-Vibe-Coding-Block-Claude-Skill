@@ -169,11 +169,19 @@ Create a contact form that creates records in our Airtable Contacts table
 softr-vibe-coding/
 ├── SKILL.md                          # Main skill
 │                                     # Workflow, code structure, visual baseline,
-│                                     # components, settings, 29 hard constraints
+│                                     # components, settings, 29 hard constraints;
+│                                     # Oct 8 2026 (QA pass): checklist items for date-only values
+│                                     # and a save's "today", blank NUMBERs, failed reads and failed
+│                                     # saves in dialogs, the navigation blocker, and a router row
+│                                     # for the QA playbook; Oct 9 2026 (QA round 3): keep Block()
+│                                     # small by moving state, queues and effects to module scope
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
-│                                     # spacing, motion, accessibility, AI slop checklist
+│                                     # spacing, motion, accessibility, AI slop checklist;
+│                                     # Oct 8 2026 (QA pass): number inputs, one network-error
+│                                     # helper, errors inside dialogs, confirm and void rules,
+│                                     # search/caps/columns, one counting rule per figure
 │
 ├── references/                       # Advanced patterns (loaded on demand)
 │   ├── helper-blocks.md              # Cross-block communication
@@ -223,7 +231,10 @@ softr-vibe-coding/
 │   │                                 # for reads vs writes, Studio-only jobs, aggregate
 │   │                                 # and search tool limits; Oct 8 2026 (QA round 2): the
 │   │                                 # aggregate metric limits merged, list_versions with
-│   │                                 # limit 1 as the cheap did-anything-change read
+│   │                                 # limit 1 as the cheap did-anything-change read;
+│   │                                 # Oct 9 2026 (QA round 3): no long hyphen runs in search
+│   │                                 # strings, the aggregate metric key is aggregation, not
+│   │                                 # function
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -244,7 +255,14 @@ softr-vibe-coding/
 │   │                                 # successful save with a fetch wrapper, a focus recorder
 │   │                                 # and an Escape spy, failing one read, a click under the
 │   │                                 # phone tab bar, ab select on pickers, aborted requests
-│   │                                 # carry no status
+│   │                                 # carry no status,
+│   │                                 # page errors read with ab errors --json, one fetch wrapper
+│   │                                 # per page load; Oct 9 2026 (QA round 3): a native date
+│   │                                 # input's .value, not its shown text; date-only checks
+│   │                                 # repeated at every size; reviewing in code what each save
+│   │                                 # writes; Retry disabled during its check; routes can abort or
+│   │                                 # answer a read but not delay it; agent-browser also answers
+│   │                                 # the navigation blocker's confirm
 │   ├── qa-playbook.md                # QA of a whole app, in the order to run it (Oct 8
 │   │                                 # 2026): set-up (draft, served build, client zone,
 │   │                                 # one session per agent), never writing by accident,
@@ -254,20 +272,30 @@ softr-vibe-coding/
 │   │                                 # pass with a read-only checker, QA with several
 │   │                                 # agents and skeptics; Oct 8 2026 (QA round 2): the checker
 │   │                                 # reads screenshots, proves no push, lists links-only
-│   │                                 # changes
+│   │                                 # changes,
+│   │                                 # a successful save walked without writing, focus recorded
+│   │                                 # over time, Escape order proven by a spy; Oct 9 2026 (QA
+│   │                                 # round 3): check a select's field list and shared aliases
+│   │                                 # before a fix, the synthesis names fix site, change and
+│   │                                 # expected figure, an empty stage returns a placeholder, never
+│   │                                 # null
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
 │   │                                 # nav, dropdowns, page background) via global
 │   │                                 # Custom Code CSS — stable selectors, floating
 │   │                                 # islands, dropdown grid fix, multi-layer page-bg,
-│   │                                 # app frame for sidebar apps (Oct 5 2026)
+│   │                                 # app frame for sidebar apps (Oct 5 2026);
+│   │                                 # sidebar navigation with no top bar on desktop (Oct 8 2026)
 │   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
 │   │                                 # controls on native List/Grid blocks — wide-range
 │   │                                 # sentinel, inject into filter row, survive re-renders
 │   ├── anti-patterns.md              # Categorized violation catalog
 │   │                                 # Data access, mutations, hooks, layout,
-│   │                                 # permissions, editable settings, helper blocks
+│   │                                 # permissions, editable settings, helper blocks;
+│   │                                 # Oct 8 2026 (QA pass): rows for parseISO and Number() on
+│   │                                 # date-only and blank fields, || defaults, click-event flags,
+│   │                                 # focus lost on self-removing buttons, grid and overflow traps
 │   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
@@ -275,7 +303,14 @@ softr-vibe-coding/
 │   │                                 # Oct 8 2026 (QA pass): a search in the URL, a
 │   │                                 # saved preference, failures, focus and Escape in
 │   │                                 # dialogs, inline confirm in place of a button,
-│   │                                 # drafts that survive a reload, CSV export
+│   │                                 # drafts that survive a reload, CSV export,
+│   │                                 # scroll with behavior "instant", form blocks wiring
+│   │                                 # useNavigationBlocker themselves; Oct 8 2026 (QA round 2):
+│   │                                 # the blocker's prompt is a native window.confirm, a modal
+│   │                                 # backdrop hides the sidebar and tab bar links, a
+│   │                                 # history.back() link may escape the blocker; Oct 9 2026 (QA
+│   │                                 # round 3): Softr's link handling needs the click on the link
+│   │                                 # element itself
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity
@@ -294,11 +329,13 @@ softr-vibe-coding/
 │   │                                 # escaped HTML builder, pop-up-safe open from
 │   │                                 # the click, print once stylesheets, fonts and
 │   │                                 # images load, ?print=1 deep link, paper layout
-│   │                                 # (Sep 30 2026)
+│   │                                 # (Sep 30 2026);
+│   │                                 # check a printout for overflow on nowrap cells (Oct 8 2026)
 │   ├── quick-reference.md            # Syntax cheat sheet
 │   │                                 # Imports, hook signatures, mutation shapes,
 │   │                                 # field mapping, component skeleton,
-│   │                                 # Softr navigation variables, container queries
+│   │                                 # Softr navigation variables, container queries;
+│   │                                 # error.message mapped through one helper (Oct 8 2026)
 │   ├── searchable-dropdown.md        # THE dropdown pattern for blocks
 │   │                                 # why native <select> and shadcn <Select> both
 │   │                                 # break in the shadow DOM, composedPath()
@@ -308,7 +345,10 @@ softr-vibe-coding/
 │   │                                 # for a fixed enum being set — Sep 10 2026),
 │   │                                 # overflow-clipping ancestors: never clip a cell
 │   │                                 # holding a Combo, clip-aware drop-up + list
-│   │                                 # height, list-only scrolling (Sep 30 2026)
+│   │                                 # height, list-only scrolling (Sep 30 2026);
+│   │                                 # opening moves focus into the Combo and Escape closes only
+│   │                                 # the list (Oct 7 2026); the trigger named with
+│   │                                 # aria-labelledby so the value is announced (Oct 8 2026)
 │   └── date-picker.md                # THE date field for blocks: no native
 │                                     # <input type="date"> (its calendar is browser
 │                                     # UI no CSS reaches); the DatePicker kit (API +
@@ -318,7 +358,8 @@ softr-vibe-coding/
 │                                     # named containers, Escape, backdrop clicks,
 │                                     # deferred focus fix-up, Safari focus,
 │                                     # "yyyy-MM-dd" values), verification (Oct 7 2026),
-│                                     # short-screen fit + kit testing (Oct 8 2026)
+│                                     # short-screen fit + kit testing (Oct 8 2026);
+│                                     # read a native date input's .value before a swap (Oct 9 2026)
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)
@@ -333,25 +374,48 @@ softr-vibe-coding/
     │                                 #   selects read payload (a conditional select is not
     │                                 #   privacy), Actions per table (Sep 18 2026);
     │                                 #   block Visibility gates its endpoints (Oct 5 2026);
-    │                                 #   every row carries its record id (Oct 6 2026)
+    │                                 #   every row carries its record id (Oct 6 2026);
+    │                                 #   reads go to .../datasources/<name>/records, <name> the
+    │                                 #   define name (Oct 8 2026); check a connection's field list
+    │                                 #   and shared aliases before changing a select (Oct 9 2026)
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user; no detail-page
     │                                 # auto-scoping, useRecords ignores enabled:false,
     │                                 # server-side linked-record filters (Sep 18 2026);
     │                                 # where/orderBy aliases resolve per hook, operator
     │                                 # semantics, filters fail open, userGroups poll,
-    │                                 # excluded useRecord = no record (Oct 6 2026)
+    │                                 # excluded useRecord = no record (Oct 6 2026);
+    │                                 # Oct 8 2026 (QA pass): hooks refetch on window focus, a
+    │                                 # failed read retries about three times before status "error",
+    │                                 # totals wait for every page, group-name checks break on a
+    │                                 # Studio rename, one useMetric per item via a probe component,
+    │                                 # a non-finite metric shows "unknown", check an existing
+    │                                 # read's where before reuse
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes;
-    │                                 # Actions register per table (Sep 18 2026)
+    │                                 # Actions register per table (Sep 18 2026);
+    │                                 # Oct 8 2026 (QA pass): admin-only write corollary,
+    │                                 # mutateAsync stays on the hook variable, error.message mapped
+    │                                 # through one helper, write-queue rules, the int32 NUMBER
+    │                                 # range, a save's "today", an audit and change-log rows
+    │                                 # section; Oct 9 2026 (QA round 3): a Block() size budget,
+    │                                 # Retry disabled during its check
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape
-    │                                 # (Oct 6 2026)
+    │                                 # (Oct 6 2026);
+    │                                 # Oct 8 2026 (QA pass): a blank NUMBER arrives as null (test
+    │                                 # blank, then Number), parseISO shows a date-only day early
+    │                                 # too, compare date-only values as yyyy-MM-dd text
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits; checkbox,
     │                                 # formula float, EMAIL lists, link label = display
-    │                                 # field, Zapier replaces multi-links (Oct 6 2026)
+    │                                 # field, Zapier replaces multi-links (Oct 6 2026);
+    │                                 # Oct 8 2026 (QA pass): field ids are per database (remap by
+    │                                 # script), NUMBER precision rounds only the display, a
+    │                                 # CREATED_AT added later is backfilled, users-table sync makes
+    │                                 # every row with an email an app user, an "entered by" value
+    │                                 # is self-reported
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
     ├── google-sheets.md              # Text formatting, 50-100 user cap
     ├── hubspot.md                    # 15 objects (listed ≠ usable), field model,
