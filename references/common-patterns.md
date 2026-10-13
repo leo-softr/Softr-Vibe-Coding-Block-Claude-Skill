@@ -2,7 +2,7 @@
 
 Small reusable patterns that come up across Vibe Coding blocks but don't warrant their own reference file. Each is a copy-pasteable snippet. The first three snippets use legacy var-style (`var`, `function() {}`), which remains valid; the newer patterns use modern TS — both compile (see SKILL.md Style Conventions).
 
-**Browser environment note.** Vibe blocks render in a shadow root in the MAIN document — not an iframe — so window-level APIs behave normally from block code: `window.scrollY` reflects the real page scroll, window-level events (scroll, resize, keydown) fire, `localStorage`/`navigator.clipboard`/`window.history` all work. Standard `useEffect` add/remove-listener with cleanup is the right shape for event-driven UI; use `{ passive: true }` for scroll/touch listeners. (SKILL.md Hard Constraint 17's `setTimeout` rule applies to ISSUING programmatic scrolls only, not to listening.)
+**Browser environment note.** Vibe blocks render in a shadow root in the MAIN document — not an iframe (except on a page Softr opens in a Modal, which loads in a same-origin iframe (read from Softr's bundles 2026-10-09, not yet run live): [modal-pages.md](modal-pages.md)<!-- LIVE-CHECK: the iframe claim is read from Softr's bundles 2026-10-09; resolve with the modal-pages.md live check -->) — so window-level APIs behave normally from block code: `window.scrollY` reflects the real page scroll, window-level events (scroll, resize, keydown) fire, `localStorage`/`navigator.clipboard`/`window.history` all work. Standard `useEffect` add/remove-listener with cleanup is the right shape for event-driven UI; use `{ passive: true }` for scroll/touch listeners. (SKILL.md Hard Constraint 17's `setTimeout` rule applies to ISSUING programmatic scrolls only, not to listening.)
 
 ## Table of Contents
 
@@ -684,6 +684,8 @@ The project this comes from hard-coded 72px (a bar plus 16px) at the top, and at
 **Fragment jumps are offset; inner scrolls are not.** Softr's page CSS gives every block's outer wrapper (`div[data-block]`, with a page-assigned id such as `ai1`; the Vibe host sits two levels inside it) `#main-content [data-block] { scroll-margin-top: var(--sticky-nav-height, 0px) }` (the rule was read from Softr's live page CSS on 2026-10-05; the jump itself is untested), so a URL fragment that targets that wrapper lands below the top bar. Nothing offsets a scroll to an element *inside* the block: `scrollIntoView` on a row or a section can put it at the window's top edge, under the bar. Give the target `scroll-margin-top: calc(var(--nav-height, 0px) + 16px)`, which `scrollIntoView` honours (untested in a block), or scroll the window with `keepInView`. A fragment can't reach inside the shadow root in the first place; see [static-blocks.md → Section anchors](static-blocks.md#section-anchors-on-landing-pages).
 
 ## A modal above Softr's bars
+
+**This modal opens from the block's own UI** (a button, a row, an event the block listens for). To open a block from Softr's navigation, give the block a page of its own and open that page in a Softr Modal instead: Studio's Open page picker lists pages only (seen in Studio 2026-10-09), so an Open page item cannot point at a hash or an in-block popup (whether Studio's Open URL field takes a relative `/page#hash` was not tried). See [modal-pages.md](modal-pages.md).
 
 On an app page with Softr's navigation, shadcn's `Dialog` and `Sheet` don't work cleanly. Two things go wrong:
 

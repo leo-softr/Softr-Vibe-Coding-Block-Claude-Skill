@@ -37,7 +37,7 @@ Softr's rendered markup carries two kinds of names:
 | Sidebar resize handle | `.softr-sidebar > [role="separator"]` | Drag range 200–360px (`aria-valuemin` / `aria-valuemax`). Softr already keeps it at opacity 0 until hover — no CSS needed to hide it |
 | Sidebar toggle | the top-bar `<button>` holding a visually hidden span "Toggle sidebar" | No `aria-label` and no `softr-*` class; find it by that text in scripts and tests |
 | Phone tab bar root | `#bottombar-root` | sticky (not fixed), z-index 800. Also present on desktop, 0px tall |
-| Phone tab bar | `ul.softr-bottombar[data-testid="bottombar"]` | Only below a 768px window. White; items are `a.softr-nav-link[data-active]`, plus buttons that open dialogs (`aria-haspopup="dialog"`) |
+| Phone tab bar | `ul.softr-bottombar[data-testid="bottombar"]` | Only below a 768px window. White; items are `a.softr-nav-link[data-active]`, plus buttons that open dialogs (`aria-haspopup="dialog"`). How an item set to Open in Modal renders here was not seen: [Opening a block from the navigation](#opening-a-block-from-the-navigation) |
 | Content column | `main#main-content` | grid-area `main`; `display: flex; flex-direction: column; min-height: 100dvh`; transparent. Every block's wrapper is a child of it |
 | Navigation placeholder | `.spr-navigation-placeholder` | The nav block's own node, 0×0; its UI renders into the three roots, so there is nothing to style here |
 
@@ -87,6 +87,8 @@ Scope dropdown rules under `.softr-topbar` (Softr renders the header menu *insid
   box-shadow: var(--brand-shadow-cta-glow) !important;
 }
 ```
+
+The same trick picks out a nav **button** that opens a page in a Modal, with one difference: that button's `href` carries the page's slug inside a `modal=` parameter (navigation 5.0.5 and later; the bare path on 5.0.3), not as its path. See [Opening a block from the navigation](#opening-a-block-from-the-navigation).
 
 ### Gotchas (verified June 2026)
 
@@ -393,6 +395,53 @@ How to run these checks: [browser-checks.md](browser-checks.md#testing-custom-co
 ```
 
 In an app with Softr's sidebar, lower the `1200`: the content column is the window minus the sidebar (1160px at a 1440px window), so block hosts and native sections drop out of the list otherwise.
+
+## Opening a block from the navigation
+
+A block is page content, so a nav item cannot be one. What a nav item can do, read from the
+navigation block 5.0.7 (built and read 2026-10-09):
+
+- **Actions:** Open page, Open URL, Scroll to and Sign out. Sign out is the one action item that
+  renders as a `<button>`; every Open page, Open URL and Scroll to item, link or button, renders as
+  an `<a href>` (menu triggers such as the profile avatar are separate `<button>`s).
+- **Open page and Open URL offer Same tab / New tab / Modal.** Scroll to does not (Softr's docs).
+- **Studio's page picker for Open page lists pages only** (seen in Studio on 2026-10-09, Softr <>
+  HubSpot Demo). It cannot produce a `#hash`, and whether a `?query` can be added to the destination
+  was not seen. An in-block popup that opens from a hash such as `#create-activity`, or from an
+  event, therefore cannot be the target of an Open page item.
+- **Open URL** accepts `http(s)`, `/path`, `/path#hash` and `#hash` at runtime (inferred from the
+  link builder in Softr's shared chunk, 2026-10-09). Whether Studio's URL field lets you type a relative
+  `/dashboard#create-activity` was not tried.
+
+**The route (read from Softr's bundles 2026-10-09, not yet run live):** give the block a page of its own, and set the item (a **button**) to Open page, that
+page, Open in **Modal**. Softr then shows the page in a dialog around an iframe, and a block on it
+needs a few changes (its own `window`, the opener's URL, closing, Escape, no toasts). All of it is
+in [modal-pages.md](modal-pages.md).
+
+**Styling that button.** A nav button set to Open in Modal is an `<a class="softr-nav-button">`
+whose `href` is the **current page's URL** with `modal=%2F<slug>&modalSize=…&modalPlacement=…` added
+(read from code, 2026-10-09; on navigation 5.0.3 the `href` is the bare `/<slug>`). Pick it out by
+the slug, on the button class:
+
+```css
+/* The button that opens the page /new-activity in a Modal */
+.softr-topbar a.softr-nav-button[href*="new-activity"] {
+  /* … */
+}
+```
+
+- **Leave the leading slash out of the match.** On navigation 5.0.5 and later the slash is encoded
+  (`%2Fnew-activity`), so `[href*="/new-activity"]` misses it.
+- **Choose a slug that appears in no other page's path or query, nor in the app's domain.** The
+  `href` is the absolute current URL (host included), so on `/deals` every Modal button's `href`
+  contains `deals`, and a slug of `deal` would paint them all.
+- **The same substring reaches any other code that matches links by `href`**, such as a click
+  interceptor in a block: see [modal-pages.md → Pitfalls](modal-pages.md#pitfalls).
+- **On a phone**, an app with Softr's sidebar navigation has no top bar below 768px ([App
+  frame](#app-frame-navigation-layout)); a top-bar-only app was not checked. Where a top-bar button
+  appears there (the More sheet, the tab bar, or nowhere) was not seen.
+
+<!-- LIVE-CHECK: in the preview, read the rendered nav button: [...document.querySelectorAll('.softr-topbar a.softr-nav-button')].map(a=>[a.textContent.trim(),a.getAttribute('href')]). Confirm the href shape (current URL + modal=%2F<slug>) and the selector above; check the phone tab bar and More sheet at 390px. -->
 
 ## Restyle vs. replace vs. block-owned header
 

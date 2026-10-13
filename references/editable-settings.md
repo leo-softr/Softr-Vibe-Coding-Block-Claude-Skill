@@ -132,10 +132,10 @@ const cta = useNavigationSetting({
 </Button>
 ```
 
-Value shapes per action type (full detail in SKILL.md's NavigationAction section; the official docs type `openIn` as `"SELF" | "TAB"` only — `"MODAL"` is validator-verified as a legal value per the error message quoted in [Constraints recap](#constraints-recap), and its restriction to `OPEN_PAGE` is inference from Studio behavior, not documented):
+Value shapes per action type (full detail in SKILL.md's NavigationAction section). `openIn` takes `"SELF"`, `"TAB"` or `"MODAL"` on **both** link actions: the developer guide (a copy read 2026-10-06) types `openIn` as `"SELF" | "TAB" | "MODAL"` for both `OPEN_PAGE` and `OPEN_URL`, and Softr's own navigation block 5.0.7 (read 2026-10-09) offers the same three on its nav items. The validator's error message also lists all three ([Constraints recap](#constraints-recap)). `MODAL` also carries `modalSize` and `modalType`. What Studio's own picker offers for a block's `OPEN_URL` was not checked:
 
-- `OPEN_PAGE` — `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`)
-- `OPEN_URL` — `destination` (URL) + `openIn` (`"SELF"` | `"TAB"`)
+- `OPEN_PAGE` — `destination` (page path) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`). A page opened in a Softr Modal from the navigation loads in a same-origin iframe (read from Softr's bundles 2026-10-09); that a block's `MODAL` uses the same dialog is unverified: [modal-pages.md](modal-pages.md)
+- `OPEN_URL` — `destination` (URL) + `openIn` (`"SELF"` | `"TAB"` | `"MODAL"`)
 - `OPEN_CHAT` — no destination (mind the data-source-context gotcha in [anti-patterns.md](anti-patterns.md))
 - `TRIGGER_CUSTOM_WORKFLOW` — no destination; builder picks the workflow in Studio. Code can also run it with `navigate(setting, { recordId, datasourceId })` (documented 2026-10-05). The workflow-side receiving end is the "Run custom workflow" trigger (`SOFTR_APPS_TRIGGER_WORKFLOW`); see [softr-mcp.md](softr-mcp.md#workflows)
 
@@ -179,6 +179,8 @@ const navItems = useArraySetting({
 ```
 
 Returns an array of schema-shaped items, rendered in the Settings pane as **reorderable rows** with per-field editors and an "Add item" control. Use for nav menus, feature lists, testimonials, badges, footer link columns, FAQs.
+
+Studio's Open page picker (seen on a nav button, 2026-10-09) lists pages only and cannot produce a hash destination, and a hash in `OPEN_PAGE` set from code is untested. For a nav item, Open URL takes `/path#hash` and `#hash` at runtime (inferred from Softr's shared chunk, 2026-10-09); whether a block's `OPEN_URL` goes through the same code was not checked.
 
 ### Schema field types
 

@@ -800,6 +800,10 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   - setting a page's VIEW permissions (`application_page_get_permissions` only reads them);
   - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
   - navigation links (`application_page_get_block` on the shared Navigation block does not return them);
+  - putting a new page in the navigation: `application_page_create` makes the page, but no tool adds a nav item for it or sets
+    its VIEW permission. A new page inherits the app's default VIEW permission (logged-in users; seen 2026-10-05 and
+    2026-10-09), so narrow it in Studio and keep the block's own Visibility on the same group. What a nav button can
+    open, and how to open a block from one: [modal-pages.md](modal-pages.md);
   - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
   - the app's Custom Code and theme.
 - **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
