@@ -21,7 +21,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
 - [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups) and [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
-- [Softr Database tools](#softr-database-tools)
+- [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields)
 - [Workflows](#workflows)
 - [Per-application MCP servers](#per-application-mcp-servers)
 - [Two delivery paths for this skill](#two-delivery-paths-for-this-skill)
@@ -31,7 +31,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 
 | Area | What the assistant can do | Official docs |
 |---|---|---|
-| Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases | https://docs.softr.io/mcp/databases |
+| Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases; put files into attachment fields, from a URL or from a file on the assistant's machine | https://docs.softr.io/mcp/databases |
 | Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
 | Vibe coding blocks | Create and edit blocks, manage settings, visibility, versions, data source connections | https://docs.softr.io/mcp/vibe-coding |
 | Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
@@ -160,6 +160,13 @@ Most new names are the old words reordered. These are the ones you would not gue
 `list_tables`, `get_record`, `create_record`, `update_record`, `delete_record` and `get_schema` share
 names with the old workspace tools but belong to [those servers](#per-application-mcp-servers). When
 translating an old note, check which server a call went to before renaming it.
+
+**Tools added since the rename.** The roster of 2026-10-13 carries seven tools that are not in the map
+above: `database_create_attachment_upload_link` and `database_attach_file_from_url` (see
+[Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_set_primary_field`,
+`application_list_data_restrictions`, `application_set_data_restriction`,
+`application_delete_data_restriction` and `report_missing_capability`. Only the two attachment tools
+have been exercised; the other five are roster-verified only.
 
 ## Connection and auth
 
@@ -946,7 +953,7 @@ For the types added since, read `fieldReferenceKey` rather than guessing. Gettin
 
 ## Softr Database tools
 
-For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
+For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), files into ATTACHMENT fields (`database_create_attachment_upload_link` for a file on the assistant's machine, `database_attach_file_from_url` for one on the web; see [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
 
 **Call economy (from the server's own instructions):** `database_get_table` returns a table's metadata AND all its field definitions in one call; `database_list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both — and re-fetch only after you changed the table's fields yourself.
 
@@ -961,6 +968,8 @@ Known limits and behaviors (per official docs):
   `{ filename, url }` on an ATTACHMENT field with any publicly reachable URL; Softr fetches it, stores its
   own copy and generates thumbnails, so backfilling images from another system is one write per record
   with no upload step. Verified 2026-08-26 — see [../datasources/writing.md](../datasources/writing.md#attachment).
+  Two dedicated tools now do this too, one of them for a file on the assistant's own machine:
+  [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields).
 - **Before 2026-10-01, every `update_field` call damaged the field it touched.** Per Softr, the
   handler ignored the `options` it was sent and wrote `allowMultipleEntries: false` on every call, so
   a multi-select became a single-select and a multi-link a single-link. It also cleared the field's
@@ -1040,6 +1049,76 @@ Known limits and behaviors (per official docs):
   create the database without one.
 
 Typical Vibe Coding uses: "list every field on `Wigs` with id, name, type, and dropdown options", "what's the option id for `Payment status` = 'Partially paid'?", "show 3 sample records so we know value shapes", "verify the field id in my `q.select()` exists". This eliminates the field-id-typo / wrong-option-uuid class of bugs entirely.
+
+### Putting files into ATTACHMENT fields
+
+Two tools put a file into a record's ATTACHMENT field. Both are in the roster of 2026-10-13, and both
+were exercised that day on a throwaway database (ours). Inside a block, a user's own file goes through
+`useUpload` instead ([../datasources/writing.md](../datasources/writing.md#file-uploads)). These tools
+are for files the assistant holds at build time: seeding a demo, backfilling a client's photos from a
+folder, attaching a generated PDF.
+
+| The file is | Tool | How it arrives |
+|---|---|---|
+| on the assistant's machine | `database_create_attachment_upload_link` | The tool returns a short-lived upload link, and the file is sent to it in an HTTP POST |
+| on the public web | `database_attach_file_from_url` | Softr downloads it, stores its own copy and returns the updated record |
+
+**A local file, step by step:**
+
+1. Create the record first. A link belongs to one record and one field.
+2. Call `database_create_attachment_upload_link` with `databaseId`, `tableId`, `recordId` and
+   `fieldId`. It returns `{ uploadUrl, method: "POST", filePartName: "file", curlExample, expiresAt }`.
+3. Send the file: `curl -sS -o /dev/null -w '%{http_code}\n' -F "file=@/path/to/photo.jpg" "<uploadUrl>"`.
+   Success is HTTP 204 with an empty body.
+4. Read the record back with `database_get_record` and compare `filename`, `type` and `size` with the
+   local file.
+
+**What the probes showed (2026-10-13):**
+
+- **The MCP call never carries the file.** The bytes go in a plain HTTP POST to
+  `https://tables-api.softr.io/attachment-upload/<id>`, outside the MCP, so whoever uploads needs a
+  shell or another way to send HTTP. A subagent with no Bash tool cannot do it. Without a shell, the
+  tool's description says to give the link to the user, who opens it in a browser and drops the file
+  there (not tried).
+- **A link expires about 5 minutes after it is made.** On four links, `expiresAt` was 5 minutes after
+  creation. A POST after that returns HTTP 404
+  `{"message":"This upload link has expired or does not exist","errorCode":"RESOURCE_NOT_FOUND"}`.
+  Make the link right before the upload.
+- **A link takes several POSTs until it expires.** Three POSTs to one link each returned 204 and each
+  landed. Per the tool's description, one link takes at most 10 files of at most 25 MB each (not
+  tested).
+- **One file per POST.** A POST with two `file` parts stored only the first one and still returned
+  204, twice. Send each file in its own POST.
+- **On a single-file field, an upload replaces the file already there.** There is no warning, and the
+  POST still returns 204 (seen twice). The tool's description says the files already in the field
+  stay; that held only on a multi-file field.
+- **On a multi-file field, files are added.** Each POST appended one file, and
+  `database_attach_file_from_url` kept the existing files too. Do not rely on the order: the URL
+  tool's file came back first, the uploaded files last.
+- **The link is a credential.** Anyone who has it can upload into that record's field until it
+  expires. Share it only with the person doing the upload, and keep it out of logs, docs and commits.
+
+**New ATTACHMENT fields made over MCP hold one file, and the MCP cannot change that.**
+`database_create_field` returned `allowMultipleEntries: false`, and both it and
+`database_update_field` refused the key with `BAD_REQUEST` "ATTACHMENT fields take no options, got
+[allowMultipleEntries]". The Tables API can do it: a
+`PUT /api/v1/databases/{db}/tables/{t}/fields/{f}` with the full field (`name`, `description`,
+`type`, the current `options`) and `allowMultipleEntries: true` at the top level returned 200, and
+later uploads appended. Decide single or multi before a backfill, because each upload into a
+single-file field replaces the one before.
+
+**Read shape.** `database_get_record` returns a single-file field as one object and a multi-file field
+as an array. Each file is `{ id, url, filename, type, size }`, and images add `thumbnails` (small,
+medium and large, 200, 600 and 1,200 px wide); a text file had none. `url` is a pre-signed S3 link
+valid for 2 hours (the field's default `fileLinkExpirationValue: 2`, `HOURS`), and it is signed again
+on every read, so compare files by `id`, `filename` and `size`, never by `url`.
+
+**`database_update_record` replaces a field's whole value** (per its own description; not re-tested
+on attachments). Writing `{ filename, url }` through it, as in the bullet above, therefore swaps out
+the files the field holds. To add a file to a multi-file field, use one of the two tools.
+
+**The Tables API.** Per Softr (2026-10-13), the same upload is coming to the public Tables API, with
+documentation to follow. Not tested here.
 
 ## Workflows
 

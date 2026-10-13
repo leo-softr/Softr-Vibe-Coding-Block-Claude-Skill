@@ -239,7 +239,12 @@ softr-vibe-coding/
 │   │                                 # limit 1 as the cheap did-anything-change read;
 │   │                                 # Oct 9 2026 (QA round 3): no long hyphen runs in search
 │   │                                 # strings, the aggregate metric key is aggregation, not
-│   │                                 # function
+│   │                                 # function; Oct 13 2026: files into attachment fields
+│   │                                 # (upload link for a local file, one file per POST, the
+│   │                                 # link expires in about 5 minutes; attach from a URL; an
+│   │                                 # upload replaces the file on a single-file field; only
+│   │                                 # the Tables API makes a field multi-file), the tools
+│   │                                 # added since the rename
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -404,7 +409,8 @@ softr-vibe-coding/
     │                                 # through one helper, write-queue rules, the int32 NUMBER
     │                                 # range, a save's "today", an audit and change-log rows
     │                                 # section; Oct 9 2026 (QA round 3): a Block() size budget,
-    │                                 # Retry disabled during its check
+    │                                 # Retry disabled during its check; Oct 13 2026: a file on
+    │                                 # the assistant's machine goes in through the MCP upload link
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape

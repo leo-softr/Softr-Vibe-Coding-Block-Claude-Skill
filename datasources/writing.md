@@ -637,6 +637,10 @@ createRecord.mutate({
 To upload a file from the user's machine before writing it to a record, see
 [File Uploads](#file-uploads) above for the full `useUpload` flow.
 
+A file on the assistant's own machine at build time (a client's photos for a backfill, not a user's
+upload in the block) goes in through the Softr MCP's upload link instead:
+[Putting files into ATTACHMENT fields](../references/softr-mcp.md#putting-files-into-attachment-fields).
+
 #### A file already on the public web needs no upload step
 
 Hand the attachment field any publicly reachable URL and Softr fetches the file, stores **its own copy**,
