@@ -179,7 +179,11 @@ softr-vibe-coding/
 │                                     # call, one counting rule per figure); Oct 8 2026 (QA round
 │                                     # 2): the date-picker router row names short-screen
 │                                     # placement; Oct 9 2026 (QA round 3): keep Block()
-│                                     # small by moving state, queues and effects to module scope
+│                                     # small by moving state, queues and effects to module scope;
+│                                     # Oct 9 2026 (modal pages): a router row for modal-pages.md,
+│                                     # no overlay of the block's own on a page opened in a Softr
+│                                     # Modal (vh resolves against the modal box there), OPEN_URL
+│                                     # takes "MODAL" too
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
@@ -239,7 +243,9 @@ softr-vibe-coding/
 │   │                                 # limit 1 as the cheap did-anything-change read;
 │   │                                 # Oct 9 2026 (QA round 3): no long hyphen runs in search
 │   │                                 # strings, the aggregate metric key is aggregation, not
-│   │                                 # function; Oct 13 2026: files into attachment fields
+│   │                                 # function; Oct 9 2026 (modal pages): no tool adds a new
+│   │                                 # page to the navigation or narrows its VIEW permission;
+│   │                                 # Oct 13 2026: files into attachment fields
 │   │                                 # (upload link for a local file, one file per POST, the
 │   │                                 # link expires in about 5 minutes; attach from a URL; an
 │   │                                 # upload replaces the file on a single-file field; only
@@ -296,7 +302,20 @@ softr-vibe-coding/
 │   │                                 # Custom Code CSS — stable selectors, floating
 │   │                                 # islands, dropdown grid fix, multi-layer page-bg,
 │   │                                 # app frame for sidebar apps (Oct 5 2026);
-│   │                                 # sidebar navigation with no top bar on desktop (Oct 8 2026)
+│   │                                 # sidebar navigation with no top bar on desktop (Oct 8 2026);
+│   │                                 # opening a block from the navigation: what a nav
+│   │                                 # item can open, styling the Modal button (Oct 9 2026)
+│   ├── modal-pages.md                # Blocks on a page opened in a Softr Modal (Oct 9
+│   │                                 # 2026, read from Softr's bundles, live check
+│   │                                 # pending): why a block that must open from the nav
+│   │                                 # gets a page of its own; what Softr renders (a
+│   │                                 # dialog around a same-origin iframe, the opener's
+│   │                                 # ?modal= URL, sizes, phone drawer); what changes
+│   │                                 # for block code (its own window, window.parent as
+│   │                                 # the opener, no toasts, Escape, the beforeunload
+│   │                                 # close guard); closing from inside; a page-mode
+│   │                                 # recipe; pitfalls (a link interceptor catching
+│   │                                 # the nav button, the page's inherited permission)
 │   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
 │   │                                 # controls on native List/Grid blocks — wide-range
 │   │                                 # sentinel, inject into filter row, survive re-renders
@@ -320,15 +339,20 @@ softr-vibe-coding/
 │   │                                 # backdrop hides the sidebar and tab bar links, a
 │   │                                 # history.back() link may escape the blocker; Oct 9 2026 (QA
 │   │                                 # round 3): Softr's link handling needs the click on the link
-│   │                                 # element itself
+│   │                                 # element itself; Oct 9 2026: the in-block modal opens from
+│   │                                 # the block's own UI, from the nav see modal-pages.md
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity
-│   │                                 # doctrine, naming, rename-resets gotcha
+│   │                                 # doctrine, naming, rename-resets gotcha; Oct 9 2026
+│   │                                 # (modal pages): openIn takes "MODAL" on OPEN_URL too,
+│   │                                 # Studio's Open page picker cannot point at a #hash
 │   ├── static-blocks.md              # Static marketing archetype: heroes, landing
 │   │                                 # headers, pricing, footers — workflow deltas,
 │   │                                 # editorial baseline, full-bleed + full-viewport,
-│   │                                 # block-owned header, section anchors
+│   │                                 # block-owned header, section anchors; Oct 9 2026
+│   │                                 # (modal pages): on a page opened in a Softr Modal, vh
+│   │                                 # and position: fixed resolve against the modal box
 │   ├── dembrandt.md                  # DESIGN.md generation with dembrandt
 │   │                                 # MCP/CLI install (@latest npx + browser step),
 │   │                                 # extract → poll → findings → generate → write
