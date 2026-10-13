@@ -250,7 +250,14 @@ softr-vibe-coding/
 │   │                                 # link expires in about 5 minutes; attach from a URL; an
 │   │                                 # upload replaces the file on a single-file field; only
 │   │                                 # the Tables API makes a field multi-file), the tools
-│   │                                 # added since the rename
+│   │                                 # added since the rename; Oct 13 2026: data restrictions
+│   │                                 # (enforced on a block's records endpoint, a fresh preview
+│   │                                 # after a change, set replaces, one per table and group on
+│   │                                 # a regular app, plan-gated operations, flat vs tree
+│   │                                 # operators), choosing a table's primary field (allowed
+│   │                                 # types, every linking record rewritten, a link written by
+│   │                                 # name creates a record when nothing matches), reporting a
+│   │                                 # missing capability
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -434,7 +441,8 @@ softr-vibe-coding/
     │                                 # range, a save's "today", an audit and change-log rows
     │                                 # section; Oct 9 2026 (QA round 3): a Block() size budget,
     │                                 # Retry disabled during its check; Oct 13 2026: a file on
-    │                                 # the assistant's machine goes in through the MCP upload link
+    │                                 # the assistant's machine goes in through the MCP upload link;
+    │                                 # data restrictions over MCP, a link written by name
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape
