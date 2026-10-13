@@ -4,6 +4,10 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.17.2] - 2026-10-13
+- Release 2.17.2
+- softr-mcp: putting files into attachment fields (upload link, attach from URL)
+
 ## [2.17.1] - 2026-10-09
 - Release 2.17.1
 - README: listing clause fixes
