@@ -21,7 +21,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
 - [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups), [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher) and [data restrictions](#data-restrictions)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
-- [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields) and [choosing a table's primary field](#choosing-a-tables-primary-field)
+- [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields), [choosing a table's primary field](#choosing-a-tables-primary-field) and [saved views](#saved-views)
 - [Workflows](#workflows)
 - [Per-application MCP servers](#per-application-mcp-servers)
 - [Two delivery paths for this skill](#two-delivery-paths-for-this-skill)
@@ -161,13 +161,14 @@ Most new names are the old words reordered. These are the ones you would not gue
 names with the old workspace tools but belong to [those servers](#per-application-mcp-servers). When
 translating an old note, check which server a call went to before renaming it.
 
-**Tools added since the rename.** The roster of 2026-10-13 carries seven tools that are not in the map
+**Tools added since the rename.** The roster of 2026-10-13 carries eight tools that are not in the map
 above: `database_create_attachment_upload_link` and `database_attach_file_from_url` (see
 [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_set_primary_field`
 (see [Choosing a table's primary field](#choosing-a-tables-primary-field)),
 `application_list_data_restrictions`, `application_set_data_restriction`,
 `application_delete_data_restriction` (see [Data restrictions](#data-restrictions)) and
-`report_missing_capability` (see [Reporting a missing capability](#reporting-a-missing-capability)).
+`report_missing_capability` (see [Reporting a missing capability](#reporting-a-missing-capability)) and
+`database_create_view` (see [Saved views](#saved-views); released to production 2026-10-13).
 All but two were exercised on 2026-10-13 on a throwaway database and app (ours). The two left are
 documented from their descriptions only: `application_delete_data_restriction`, because agents
 delete nothing, and `report_missing_capability`, because every call files a report with Softr's
@@ -1101,7 +1102,7 @@ For the types added since, read `fieldReferenceKey` rather than guessing. Gettin
 
 ## Softr Database tools
 
-For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_set_primary_field` (see [Choosing a table's primary field](#choosing-a-tables-primary-field)), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), files into ATTACHMENT fields (`database_create_attachment_upload_link` for a file on the assistant's machine, `database_attach_file_from_url` for one on the web; see [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
+For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_set_primary_field` (see [Choosing a table's primary field](#choosing-a-tables-primary-field)), `database_list_views` and `database_create_view` (see [Saved views](#saved-views)), record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), files into ATTACHMENT fields (`database_create_attachment_upload_link` for a file on the assistant's machine, `database_attach_file_from_url` for one on the web; see [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
 
 **Call economy (from the server's own instructions):** `database_get_table` returns a table's metadata AND all its field definitions in one call; `database_list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both — and re-fetch only after you changed the table's fields yourself.
 
@@ -1311,6 +1312,42 @@ stays in the table as an ordinary field, and the new one moves to the top of the
     unchanged 10 minutes later); a primary-field call rewrote another.
 
   Block writes (`useRecordCreate` / `useRecordUpdate`) were not tested for any of this.
+
+### Saved views
+
+*Exercised 2026-10-13, the day Softr released it to production, on a throwaway database (ours).*
+`database_create_view` (`databaseId`, `tableId`, `name`, plus optional `hiddenFields`, `sorting`,
+`grouping`, `filter`) makes a saved view on a table in one call, with its settings already in place.
+Softr's release note says the settings can be described in the prompt (which columns to hide, the
+sorting, the grouping); the tool itself takes field **ids**, so resolve names first with
+`database_get_table` (once per table).
+
+- **Shapes** (from the tool's description, and the first one confirmed by a call that made a view
+  with all four settings):
+  - `hiddenFields`: `["fieldId", ...]`
+  - `sorting`: `[{ "fieldId": "…", "direction": "ASC"|"DESC" }]` (`sortingField` / `sortType` are
+    accepted as synonyms)
+  - `grouping`: same shape, at most 3 levels, each field distinct
+  - `filter`: the `database_search_records` format, `{ "condition": { "operator": "AND", "conditions": [ { "leftSide": "<fieldId>", "operator": "IS_NOT_EMPTY" } ] } }`.
+    Read `database_get_field_reference` for each field type's operators first: the filter is
+    **saved on the view**, so a wrong operator would misfilter every later read.
+  - Anything left out keeps the default: every field visible, no sort, no grouping, no filter.
+- **An unknown field id fails the whole call** with `BAD_REQUEST` ("Unknown field id(s) in the view
+  configuration: [nope]. Use field IDs (not field names) …"), and nothing is created.
+- **The name is required and not unique.** The same name twice makes two views. Check
+  `database_list_views` before creating, or re-running a setup script duplicates every view.
+- **It returns only `{ id, name }`.** `database_list_views` returns `{ id, name }` too, despite its
+  description ("with id, name, and configuration"): the settings cannot be read back over MCP, so
+  keep the call you made as the record of what the view holds, and check it in Studio.
+- **A view is a Studio and `database_list_records` thing, not a block thing.** `database_list_records`
+  takes a `viewId`; that call returned the view's rows, but the hidden fields still came back in
+  each record, so hiding is display-only. A Vibe Coding block's connection does not use the view
+  (not tested; a block picks its fields with `select` and its rows with `where`), so build the block's
+  own sort and filter in code or with `vibe_coding_block_set_data_source_sort` and
+  `vibe_coding_block_set_data_source_record_filters`.
+- **Not tested:** editing or deleting a view (no tool for either; do it in Studio), sorting or
+  grouping by a LINKED_RECORD or LOOKUP field, and whether a filter condition saved on a view is
+  enforced anywhere but in the view itself.
 
 ## Workflows
 

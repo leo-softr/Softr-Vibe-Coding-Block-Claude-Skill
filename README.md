@@ -257,7 +257,10 @@ softr-vibe-coding/
 │   │                                 # operators), choosing a table's primary field (allowed
 │   │                                 # types, every linking record rewritten, a link written by
 │   │                                 # name creates a record when nothing matches), reporting a
-│   │                                 # missing capability
+│   │                                 # missing capability; Oct 13 2026 (2.19.0): saved views
+│   │                                 # (database_create_view: hide, sort, group, filter by field
+│   │                                 # id; an unknown id fails the whole call; names are not
+│   │                                 # unique; the list returns id and name only)
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
