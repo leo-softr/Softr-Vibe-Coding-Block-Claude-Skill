@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.18.0] - 2026-10-13
+- Release 2.18.0
+- README: listing clauses for modal-pages.md and the Oct 9 modal-page notes
+- modal-pages: open a block from Softr's navigation as its own page in a Softr Modal
+
 ## [2.17.2] - 2026-10-13
 - Release 2.17.2
 - softr-mcp: putting files into attachment fields (upload link, attach from URL)
