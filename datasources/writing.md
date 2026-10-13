@@ -75,7 +75,7 @@ The `enabled` boolean on a mutation hook is a combined signal — it's `true` on
 **Critical debugging implication:** when `enabled` stays `false` and Studio's Actions tab DOES show the action listed (parser succeeded), the cause is permissions — not code. Three places to check, in order:
 
 - **Block's Visibility tab** (right panel) — confirm the previewed user's group is allowed to see / interact with this block.
-- **Studio → Users → Data Restrictions → Global data restrictions** — an app-wide layer that limits what data users can interact with across the whole app, applied on top of block-level settings. Easy to miss because it's under Users (not on the block). If a Global restriction exists on the target table for the user's group, every mutation against that table in every block silently fails — no error, just `enabled: false`. Open this tab and either confirm there are no restrictions or that the worker / target group has the access they need.
+- **Studio → Users → Data Restrictions → Global data restrictions** — an app-wide layer that limits what data users can interact with across the whole app, applied on top of block-level settings. Easy to miss because it's under Users (not on the block). If a Global restriction exists on the target table for the user's group, every mutation against that table in every block silently fails — no error, just `enabled: false`. Open this tab and either confirm there are no restrictions or that the worker / target group has the access they need. Over the Softr MCP, `application_list_data_restrictions` reads them and `application_set_data_restriction` changes them ([softr-mcp.md → Data restrictions](../references/softr-mcp.md#data-restrictions)).
 - **Data-source connection PAT scope** — if the PAT was granted with read-only scope, every write fails regardless of UI permissions. Reconnect with write scope if needed.
 
 Verified by direct experiment (April 2026): adding a new field to `q.select` + `mutate()` payload and saving the code propagates to the Actions tab automatically and writes successfully to the database with no manual configuration.
@@ -502,6 +502,13 @@ and schema work, and **none of them raises an error**.
 
    (The populated read shapes are in [fields.md](fields.md); this is the empty case, and
    it becomes a write trap the moment a backfill uses it as a skip condition.)
+
+**A link written with a string that is not a record id is matched by name, and an unknown one
+creates a record** (seen 2026-10-13 through the MCP's `database_create_record`; block writes not
+tested). Softr matches the string against the linked table's primary field, case-sensitively, and
+when nothing matches it creates a record there, with no error. A stale or mistyped record id is
+treated as a name too, so a backfill fed old ids creates junk records instead of failing. Details:
+[softr-mcp.md → Choosing a table's primary field](../references/softr-mcp.md#choosing-a-tables-primary-field).
 
 ## Writing to Field Types
 

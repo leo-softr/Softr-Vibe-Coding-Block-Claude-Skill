@@ -19,9 +19,9 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints)
 - [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
-- [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups) and [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher)
+- [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups), [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher) and [data restrictions](#data-restrictions)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
-- [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields)
+- [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields) and [choosing a table's primary field](#choosing-a-tables-primary-field)
 - [Workflows](#workflows)
 - [Per-application MCP servers](#per-application-mcp-servers)
 - [Two delivery paths for this skill](#two-delivery-paths-for-this-skill)
@@ -31,8 +31,8 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 
 | Area | What the assistant can do | Official docs |
 |---|---|---|
-| Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases; put files into attachment fields, from a URL or from a file on the assistant's machine | https://docs.softr.io/mcp/databases |
-| Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
+| Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases; choose a table's primary field; put files into attachment fields, from a URL or from a file on the assistant's machine | https://docs.softr.io/mcp/databases |
+| Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; read and set data restrictions; preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
 | Vibe coding blocks | Create and edit blocks, manage settings, visibility, versions, data source connections | https://docs.softr.io/mcp/vibe-coding |
 | Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
 | Workflows | Build, wire, test, and publish workflows — 28 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
@@ -163,10 +163,15 @@ translating an old note, check which server a call went to before renaming it.
 
 **Tools added since the rename.** The roster of 2026-10-13 carries seven tools that are not in the map
 above: `database_create_attachment_upload_link` and `database_attach_file_from_url` (see
-[Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_set_primary_field`,
+[Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_set_primary_field`
+(see [Choosing a table's primary field](#choosing-a-tables-primary-field)),
 `application_list_data_restrictions`, `application_set_data_restriction`,
-`application_delete_data_restriction` and `report_missing_capability`. Only the two attachment tools
-have been exercised; the other five are roster-verified only.
+`application_delete_data_restriction` (see [Data restrictions](#data-restrictions)) and
+`report_missing_capability` (see [Reporting a missing capability](#reporting-a-missing-capability)).
+All but two were exercised on 2026-10-13 on a throwaway database and app (ours). The two left are
+documented from their descriptions only: `application_delete_data_restriction`, because agents
+delete nothing, and `report_missing_capability`, because every call files a report with Softr's
+product team.
 
 ## Connection and auth
 
@@ -617,7 +622,8 @@ Both edit paths recompile, so both reset Action permissions either way (Hard Con
 
 *Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
 captured from the app iframe); the block-visibility row verified 2026-10-05 (HubSpot; preview link,
-impersonated users, direct POSTs).* A block's data lives behind per-connection endpoints, and these
+impersonated users, direct POSTs); the data-restriction row verified 2026-10-13 (Softr Database; the
+same method).* A block's data lives behind per-connection endpoints, and these
 are the gates that actually exist on them. Which name sits in the path matters when you read a network
 log or write a request guard:
 
@@ -640,7 +646,8 @@ The gates:
 |---|---|
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
 | **The block's Visibility** (`predefinedUserGroup` + `customUserGroupIds`; `vibe_coding_block_set_visibility`) | **Yes.** A viewer outside the block's group gets the same **403**, on list and by-id, even where the page lets them in. The body reads like a write error on a read: "You cannot add or edit a record because either the block/action visibility rules, user group conditions, or the user/record data in the datasource has changed." Per block: the same table on an ungated block stays open. Five code pushes left the setting intact |
-| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — and they are the only server-side ROW gate.** A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found" |
+| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — one of the two server-side ROW gates** (the other is the next row). A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found" |
+| **The app's data restrictions** (Studio → Users → Data Restrictions / `application_set_data_restriction`) | **Yes — the other ROW gate, app-wide per table.** A VIEW `ALLOW_ONLY` rule matching the owner's email to `{USER:::EMAIL}` cut an unfiltered block's list to each user's own row (`total` 1), and a by-id request for another user's record returned **HTTP 200 with an empty body**, as above. See [Data restrictions](#data-restrictions) |
 | A `where` filter in the block's code | No — it is a request parameter the caller controls. It can also **fail open**: on 2026-09-19 (Softr Database) a request filter on a field that was not in the connection's read-select union was silently ignored, with no error, and the query returned everything. Confirm the filtered field is selected on the connection and prove the `where` narrows the result (compare counts with and without it); see [reading.md](../datasources/reading.md#filters-fail-open). A `where` naming an alias missing from its own hook's `select` fails the other way and crashes the block (Hard Constraint 29) |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
 
@@ -650,7 +657,8 @@ Source conditions allow, all fields the block's read selects name. A per-record 
 React ("is this viewer a party to this record?") shapes the UI; it is not access control. When rows
 must be private per user, put it in the Source conditions (e.g. a logged-in-user condition; see
 [below](#logged-in-user-values-in-source-conditions) for the two forms known to work) or on a
-page only the right group can view. When a field must be private, a second connection of the table
+page only the right group can view. A [data restriction](#data-restrictions) on the table does it
+app-wide, for the groups it binds. When a field must be private, a second connection of the table
 keeps it out of every ordinary browser's payload — but not away from a crafted request by someone
 who may view the page; for that it has to live on a page (or in a group-gated block) the viewer
 cannot see. Conversely, a block gated to a staff group may read unfiltered connections for a staff
@@ -766,15 +774,17 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 | Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_update_data_source` (point/swap the app's data source), `application_update_pwa_settings` (installable-app name, short name and theme colour; new 2026-10-01) |
 | App users and groups | `application_list_users`, `application_add_user`, `application_remove_user`, `application_set_user_activation`, `application_list_user_groups`, `application_create_user_group`, `application_update_user_group`, `application_delete_user_group`, `application_create_user_connection`, `application_get_user_connection`, `application_remove_user_connection` |
 | Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions`, `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
+| Data restrictions | `application_list_data_restrictions`, `application_set_data_restriction`, `application_delete_data_restriction` (in the roster of 2026-10-13; see [Data restrictions](#data-restrictions)) |
 | Publish / preview | `application_preview`, `application_publish` |
 | Workspace | `workspace_list`, `workspace_list_email_senders`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
+| Feedback to Softr | `report_missing_capability` (in the roster of 2026-10-13; see [Reporting a missing capability](#reporting-a-missing-capability)) |
 
 **Email senders, as the MCP shows them** (read 2026-09-10 and 2026-09-18): `workspace_list_email_senders` lists each workspace sender with a `confirmed` flag, and an address that was added but never verified reads `confirmed: false`. `application_get` showed the app's own sender as `<subdomain>@softr.app`. In a workflow, a `SOFTR_SEND_EMAIL` node chooses its sender through the optional `emailSenderSignatureId` input. Before publishing a workflow that must send from a particular address, check that the address is in the list and confirmed.
 
 **Three setup facts from an app build** (LCDB, 2026-10-05 to 07):
 
-- **A plan caps its custom user groups, so check the cap before designing roles.** The app's public config, `window.application_context` on its `/login` page, carried `numberOfCustomUserGroups` (3 on that plan) and `signUpSettings.policy`. It is a read-only check and needs no login. The cap forced a late redesign from four groups to three.
-- **A new app comes with a default test user** (`testuser@example.com`, seen in the one app we created) in no group. Deactivate it before go-live, or keep it as the no-group test account.
+- **A plan caps its custom user groups, so check the cap before designing roles.** The app's public config, `window.application_context` on its `/login` page, carried `numberOfCustomUserGroups` (3 on that plan) and `signUpSettings.policy`. It is a read-only check and needs no login. The cap forced a late redesign from four groups to three. On a plan with none, `application_create_user_group` was refused: "Custom user groups are not included in your plan. Upgrade to create them." (2026-10-13)
+- **A new app comes with a default test user** (`testuser@example.com`, seen in the one app we created) in no group. Deactivate it before go-live, or keep it as the no-group test account. An app made with `application_create` on 2026-10-13 had none: `application_list_users` listed only the two users we added.
 - **After a subdomain change, the old address returns 404 with no redirect**, so every old link is dead. Re-read `application_get` afterwards for the app's email sender, which showed the subdomain-based address before the change. Whether the sender follows the change was not checked.
 
 Combined with the database tools (`database_create` / `database_create_table` / `database_create_field`) and `vibe_coding_block_create` + `application_publish`, the tool set for scaffolding a full app end to end now exists. (Existence-verified only — that pipeline hasn't been run live; treat the first full scaffold as an experiment, not a routine.)
@@ -807,7 +817,9 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
   - the app's Custom Code and theme.
 - **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
-  action permissions and page permissions. Then in Studio, where the MCP cannot see: Page Rules rows
+  action permissions, page permissions and data restrictions (`application_list_data_restrictions`;
+  per its description, a restriction whose group was deleted keeps the id, reads with a `null` group
+  name and applies to nobody). Then in Studio, where the MCP cannot see: Page Rules rows
   and navigation-link visibility. A group that came back clean on both was deleted by hand
   (LCDB, 2026-10-07).
 - **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
@@ -815,6 +827,17 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
   no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
   read any older logged value as UTC, never as local time.
+
+### Reporting a missing capability
+
+*Per the tool's description (roster of 2026-10-13); not exercised.* `report_missing_capability`
+records a short report for Softr's product team when the user asks for something no tool can do: a
+missing tool, a missing option on a tool, or information no tool returns. It grants nothing in the
+conversation. Its description rules out errors, missing permissions, bugs in a tool that exists, and
+anything the user can do in Studio themselves. It takes `description` (required, at most 500
+characters), `attemptedTask` (at most 500), and the `workspaceId` or `applicationId` when known.
+Write the need in your own words and leave out personal data and record contents. Every call goes to
+Softr, so treat it like a message sent for the user: offer it, and file it only when they agree.
 
 ### Condition-based user groups
 
@@ -917,6 +940,127 @@ Limits: a page gated to a user group nobody belongs to cannot be previewed until
 group, and these selectors are Softr's shell internals — observed, not documented, so re-inspect
 the shell if a selector stops matching rather than assuming the feature is gone.
 
+### Data restrictions
+
+*Exercised 2026-10-13 on a throwaway app and Softr database (ours), on a plan that allows VIEW rules
+only. Lines marked "per the tool's description" were not tested.*
+
+A data restriction binds user groups to ONE table and says, per operation (VIEW, EDIT, DELETE, ADD),
+what they may do with its records. Studio shows them under Users → Data Restrictions
+([writing.md](../datasources/writing.md#how-actions-work-studios-actions-tab) lists them among the
+causes of a mutation hook's `enabled: false`). They apply on top of whatever a page, a block or its
+code does, so a record missing from an app that looks correctly built may be explained here. Three
+tools manage them:
+
+| Tool | What it does |
+|---|---|
+| `application_list_data_restrictions` | Every restriction: its id, the groups it binds (id and name), the table, the rules. A fresh app returns `[]` |
+| `application_set_data_restriction` | Creates one, or replaces one when you pass its `dataRestrictionId`. Takes `userGroupIds`, `integrationId`, `databaseId`, `tableId`, `tableName` and `rules`; for a Softr Database table the integration is the workspace's `SOFTR_TABLES` entry from `integration_list`, and the ids are the database tools' own |
+| `application_delete_data_restriction` | Deletes a whole restriction (not exercised, see below) |
+
+A rule is `{ operation, effect, records, condition }`: `effect` is `RESTRICT` (they can't) or
+`ALLOW_ONLY` (they can, and nothing else), and `records` is `ALL` or `MATCHING` with a condition. An
+operation with no rule is unrestricted. This one gave each signed-in user only the records that carry
+their email:
+
+```json
+{
+  "operation": "VIEW", "effect": "ALLOW_ONLY", "records": "MATCHING",
+  "condition": {
+    "logicalOperator": "AND",
+    "expressions": [
+      { "subject": { "field": "<Owner email field id>", "type": "TEXT" }, "operator": "IS", "value": ["{USER:::EMAIL}"] }
+    ]
+  }
+}
+```
+
+**What the probes showed (ours, 2026-10-13):**
+
+- **It is enforced on the block's records endpoint.** Bound to Logged in users, that rule gave an
+  unfiltered vibe coding block one row for each of two users, their own (`total` 1), and a by-id
+  request for another user's record returned HTTP 200 with an empty body, as a Source condition does
+  on Softr Database. Re-bound to Non Logged in users, the same signed-in user got all 8 rows, so the
+  rule was what filtered them. Checked on one block; that it covers every block reading the table is
+  per the tool's description. It sits in [the gates table](#what-the-server-enforces-on-a-blocks-data-endpoints)
+  as the second row gate.
+- **The preview picks up a change only after a fresh `application_preview`.** An open preview kept the
+  old rule for at least 27 seconds after a change. Right after the next `application_preview` call
+  the same session had the new one (each call rebuilds the preview, per that tool's description).
+  Mint a new preview after every restriction change before you check anything.
+- **Check a restriction in the preview, not with the database tools.** They run as the builder:
+  `database_list_records` still returned every row.
+- **`application_set_data_restriction` replaces, it does not merge.** With `dataRestrictionId` it
+  kept the id and replaced the groups and the rules wholesale; the old rule was gone. To add a rule,
+  read the restriction and send its rules back with the new one.
+- **A regular app holds one restriction per table and group, and one on Logged in users blocks the
+  rest.** A second create for the same table and group was refused, and so was a create for Non
+  Logged in users on that table: "You can't add a restriction to this data source because you already
+  have one restriction on it that affects all logged-in users."
+- **The plan decides which operations can be restricted, and the refusal says which.** An EDIT rule
+  sent with the VIEW rule was refused: "Restricting editing is not included in this workspace's plan.
+  Upgrade to apply it, or leave that rule out. This plan supports: VIEW." Per the tool's description,
+  a refused call changes nothing.
+- **Shape errors come back with the fix.** Each of these was refused with a message that names it:
+  `MATCHING` with no condition, `ALL` with a condition, `ALLOW_ONLY` over all records with no fields
+  ("restricts nothing"), a field given by name on an id-keyed table ("use 'wrjot' in place of 'Owner
+  email'"), a field id the table does not have, a `USER:EMAIL` subject (the signed-in user goes in the
+  value, never the subject), and a date in prose: `"TODAY"` was refused, and the message lists
+  `PREDEFINED:TODAY|YESTERDAY|TOMORROW`, `FIXED_DATE:DAYS_AGO:<n>`, `FIXED_DATE:DAYS_FROM_NOW:<n>`
+  and an exact `YYYY-MM-DD`.
+- **The flat `condition` spells operators its own way.** `GREATER_THAN` was refused, and the refusal
+  listed the accepted set: `IS`, `IS_NOT`, `IS_EXACTLY`, `EQUAL`, `NOT_EQUAL`, `IS_EMPTY`,
+  `IS_NOT_EMPTY`, `IS_ONE_OF`, `IS_NONE_OF`, `HAS_ALL_OF`, `HAS_ONE_OF`, `HAS_NONE_OF`, `CONTAINS`,
+  `INLINE_CONTAINS`, `IS_WITHIN`, `IS_NOT_WITHIN`, `GT`, `LT`, `GTE`, `LTE`, `RANGE`, `BETWEEN`,
+  `BETWEEN_DATE`, `IS_NOT_BETWEEN`, `DOES_NOT_CONTAINS`, `STARTS_WITH`, `ENDS_WITH`. `GT` worked.
+  The tree form below uses `GREATER_THAN`, `IS_NOT_ONE_OF`, `HAS_ANY_OF` and `DOES_NOT_CONTAIN`
+  instead, so never copy a rule from one form to the other.
+- **The table is named by id only.** In the list, and in the set call's response,
+  `datasource.table.name` and `datasource.database.name` read `null`, though `tableName` was sent.
+  Resolve the id with `integration_list_tables` before telling a person which table a rule covers.
+- **`application_get_access_overview` counts them** (`dataRestrictionsCount`).
+- **A restriction covers only the groups it binds.** One on Logged in users says nothing about
+  visitors. Untested here: the new app sent visitors to `/login`, so their side could not be read.
+
+**Regular apps and vibe-coded apps take different rules** (per the tool's description; we had no
+vibe-coded app to test). Ours, made with `application_create`, reported
+`applicationType: "REGULAR_APPLICATION"`, and its refusals called it an app whose "runtime evaluates
+condition". On a vibe-coded app:
+
+- a rule may carry `conditionV2`, a tree of `{ "operator": "AND" | "OR", "conditions": [...] }` groups
+  and `{ "operator", "leftSide", "rightSide" }` leaves that can nest. A flat `condition` sent there is
+  stored converted to `conditionV2`, and a rule read with both enforces `conditionV2`. Ours refused
+  `conditionV2` ("only supported on vibe-coded applications").
+- `fields` narrows a rule to some fields: `RESTRICT` hides them, `ALLOW_ONLY` shows only them, and on
+  EDIT they stay readable but cannot change. A rule with fields never removes a record, so "own
+  records, without the Salary" takes two restrictions: VIEW `ALLOW_ONLY` own records, and VIEW
+  `RESTRICT` `ALL` with `fields: [<Salary>]`. Ours refused `fields`, warning that there it "would stop
+  hiding the records the rule matches and would not hide the fields either".
+- several restrictions may cover one table and group, and they combine: `ALLOW_ONLY` rules widen
+  access (OR) and `RESTRICT` rules narrow it (AND). A duplicate create succeeds, and an extra
+  `ALLOW_ONLY` widens access, so list first and update the existing restriction.
+- a tree's date tokens are stored unchecked, while the flat condition validates them, so send a date
+  rule as a flat `condition` unless it needs a nested group.
+
+**More from the description (not tested):** an ADD rule must cover `ALL` records, and ADD and DELETE
+rules take no fields. The signed-in user goes in the value as `{USER:::EMAIL}`, `{USER:::EMAIL_DOMAIN}`
+or `USER:::<field name>` of the app's users table, and only the first two take braces. A block's
+Source condition takes `USER:::<field id>` ([above](#logged-in-user-values-in-source-conditions));
+which one a restriction needs on an id-keyed users table is untested. A restriction whose group was
+deleted reads with a `null` group name, still binds the id and applies to nobody. The tool reads the
+table's live schema before it writes, so it is slower than the other access tools and fails when the
+data source is unreachable.
+
+**`application_delete_data_restriction`** (per the tool's description; not exercised, because agents
+delete nothing). It removes the whole restriction, every rule in it, and whatever it kept back
+becomes visible and editable again for its groups on every page, so confirm with the user first. To
+drop one rule, send the restriction back through `application_set_data_restriction` without it. It
+is idempotent: an id the app does not hold returns `deleted: false` rather than failing.
+
+**Before relying on a restriction, test it as a member of each group** with the
+[Preview-as rig](#testing-as-any-app-user-without-logins--the-preview-as-switcher): mint a fresh
+preview, read the block's list `total`, and try a by-id request for a record the rule should hide.
+
 ## Browsing integrations (external data sources)
 
 An integration is anything connected once per workspace. **A data source is one kind of integration**: one that holds records, such as Softr's own databases (`SOFTR_TABLES`), Airtable, Google Sheets, Notion or a SQL database. A proxy-only integration (Gmail, Slack, OpenAI, …) has no records and nothing to browse. Each entry from `integration_list` carries `capabilities` (`DATA`, `PROXY`, or both) that says which kind it is, so read that rather than guessing from the type. Five read-only tools drill down from workspace to fields; each level needs an ID from the level above:
@@ -957,7 +1101,7 @@ For the types added since, read `fieldReferenceKey` rather than guessing. Gettin
 
 ## Softr Database tools
 
-For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), files into ATTACHMENT fields (`database_create_attachment_upload_link` for a file on the assistant's machine, `database_attach_file_from_url` for one on the web; see [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
+For Softr's native databases the MCP goes far beyond browsing: `database_get_field_reference` (authoritative field-type + filter-operator reference — call it before creating/updating tables, fields, or filters; the server's own instructions say "do not guess field types, options, or operators"), database/table/field CRUD **including deletes** (`database_delete`, `database_delete_table`, `database_delete_field`), `database_set_primary_field` (see [Choosing a table's primary field](#choosing-a-tables-primary-field)), `database_list_views`, record reads (`database_list_records`, `database_search_records`, `database_get_record`), record writes (`database_create_record`, `database_create_records` batch, `database_update_record`, `database_delete_record`, `database_delete_records` batch), files into ATTACHMENT fields (`database_create_attachment_upload_link` for a file on the assistant's machine, `database_attach_file_from_url` for one on the web; see [Putting files into ATTACHMENT fields](#putting-files-into-attachment-fields)), `database_aggregate_records` for grouped summaries, and `database_search` to find a database by name when the account has many.
 
 **Call economy (from the server's own instructions):** `database_get_table` returns a table's metadata AND all its field definitions in one call; `database_list_fields` returns the fields alone. Call ONE of them once per table and reuse the result — never both — and re-fetch only after you changed the table's fields yourself.
 
@@ -1018,7 +1162,9 @@ Known limits and behaviors (per official docs):
 - **SINGLE_LINE_TEXT fields carry a 1,024-character `maxLength`** (ours: two fields of a production
   table, found in a 2026-09-10 schema audit and confirmed live 2026-09-18, recorded in a block's code
   comment). A block that appends to such a field has to keep the total under it; what a longer write
-  does was not tested. Use LONG_TEXT for anything that grows.
+  does was not tested. Use LONG_TEXT for anything that grows. The limit is per field, so read its
+  `options.maxLength`: on 2026-10-13 a starter table's Name carried 1,024, two fields made by
+  `database_create_table` carried 2,147,483,647, and the field reference says 255 (ours).
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
 - **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours, LCDB,
   2026-10-08, both rounds of a QA pass). Two metrics in one call were refused more often than not.
@@ -1045,7 +1191,7 @@ Known limits and behaviors (per official docs):
   true`) unless one-to-one is meant. Otherwise a second link silently overwrites the first, as in
   [the single-valued pair trap](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).
 - **On the workspace server, a new database starts with a starter table, "Table 1"** (Name, Description
-  and Status fields). Per the `database_create` tool's own description (checked 2026-10-08), the vibe
+  and Status fields; on 2026-10-13 also an "AI Summary" LONG_TEXT field, ours). Per the `database_create` tool's own description (checked 2026-10-08), the vibe
   coding application endpoints create it empty instead. Reshape the starter table with
   `database_update_table`, `database_create_field` and `database_update_field` rather than adding a
   table beside it. A database holding it is not empty, so `database_delete` refuses it without `force`.
@@ -1123,6 +1269,48 @@ the files the field holds. To add a file to a multi-file field, use one of the t
 
 **The Tables API.** Per Softr (2026-10-13), the same upload is coming to the public Tables API, with
 documentation to follow. Not tested here.
+
+### Choosing a table's primary field
+
+*Exercised 2026-10-13 on a throwaway database (ours).* The primary field is the record's name. A
+LINKED_RECORD value carries it as each link's `label` (`[{ "id": "…", "label": "Apollo" }]`), and per
+the tool's description Softr shows it in record pickers and in the cells of other tables that link
+here. Choosing it used to be a Studio job. `database_set_primary_field` (`databaseId`, `tableId`,
+`fieldId`) now does it over MCP and returns the table with its new `primaryFieldId`. The old primary
+stays in the table as an ordinary field, and the new one moves to the top of the field list.
+
+- **Allowed types**, per the tool's description: SINGLE_LINE_TEXT, LONG_TEXT, EMAIL, PHONE, URL,
+  NUMBER, DATETIME, CREATED_AT, FORMULA, AUTONUMBER, RECORD_ID. SELECT, CHECKBOX, CURRENCY and
+  LINKED_RECORD were refused with `BAD_REQUEST` "Provided field type does not match primary field
+  type", which names neither the field nor the allowed types. A field id from another table returned
+  `NOT_FOUND`. A FORMULA worked: `"PRJ-" & {Number}` over an AUTONUMBER, the tool's own recipe for a
+  key such as "BUG-12".
+- **`database_create_table` makes the first field in `fields` the primary, whatever its type.** A table
+  created with a SELECT first got the SELECT as its primary, a type this tool refuses. List the title
+  first, or move the primary with this tool afterwards.
+- **Every record that links to the table is rewritten, even by a call that changes nothing.** Each
+  linking record's `label` switched to the new primary's value, and its `updatedAt` moved to the
+  moment of the call. Re-setting the field that was already primary did the same. Records with no
+  link, and the table's own records, kept their `updatedAt`. So a "record updated" trigger on a linking
+  table may fire for every linked row (not tested; see the re-firing note under [Workflows](#workflows)),
+  and anything that tracks changes by `updatedAt` sees them all as changed.
+- **The label is stored on the linking record, and it can go stale.** Where the linked record's new
+  primary value was blank, the label was not rewritten: two links kept their old labels after the
+  primary moved to a Name that was empty on those records.
+- **A LINKED_RECORD write that passes a string which is not a record id is matched against the primary
+  field** (the tool's description says so; confirmed through `database_create_record`):
+  - the match is exact and case-sensitive: "Borealis" linked the Borealis record, "apollo" did not
+    match "Apollo";
+  - **a string that matches nothing creates a new record in the linked table**, with no warning. So
+    did a well-formed record id that does not exist: it created a record named after the id. A stale
+    id in a backfill (from a copy of the database, say) therefore makes junk records instead of
+    failing. Check that every id exists before you write it;
+  - when two records shared the value, one of them was linked with no warning (the newer, in one test);
+  - with a read-only primary (a FORMULA here), the new record was blank, and the link's label showed
+    the string sent, which the record does not hold. Such a label did not correct itself (one was
+    unchanged 10 minutes later); a primary-field call rewrote another.
+
+  Block writes (`useRecordCreate` / `useRecordUpdate`) were not tested for any of this.
 
 ## Workflows
 
