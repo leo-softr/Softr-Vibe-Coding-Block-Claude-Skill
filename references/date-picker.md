@@ -258,9 +258,10 @@ component.
 
 **1. Nothing between the field and its scroller may clip.** The calendar is an absolute panel
 (`top-full` or `bottom-full`, `z-40`) inside the field's `relative` wrapper, in the block's own DOM,
-for the same reasons as the Combo's menu: a portal leaves the shadow root and its styles, and
-`position: fixed` breaks under any transformed ancestor
-([searchable-dropdown.md → Why not portal](searchable-dropdown.md#the-four-things-that-will-bite-you)).
+for the reasons the Combo's menu was absolute until 2026-09-30: a portal leaves the shadow root and its styles, and
+`position: fixed` breaks under any transformed ancestor unless the panel is placed against that ancestor, which the Combo
+now does ([searchable-dropdown.md → Why not portal, and why fixed](searchable-dropdown.md#the-four-things-that-will-bite-you)).
+This calendar kit has not been moved to a fixed panel.
 So every ancestor whose `overflow` is not `visible` clips it: `overflow-hidden`, `overflow-*-auto`,
 `truncate`, `line-clamp-*`. A card given `overflow-hidden` to clip its rounded corners cuts the
 calendar off at the card's edge. Same rule as Combo rule 1: no clipping class on anything that

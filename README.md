@@ -390,6 +390,9 @@ softr-vibe-coding/
 │   │                                 # overflow-clipping ancestors: never clip a cell
 │   │                                 # holding a Combo, clip-aware drop-up + list
 │   │                                 # height, list-only scrolling (Sep 30 2026);
+│   │                                 # the panel is position: fixed, placed against its
+│   │                                 # containing block (a dialog's translate counts), closed on
+│   │                                 # scroll and resize (ported Oct 15 2026);
 │   │                                 # opening moves focus into the Combo and Escape closes only
 │   │                                 # the list (Oct 7 2026); the trigger named with
 │   │                                 # aria-labelledby so the value is announced (Oct 8 2026)

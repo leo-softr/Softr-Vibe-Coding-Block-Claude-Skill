@@ -8,7 +8,7 @@ the obvious choices:
 |---|---|
 | Native `<select>` | Hands the list to the OS. No keyword filter, none of your styling, and on macOS it paints a grey slab over the page. Fine for 5 options, unusable at 90. |
 | shadcn `<Select>` / `<Command>` | **Portals to `document.body`, which is outside the block's shadow root**, so the styles arrive stripped. It also cannot be searched. |
-| `Combo` (below) | Local DOM, brand-styled, keyword filter, A→Z, keyboard, create-new, clip-aware drop-up. |
+| `Combo` (below) | Local DOM, brand-styled, keyword filter, A→Z, keyboard, create-new, a `position: fixed` panel placed against whatever can clip it. |
 
 The date field has the same problem with the same answer: `<input type="date">` hands its calendar
 to the browser, so a block uses the in-DOM `DatePicker` kit in [date-picker.md](date-picker.md),
@@ -50,23 +50,37 @@ single most common Vibe Coding bug and it looks like a platform fault.
 **3. `onMouseDown` on a row must `preventDefault()`.**
 Otherwise focus leaves the search input before the click resolves.
 
-**4. The panel is clipped by any ancestor whose `overflow` is not `visible`.**
-The panel is `position: absolute` inside the trigger's `relative` wrapper, in the block's own
-DOM, because it cannot portal out of the shadow root (see *Why not portal* below). Its
-containing block is that wrapper, so *every* ancestor whose `overflow` is `hidden`, `auto`,
-`scroll` or `clip` clips it, however far up. In Tailwind that is `overflow-hidden`,
-`overflow-auto`, `overflow-y-auto`, `overflow-x-auto` (an `overflow-x` of `hidden`, `auto` or
-`scroll` turns `overflow-y: visible` into `auto`, so it clips vertically too), `truncate` (it
-sets `overflow: hidden`) and `line-clamp-*` (so does that). A clipped `<td>` is the height of
-its row, and the menu opens inside it. Three rules follow.
+**4. The panel is `position: fixed`, and a fixed box has two traps of its own.**
+The panel lives in the block's own DOM, because it cannot portal out of the shadow root (see *Why not
+portal* below). Until 2026-09-30 it was `position: absolute` inside the trigger's `relative` wrapper, and
+then *every* ancestor whose `overflow` was `hidden`, `auto`, `scroll` or `clip` clipped it, however far up.
+In Tailwind that is `overflow-hidden`, `overflow-auto`, `overflow-y-auto`, `overflow-x-auto` (an
+`overflow-x` of `hidden`, `auto` or `scroll` turns `overflow-y: visible` into `auto`, so it clips
+vertically too), `truncate` (it sets `overflow: hidden`) and `line-clamp-*` (so does that). A clipped
+`<td>` was the height of its row, and a table's own scroll box squeezed the menu on a table holding a row
+or two, however cleverly it was placed inside it.
 
-**Rule 1 — never put a clipping class on an element that contains a `Combo`:** a `<td>`, a
-card, a flex cell, anything between the Combo and the scroller it belongs to. If a chip or
-label inside the trigger can overflow, bound it at the chip: `truncate` (or `overflow-hidden`)
-plus `min-w-0` on the chip itself. The trigger is a flex row, and `min-w-0` is what lets a flex
-item shrink below its text — strictly redundant while the chip clips itself, load-bearing the
-moment the ellipsis moves to a span inside it. Clipping at the chip clips the chip. Clipping at
-the cell clips the menu.
+ROSIE's `Shared/combo.jsx` is `position: fixed` now, anchored to its trigger. **A fixed box escapes every
+clipping ancestor below its containing block**, so a cell, a card or a table's scroll box no longer cuts
+the menu: the one-row Damages tab that Leo called "cramped" shows all eight statuses whole. The price is
+two traps, and four rules.
+
+- **The containing block.** A fixed box is placed against the viewport only while no ancestor has a
+  `transform`, `filter`, `perspective`, `contain`, `container-type` or a `will-change` naming one of those,
+  or an individual `translate`, `rotate` or `scale`. Any of them becomes the containing block, and the panel
+  must be placed against *that*, and can still be clipped by it and what sits above it. A Radix dialog
+  centres itself with `translate` and zooms in from 0.95; Softr's scroll fade-in leaves a `transform` behind
+  on a block while it runs.
+- **It does not travel.** A fixed panel stays where it was put while its trigger moves, so anything that
+  moves the trigger has to close it.
+
+**Rule 1 — still bound an over-wide chip at the chip, not at the cell.** With a fixed panel an
+`overflow-hidden` cell no longer cuts the menu, but it still clips the trigger and everything else in the
+cell, and the placement code measures the clipping boxes at and above the containing block. ROSIE keeps the
+old rule: no clipping class (`overflow-hidden`, `overflow-*-auto`, `truncate`, `line-clamp-*`) on an element
+that contains a `Combo`. If a chip or label inside the trigger can overflow, bound it at the chip: `truncate`
+(or `overflow-hidden`) plus `min-w-0` on the chip itself. The trigger is a flex row, and `min-w-0` is what
+lets a flex item shrink below its text. Clipping at the chip clips the chip.
 
 ```jsx
 <td className="px-4">{/* no overflow class on the cell */}
@@ -78,125 +92,240 @@ the cell clips the menu.
 </td>
 ```
 
-**Rule 2 — decide the drop-up and the list's height against the clipping ancestors, not the
-window.** `window.innerHeight - rect.bottom` cannot see scroll containers: a table with its own
-`max-height` + `overflow: auto` scroller, a dialog body with `overflow-y-auto`, a horizontally
-scrollable table wrapper. A row near the bottom of one of those opens its menu downward into
-the scroller's hidden area while the window still has plenty of room. Measure inside the strip
-the panel can actually paint into:
+**Rule 2 — place the panel against its containing block, and decide the drop-up and the list's height
+against what can clip it, not against the window.** Three functions do it, all in ROSIE's `Shared/combo.jsx`
+(verbatim below; the constants mirror the panel's classes, so change them together):
+
+- `comboClipBox(node)` — the box a panel can paint into: the viewport cut down by every ancestor that clips,
+  from `node` up across shadow roots to (not including) `<body>`, whose overflow belongs to the viewport.
+  Padding boxes, both axes tested separately, boxes overflow does not apply to skipped.
+- `comboFixedBase(node)` — the nearest ancestor that is the fixed panel's containing block, or `null` for
+  the viewport. It checks `transform`, the individual `translate`, `rotate` and `scale`, `perspective`,
+  `filter`, `backdrop-filter`, `contain`, `container-type` and `will-change`, and walks across shadow roots.
+- `comboPlacement(root, rowCount, searchable)` — `{ up, right, x, y, listMax, maxW, minW }`. The room is the
+  viewport, or, with a containing block, that block's clip and everything above it (the boxes *below* it no
+  longer count, because a fixed panel paints over them). The anchor is the trigger's bottom-left corner, 2px
+  clear, converted into the containing block's own pixels: the screen distance divided by the block's scale
+  (`rect.width / offsetWidth`), minus its border, plus its scroll. Without the scale term a panel in a dialog
+  part-way through its 0.95 → 1 zoom lands about 5% of the distance away from its trigger.
 
 ```jsx
-var COMBO_LIST_MAX = 256; // the list's normal ceiling (max-h-64)
+/* ---- Placement ------------------------------------------------------------------------------
+   The panel is positioned in the block's own DOM because it cannot portal out of the shadow
+   root (see the header). Until 2026-09-30, late, it was `absolute`, so EVERY ancestor that clips
+   clipped it: a status <td> with overflow-hidden cut the Order status menu to one row, and the
+   tables' scroll boxes squeezed it on a table holding only a row or two, however cleverly it was
+   placed inside them. It is `fixed` now, which escapes all of that; what is left to measure is
+   the containing block a fixed box still answers to (comboFixedBase) and the clipping at or
+   above it. These sizes mirror the panel's classes below — change them together. */
+var COMBO_ROW_H = 32; // one option: py-1.5 around a 20px text-sm line
+var COMBO_LIST_PAD = 8; // the list's py-1
+var COMBO_LIST_MAX = 264; // eight 32px rows + the py-1: all eight statuses fit whole (was 256, max-h-64)
 var COMBO_LIST_MIN = 120; // the floor: below this, accept a clip rather than a useless list
+var COMBO_SEARCH_H = 49; // p-2 around the h-8 search input, plus its 1px rule
+var COMBO_EDGE = 10; // the 2px gap to the trigger, the panel's borders, a little air
+var COMBO_MAX_W = 380;
+var COMBO_PLACE_DEFAULT = { up: false, right: false, x: 0, y: 0, listMax: COMBO_LIST_MAX, maxW: COMBO_MAX_W, minW: 0 };
 
-/* The strip of screen the panel can paint into: the viewport, cut down by every ancestor
-   that clips vertically. overflowY is enough on its own: an overflow-x of hidden, auto or
-   scroll already turns a visible overflow-y into auto in the computed style. */
+/* The box a panel can paint into: the viewport, cut down by every ancestor that clips, from
+   `node` up across shadow roots to (not including) <body>, whose own overflow belongs to the
+   viewport. For the fixed panel, `node` is its containing block (see comboPlacement). The axes
+   are tested separately: an overflow-x of hidden, auto or scroll already turns a visible
+   overflow-y into auto in the computed style, while overflow-x: clip does not. Edges are
+   padding boxes — inside the border, clear of a scrollbar — and boxes overflow does not apply
+   to (inline, display: contents) are skipped. */
 function comboClipBox(node) {
-  var top = 0;
-  var bottom = window.innerHeight;
+  var box = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
   var el = node;
   while (el && el !== document.body && el !== document.documentElement) {
-    // clientHeight is 0 for the boxes overflow does not apply to (inline, display: contents)
-    if (el.clientHeight > 0 && window.getComputedStyle(el).overflowY !== "visible") {
-      var r = el.getBoundingClientRect();
-      var t = r.top + el.clientTop; // the clip edge is the padding box: inside the border
-      var b = t + el.clientHeight; //  and above a horizontal scrollbar
-      if (t > top) top = t;
-      if (b < bottom) bottom = b;
+    if (el.clientHeight > 0 || el.clientWidth > 0) {
+      var cs = window.getComputedStyle(el);
+      var clipY = cs.overflowY !== "visible";
+      var clipX = cs.overflowX !== "visible";
+      if (clipY || clipX) {
+        var r = el.getBoundingClientRect();
+        if (clipY && el.clientHeight > 0) {
+          var t = r.top + el.clientTop;
+          if (t > box.top) box.top = t;
+          if (t + el.clientHeight < box.bottom) box.bottom = t + el.clientHeight;
+        }
+        if (clipX && el.clientWidth > 0) {
+          var l = r.left + el.clientLeft;
+          if (l > box.left) box.left = l;
+          if (l + el.clientWidth < box.right) box.right = l + el.clientWidth;
+        }
+      }
     }
-    // Where the parent chain ends at the shadow root, carry on from its host.
-    el = el.parentElement || el.getRootNode().host || null;
+    el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
   }
-  return { top: top, bottom: bottom };
+  return box;
 }
 
-/* chrome = the panel's height outside the list: the search box and the borders. */
-function comboPlace(wrapper, chrome) {
-  var clip = comboClipBox(wrapper);
-  var r = wrapper.getBoundingClientRect();
-  var below = clip.bottom - r.bottom - 10; // the 2px gap to the trigger + 8px to spare
-  var above = r.top - clip.top - 10;
-  var up = below < chrome + COMBO_LIST_MAX && above > below;
-  var room = (up ? above : below) - chrome;
-  return { up: up, listMax: Math.max(COMBO_LIST_MIN, Math.min(COMBO_LIST_MAX, room)) };
+/* The element a `position: fixed` panel is placed against when it is not the viewport: the
+   nearest ancestor with a transform — or an individual translate, rotate or scale, which is how
+   the dialogs centre themselves here (verified 2026-09-30: the Add items dialog's panel landed
+   exactly the dialog's own offset away until `translate` was checked) — a filter, perspective,
+   backdrop-filter, paint or layout containment, a container type, or a will-change naming one of
+   those. A block caught mid-way through the page's scroll fade-in (a `transform`) counts too.
+   null means the viewport. Walks across shadow roots, starting at the panel's own parent. */
+function comboFixedBase(node) {
+  var el = node;
+  while (el && el !== document.body && el !== document.documentElement) {
+    var cs = window.getComputedStyle(el);
+    if (
+      (cs.transform && cs.transform !== "none") ||
+      (cs.translate && cs.translate !== "none") ||
+      (cs.rotate && cs.rotate !== "none") ||
+      (cs.scale && cs.scale !== "none") ||
+      (cs.perspective && cs.perspective !== "none") ||
+      (cs.filter && cs.filter !== "none") ||
+      (cs.backdropFilter && cs.backdropFilter !== "none") ||
+      /paint|layout|strict|content/.test(cs.contain || "") ||
+      (cs.containerType && cs.containerType !== "normal") ||
+      /transform|perspective|filter/.test(cs.willChange || "")
+    ) {
+      return el;
+    }
+    el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
+  }
+  return null;
+}
+
+/* Down when the whole list fits below, else toward the side with more room, with the list capped
+   to that room — every option stays reachable, scrolling inside the list if it must. Rows are a
+   fixed 32px, so the fit test counts real rows rather than assuming a full list: a four-option
+   menu near an edge does not flip for room it will never use. "Room" is the viewport, or — when
+   a transformed ancestor is the containing block — that ancestor's clip and everything above
+   it; the boxes BELOW it (a table's scroll box, a card, a cell) no longer count, because a fixed
+   panel paints over them. Horizontally a trigger near the right edge of that room hangs its
+   panel from its right edge, growing leftward; an edge of the trigger that runs past the room is
+   pulled back inside so the panel never starts out of sight. The anchor comes back in the
+   containing block's own coordinates; the panel's transform does the rest (see panelStyle), so it
+   never has to be measured before it is shown. */
+function comboPlacement(root, rowCount, searchable) {
+  var place = { up: false, right: false, x: 0, y: 0, listMax: COMBO_LIST_MAX, maxW: COMBO_MAX_W, minW: 0 };
+  if (!root) return place;
+  var base = comboFixedBase(root);
+  var box = base
+    ? comboClipBox(base)
+    : {
+        top: 0,
+        left: 0,
+        bottom: window.innerHeight,
+        right: Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth),
+      };
+  var r = root.getBoundingClientRect();
+  var chrome = COMBO_EDGE + (searchable ? COMBO_SEARCH_H : 0);
+  var want = Math.min(COMBO_LIST_MAX, Math.max(1, rowCount) * COMBO_ROW_H + COMBO_LIST_PAD);
+  var below = box.bottom - r.bottom - chrome;
+  var above = r.top - box.top - chrome;
+  place.up = below < want && above > below;
+  place.listMax = Math.max(COMBO_LIST_MIN, Math.min(COMBO_LIST_MAX, Math.floor(place.up ? above : below)));
+  var visLeft = Math.max(r.left, box.left);
+  var visRight = Math.min(r.right, box.right);
+  var toRight = box.right - visLeft;
+  var toLeft = visRight - box.left;
+  place.right = toRight < 300 && toLeft > toRight;
+  place.maxW = Math.max(0, Math.floor(Math.min(COMBO_MAX_W, place.right ? toLeft : toRight)));
+  place.minW = Math.max(0, Math.min(Math.round(r.width), place.maxW));
+  var ax = place.right ? visRight : visLeft;
+  var ay = place.up ? r.top - 2 : r.bottom + 2;
+  if (!base) {
+    place.x = Math.round(ax);
+    place.y = Math.round(ay);
+    return place;
+  }
+  /* Screen pixels → the containing block's own pixels. A dialog part-way through its zoom-in is
+     SCALED (0.95 → 1), and a fixed box inside it is scaled with it, so measure the scale (the
+     rect's size over the layout size) and divide it out, then step in past the border and add
+     any scroll. Without the scale term the panel lands ~5% of the distance off its trigger —
+     seen in the preview, where the dialog sat at 0.95. */
+  var br = base.getBoundingClientRect();
+  var sx = base.offsetWidth ? br.width / base.offsetWidth : 1;
+  var sy = base.offsetHeight ? br.height / base.offsetHeight : 1;
+  if (!sx) sx = 1;
+  if (!sy) sy = 1;
+  place.x = Math.round((ax - br.left) / sx - base.clientLeft + base.scrollLeft);
+  place.y = Math.round((ay - br.top) / sy - base.clientTop + base.scrollTop);
+  place.listMax = Math.floor(place.listMax / sy);
+  place.maxW = Math.floor(place.maxW / sx);
+  place.minW = Math.round(place.minW / sx);
+  return place;
 }
 ```
 
-Call it when the panel opens, and give the list its height as an inline style in place of
-`max-h-64`:
+Call it when the panel opens, store the result, and style the panel from it (`SURFACE` and `BORDER` are the block's own colour constants). Dropping up or hanging from the
+right edge is a `translate` by the panel's own size, so the panel lands flush without being measured first:
 
 ```jsx
-var [listMax, setListMax] = useState(COMBO_LIST_MAX);
+var [place, setPlace] = useState(COMBO_PLACE_DEFAULT);
 
 // in toggle(), before setOpen(true):
-if (rootRef.current) {
-  var place = comboPlace(rootRef.current, searchable ? 51 : 2);
-  setDropUp(place.up);
-  setListMax(place.listMax);
-}
+setPlace(comboPlacement(rootRef.current, options.length + (props.emptyLabel ? 1 : 0), searchable));
 
-// the list:
-<div ref={listRef} role="listbox" className="overflow-y-auto py-1" style={{ maxHeight: listMax }}>
+  /* Fixed, at the anchor comboPlacement worked out: the trigger's bottom-left corner, 2px clear.
+     Dropping up or hanging from the right edge is a translate by the panel's OWN size, so the
+     panel lands flush without being measured first. */
+  var shiftX = place.right ? "translateX(-100%)" : "";
+  var shiftY = place.up ? "translateY(-100%)" : "";
+  var panelStyle = {
+    position: "fixed",
+    top: place.y + "px",
+    left: place.x + "px",
+    transform: shiftX || shiftY ? (shiftX + " " + shiftY).trim() : "none",
+    zIndex: 1000,
+    backgroundColor: SURFACE,
+    border: "1px solid " + BORDER,
+    boxShadow: "0 10px 30px rgba(59, 31, 43, 0.16)",
+    minWidth: place.minW + "px",
+    width: "max-content",
+    maxWidth: place.maxW + "px",
+  };
+
+// the list, capped to the room it gets:
+<div ref={listRef} role="listbox" className="overflow-y-auto py-1" style={{ maxHeight: place.listMax }}>
   {/* rows */}
 </div>
 ```
 
-Downward when the whole panel fits below, otherwise toward the larger side, with the list
-capped to the room it gets. `chrome` is the panel's height outside the list — about 51px with
-the search box (`p-2` around an `h-8` input, a 1px rule, the panel's two borders) and 2px
-without; measure yours if the panel differs. The fit test assumes a full-height list, so a
-three-option menu may flip up when it would have fit below, which costs nothing. The walk
-starts at the wrapper, whose own overflow would clip the panel too; it leaves the shadow root
-through its host, so a clipping container outside the block still counts; and it stops below
-`<body>`, because `body` and `html` hand their overflow to the viewport — their computed
-`overflow` can say `hidden` while they clip nothing. The four cases it has to get right: a row
-mid-way down a tall table scroller opens down; the last visible row of a scroller whose bottom
-edge is mid-window opens up, inside the scroller (the window-only rule opened it down, into
-the hidden part); a picker at the bottom of a dialog body opens up, inside the dialog; a filter
-row at the window's bottom edge opens up, as before. All four, plus a scroller outside the
-shadow root, checked in Chromium on 2026-09-30 on a test page — not yet in a deployed block.
+Down when the whole list fits below, otherwise toward the side with more room, with the list capped to that
+room, so every option stays reachable by scrolling inside the list. Rows are a fixed 32px, so the fit test
+counts the real rows rather than assuming a full list, and a four-option menu near an edge does not flip for
+room it will never use. The list is capped at 264px (eight rows and the list's padding), so the eight order
+statuses fit whole; below 120px it accepts a clip rather than a useless list.
 
-**On app pages with Softr navigation, the strip doesn't reach the window's edges either.**
+**The same room decides which edge the panel hangs from.** A panel hung from the trigger's left edge with
+`width: max-content` runs past the right edge of the room when the trigger sits in the last column. When the
+room to the right of the trigger is under about 300px and there is more to the left, the panel hangs from the
+trigger's right edge (`translateX(-100%)`) and `maxWidth` is capped to the room on that side; an edge of the
+trigger that runs past the room is pulled back inside, so the panel never starts out of sight.
+
+**On app pages with Softr navigation, the viewport room doesn't reach the window's edges either.**
 Softr's bars sit over the page, outside the block: from a 768px window, a 56px sticky top bar;
 below it, a sticky tab bar at the bottom, 57px as rendered (Softr's variable says 55px; both bars
-z-index 800, measured live 2026-10-05). The walk above starts the strip at `0` and
-`window.innerHeight`, so a trigger just under the top bar
-can open its menu up and under the bar, and on a phone a menu can open down behind the tab bar.
-That clash is inferred from the measurements, not seen. Start the strip inside the bars (an
-untested variant):
+z-index 800, measured live 2026-10-05). `comboPlacement` starts the viewport room at `0` and
+`window.innerHeight`, so a trigger just under the top bar can open its menu up and under the bar, and
+on a phone a menu can open down behind the tab bar. That clash is inferred from the measurements, not
+seen. Start the room inside the bars (an untested variant):
 
 ```jsx
 var SOFTR_TOP_BAR = 56; // Softr's sticky top bar, window 768px and up
 var SOFTR_TAB_BAR = 57; // Softr's phone tab bar, window below 768px: measured 57px; its variable says 55px
 
-function comboClipBox(node) {
-  var phone = window.innerWidth < 768; // Softr's own switch: 767px = tab bar, 768px = top bar
-  var top = phone ? 0 : SOFTR_TOP_BAR;
-  var bottom = window.innerHeight - (phone ? SOFTR_TAB_BAR : 0);
-  // … the ancestor walk, unchanged
-}
+// in comboPlacement, the box used when there is no containing block (and the first line of comboClipBox):
+var phone = window.innerWidth < 768; // Softr's own switch: 767px = tab bar, 768px = top bar
+var box = {
+  top: phone ? 0 : SOFTR_TOP_BAR,
+  left: 0,
+  bottom: window.innerHeight - (phone ? SOFTR_TAB_BAR : 0),
+  right: Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth),
+};
 ```
 
 On a page without Softr navigation (log in, a landing page) the top offset only makes the
 panel open upward a little less readily. The same bar heights apply to any other room check
 or window scroll in a block:
 [common-patterns.md → Clear Softr's sticky bars](common-patterns.md#clear-softrs-sticky-bars).
-
-Rule 2 does not rescue a clipped cell. The cell is the height of its row, so neither side has
-room, the list falls to its 120px floor and is clipped anyway. Rule 1 is not optional.
-
-**The same box decides which edge the panel hangs from.** A panel hung from the trigger's left
-edge with `width: max-content` runs past the right edge of a table's scroll box when the trigger
-sits in the last column. In ROSIE the Location menu ran about 15px over, and the old
-`scrollIntoView` then slid the whole table sideways to reveal it. Measure the box's left and right
-edges as well (padding box, tested on `overflowX`), and when the room to the right of the trigger
-is short (under ~300px) and there is more to the left, anchor the panel with `right: 0` instead of
-`left: 0` and cap its `maxWidth` to the room on that side. Rows are a fixed height in this
-component, so the fit test can also count the real rows instead of assuming a full list, and a
-four-option menu near an edge stops flipping for room it will never use. ROSIE's
-`Shared/combo.jsx` (2026-09-30) is the worked version: one `comboClipBox` returning all four
-edges, one `comboPlacement` returning `{ up, right, listMax, maxW }`, deployed in twelve blocks.
 
 **Rule 3 — keep the active row visible by scrolling the list, never with `scrollIntoView`.**
 `scrollIntoView` scrolls *every* scrollable ancestor until the element shows, and an
@@ -231,15 +360,60 @@ there to escape — the `scrollIntoView` it replaces ran from the same kind of e
 effect. `focus()` scrolls ancestors the same way, so focus the search box with
 `inputRef.current.focus({ preventScroll: true })`.
 
-**Why not portal the panel, or make it `position: fixed`?** A portal to `document.body`
-leaves the shadow root, and the styles stay behind — the shadcn row at the top of this page.
-`position: fixed` inside the shadow root escapes the clipping only while no ancestor has a
-`transform`, `filter`, `perspective`, `contain` or `will-change`: any of those becomes the
-containing block for fixed descendants, and scroll-reveal animations on Softr pages commonly
-leave a transform behind (the same trap as the block-owned header in
-[static-blocks.md](static-blocks.md#block-owned-landing-page-header)). A fixed panel also stops
-moving with its trigger, so it has to be re-placed on every scroll. The clip-aware absolute
-panel has neither problem, which is why it is the design here.
+A scroll of any ancestor also closes the fixed panel (Rule 4), so `scrollIntoView` would now close the menu as well as move the page.
+
+**Rule 4 — close the panel when its trigger moves.** A fixed panel stays where it was put, so a scroll of the
+page or of any box the trigger sits in, or a resize, closes it, the way a native select behaves. Listen on
+`window` and on every ancestor whose `overflow` can scroll, walking up through the shadow host. Scrolling
+the panel's own list never reaches these listeners: scroll does not bubble, and the list is not an ancestor
+of the trigger.
+
+```jsx
+  /* A fixed panel stays where it was put while its trigger moves, so anything that moves the
+     trigger closes it: a scroll of the page or of any box the trigger sits in, or a resize.
+     Scrolling the panel's own list never reaches these listeners — scroll does not bubble, and
+     the list is not an ancestor of the trigger. */
+  useEffect(
+    function () {
+      if (!open) return undefined;
+      var targets = [window];
+      var el = rootRef.current;
+      while (el && el !== document.documentElement) {
+        var cs = window.getComputedStyle(el);
+        if (/auto|scroll|overlay|hidden/.test(cs.overflowX + " " + cs.overflowY)) targets.push(el);
+        el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
+      }
+      function close() {
+        setOpen(false);
+      }
+      targets.forEach(function (t) {
+        t.addEventListener("scroll", close, { passive: true });
+      });
+      window.addEventListener("resize", close);
+      return function () {
+        targets.forEach(function (t) {
+          t.removeEventListener("scroll", close);
+        });
+        window.removeEventListener("resize", close);
+      };
+    },
+    [open]
+  );
+```
+
+**Why not portal the panel, and why `position: fixed` after all?** A portal to `document.body` leaves the
+shadow root, and the styles stay behind: the shadcn row at the top of this page. `position: fixed` inside the
+shadow root escapes the clipping only while no ancestor is its containing block, and scroll-reveal animations
+on Softr pages commonly leave a transform behind (the same trap as the block-owned header in
+[static-blocks.md](static-blocks.md#block-owned-landing-page-header)). This page used to recommend an
+absolute panel for that reason, together with the fact that a fixed panel does not move with its trigger.
+ROSIE moved to a fixed panel on 2026-09-30, late, because a short table squeezes an absolute one however well
+it is placed, and made the two costs cheap: `comboFixedBase` finds the containing block and `comboPlacement`
+converts the anchor into its coordinates, and the panel closes on scroll and resize instead of following the
+trigger. Two containing-block sources were found the hard way, on the list page's Add items dialog (verified
+2026-09-30): the dialog centres itself with the individual `translate` property, not `transform`, so the
+panel landed exactly the dialog's own offset away until `translate` was checked; and it zooms in from 0.95,
+so the placement has to divide the scale out.
 
 **The incident — ROSIE, 2026-09-30.** Three item tables put `overflow-hidden` on the `<td>`
 holding the status chip, as a backstop so the chip, 1–2px too wide at the column's narrowest
@@ -251,6 +425,11 @@ showing, the chip scrolled out of view by `scrollIntoView`, the other six unreac
 mouse. The Location dropdown in the same rows kept working, because its cell had no overflow
 class. A 2px backstop cost the whole feature. A comment that says how a component renders is
 a claim to verify in the component, not in the comment.
+
+**The follow-up, the same evening.** Leo's screenshot of a one-row Damages table, "cramped", showed the other
+half: an absolute panel inside a short table's scroll box is squeezed to the box however well it is placed.
+That is why the panel is `position: fixed` now. Placement against the containing block, and closing on
+scroll, are what that costs.
 
 ## Sort A→Z *inside* the component
 
@@ -429,8 +608,10 @@ Everything else — the trigger, the card, the rows — stays flat.
 - [ ] No overflow-clipping class (`overflow-hidden`, `overflow-*-auto`, `truncate`,
       `line-clamp-*`) between the Combo and the scroller it belongs to; an over-wide chip
       bounded at the chip (`min-w-0 truncate`)
-- [ ] Drop-up and list `maxHeight` measured against the clipping ancestors, not the window, and
-      on app pages inside Softr's top bar and phone tab bar
+- [ ] The panel is `position: fixed`, placed with `comboFixedBase` and `comboPlacement`: drop-up, right-edge
+      hang and list height measured against the viewport, or against a transformed ancestor (a dialog) and
+      what clips it, never against the window alone; closed on a scroll of any ancestor and on resize
+- [ ] On app pages, the room starts inside Softr's top bar and phone tab bar (an untested variant, see above)
 - [ ] Keyboard: ↑ ↓ Enter Esc Tab; the active row kept visible by scrolling the list only
       (never `scrollIntoView`), and the search box focused with `preventScroll`
 - [ ] Opening moves focus into the Combo: the search box, or the trigger on a click-only
