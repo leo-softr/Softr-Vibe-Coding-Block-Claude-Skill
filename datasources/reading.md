@@ -125,7 +125,7 @@ useEffect(function() {
 }, [result.hasNextPage, result.isFetchingNextPage, result.status, result.error, result.fetchNextPage]);
 ```
 
-**A total, count or export built from a paginated list waits until every page has loaded** (`hasNextPage` false) and no read is in error. Until then it shows loading, never a number from the pages so far: a summary line read "0 children" while the children read was still on its first page or had failed, and a history list was capped instead of paged. [Printing](../references/printing.md#4-the-print-button-waits-for-the-data) applies the same rule to Print.
+**A total, count or export built from a paginated list waits until every page has loaded** (`hasNextPage` false) and no read is in error. Until then it shows loading, never a number from the pages so far: a summary line read "0 children" while the children read was still on its first page or had failed, and a history list was capped instead of paged. [Printing](../references/printing.md#4-the-print-button-waits-for-the-data) applies the same rule to Print. A control that finishes a half-saved action does the opposite: it stays shown until the read has fully settled ([ui-ux-guidelines.md §12](../ui-ux-guidelines.md#12-loading-states)).
 
 ## useRecord -- Fetch a Single Record
 
@@ -349,6 +349,11 @@ union while passing the per-hook alias rule above was not established: the sessi
 also sent hand-built requests to the endpoint, which can name any field. Either way there is no
 way to filter on a field without shipping it: leave it out of every read select and the filter
 stops applying.
+
+A Source condition is the server-side gate for rows, and a filter the client adds cannot undo it
+(seen on a create-only connection whose condition matches nothing). The probe that shows it, with
+crafted filter variants, is in [qa-playbook.md → Proving a read
+guard](../references/qa-playbook.md#proving-a-read-guard).
 
 The two rules fail in opposite directions. An alias missing from the hook's own `select` crashes
 the block ([above](#filter-and-sort-aliases-must-be-in-the-same-hooks-select)); a field missing from

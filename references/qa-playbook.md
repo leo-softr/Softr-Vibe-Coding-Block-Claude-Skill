@@ -8,7 +8,10 @@ shapes in [datasources/](../datasources/overview.md).
 **Verified 2026-10-08.** Written from one end-to-end QA pass of a 15-block back-office app on Softr
 Database (LCDB QA pass): 68 findings, two rounds of fixes and a live write pass. Each rule below
 cost someone a wrong result first. The second round of the pass, the same day, added the walk of a
-successful save and what the read-only checker does (LCDB QA round 2).
+successful save and what the read-only checker does (QA round 2). Later builds and pushes added,
+on 2026-10-15, how to keep the push scripts, a jsdom render of a block's own code, a recipe for
+proving a read guard, a cross-block contract check, gating a pipeline's stages and saying what did
+not run.
 
 ## When to use it
 
@@ -22,7 +25,8 @@ block, [browser-checks.md](browser-checks.md) is enough.
 1. [Set-up](#set-up): which app to test, with which build, in which zone.
 2. [Never writing by accident](#never-writing-by-accident): the guard first, the proof last.
 3. [Roles](#roles): each page as each kind of user.
-4. [Logged out](#logged-out): access from outside the browser.
+4. [Logged out](#logged-out): access from outside the browser, and
+   [proving a read guard](#proving-a-read-guard).
 5. [Measuring](#measuring): sizes, and numbers instead of looks.
 6. [Checking numbers against the database](#checking-numbers-against-the-database).
 7. [Testing edges on purpose](#testing-edges-on-purpose): failures, clocks, odd values.
@@ -30,9 +34,14 @@ block, [browser-checks.md](browser-checks.md) is enough.
 9. [Live write pass with a read-only checker](#live-write-pass-with-a-read-only-checker), only when
    a fix needs a real save.
 10. [Running QA with several agents and skeptics](#running-qa-with-several-agents-and-skeptics).
+11. [Say what did not run](#say-what-did-not-run), wherever a push or a pass is reported.
 
 ## Set-up
 
+- **Prove the connector can open the app before any preview or QA wave:** call `application_get` on
+  the app id and `workspace_list`, and stop at once if the app's workspace is missing. A connector
+  can read as connected while signed in to another Softr account, and subagents inherit that login
+  ([softr-mcp.md](softr-mcp.md#permissions-model)).
 - **Check changes in the preview (the draft), not the live app.** A push reaches the draft, and the
   live app changes only when someone publishes. Only two things run on the published app: the
   [logged-out checks](#logged-out) and the re-check after a publish.
@@ -47,9 +56,20 @@ block, [browser-checks.md](browser-checks.md) is enough.
   overwrite each other's pages.
 - **Log times with `date -u`.** The machine's zone may not be the client's: the pass ran on a Mac at
   UTC+3 for an app used at UTC−7, and UTC is the one clock that the stored stamps use.
+- **Keep the push and check scripts, and any working copy of a blocked push, outside the session's
+  scratch folder.** A scratch folder can be wiped overnight, and one was, with the planning, gate
+  and replay scripts in it. Put the scripts in a stable folder with a pinned dependency file, make
+  the gate script install its own dependencies when they are missing, and keep no secrets or client
+  data there. Copy the working copy of a push that cannot go out into the project the same day,
+  under a name nobody can mistake for the mirror (a "pending push" folder, with "not deployed" and
+  the sha in the file names), and leave the mirror at the deployed bytes until the push is read back
+  ([softr-mcp.md → When a push is blocked](softr-mcp.md#when-a-push-is-blocked)).
+  To recover a lost script from the session transcripts, replay **every** revision of it in time
+  order: the first version of one gate script lacked three rules that later revisions added.
 
-Why: agents judged fixes on stale builds, shared one browser session across parallel agents and
-logged times in the wrong zone (LCDB QA pass, 2026-10-08).
+Why: agents judged fixes on stale builds, shared one browser session across parallel agents,
+logged times in the wrong zone (QA pass, 2026-10-08) and lost their push scripts to a wiped
+scratch folder.
 
 ## Never writing by accident
 
@@ -132,11 +152,72 @@ curl -s -o /dev/null -w '%{http_code}\n' "https://$HOST/sign-up"   # 404 when si
 - **A POST to a block's records endpoint with no session** answers 403. The published-host form of
   this URL is inferred from the one the preview calls (on `<subdomain>.preview.softr.app`); the 403
   was seen on 2026-10-08.
+- **A logged-out probe proves little while the page is logged-in-only.** The 403 is then the page's
+  own rule, and it is the same before and after a guard on the block, so it says nothing about what
+  an anonymous visitor would get once the page is public. What proves a block-level guard is the
+  signed-in comparison across blocks that read the same table
+  ([below](#proving-a-read-guard)). State which half is proven. A page made over the MCP starts at
+  the app's default VIEW permission (logged-in users), and making it public is a Studio step
+  ([softr-mcp.md](softr-mcp.md#application-management-tools)). Once the page is public, repeat the
+  logged-out probe from `curl` with no cookies and from a private window. Expect 403, or 200 with
+  `total` 0; a record id or a field value anywhere in the body is a failure. Then submit the form
+  once from a logged-out browser and watch the row land.
 - **If sign-up is meant to be off**, `/sign-up` returns 404, and on `/login` the public
   `window.application_context` shows `signUpSettings.policy` as `DISABLED` (a read-only check).
 - **Never POST to a `records-trigger` URL to test a write endpoint.** If the action is open, it
   writes. Read the block's action permissions through the MCP instead (a push puts them back to
   Softr's defaults: [softr-mcp.md](softr-mcp.md#verifying-a-push--the-deployed-source-is-the-only-proof)).
+
+### Proving a read guard
+
+A block whose connection exists only to create has a records endpoint like any other. The case
+probed was a public form (a sign-up or a check-in has the same shape, but none was probed), and
+there the endpoint answered: on 2026-10-15 a signed-in session that posted to it got the row count
+of the whole table and every row's id. It got no values, because the block selected no fields. The
+guard is a Source condition that no row can match, set on that connection with
+`vibe_coding_block_set_data_source_record_filters`. What the server enforces is in
+[softr-mcp.md](softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints), and the probe the
+recipe comes from is in
+[softr-mcp.md](softr-mcp.md#a-create-only-connection-on-a-public-block). The condition is per block
+and per connection, so every other block that reads the table for a public page needs a guard of its
+own. Steps 1 and 5 write real rows, so this is a live write pass: get the owner's go-ahead first, and
+keep the manifest as described in [Live write pass](#live-write-pass-with-a-read-only-checker). To
+prove a guard, in this order:
+
+1. **Make the test rows first**, over the MCP, marked so that nobody takes them for client data and
+   no queue, report or count lists them: a status that no queue reads, a source of "Test", and a
+   reason line that says who made the row, when, and "Safe to delete". They carry no email
+   ([a test row must not create a user](#live-write-pass-with-a-read-only-checker)). With no rows
+   in the table, `total` 0 before and after proves nothing.
+2. **Set the save guard and prove it** before the first probe
+   ([Never writing by accident](#never-writing-by-accident)).
+3. **Probe as the signed-in preview user, with the same body, before and after the guard.** Before:
+   the test row's id comes back, with empty fields. After: `total` 0 and no items. Also send what a
+   crafted request could try: filters on fields the block does not select, extra body keys such as
+   `select`, `fields` and `fieldIds`, and a filter that tries to undo the condition. Each must give
+   0 too, because filters fail open
+   ([reading.md](../datasources/reading.md#filters-fail-open)).
+4. **Read the condition back** with `vibe_coding_block_get_settings` (`dataSources[].condition`). A
+   filter change adds no version, so `vibe_coding_block_list_versions` cannot show it, and it sits
+   on the draft until the app is published.
+5. **Prove the form still works.** Remove the save guard and prove its removal (the first probe line
+   of [browser-checks.md → step 6](browser-checks.md#6-block-saves-before-any-click-and-prove-it)
+   now reaches the server). Fill the form once as a test user, press Send once, and read the request
+   log: one non-asset request, a `POST …/records-trigger/new`, status 200
+   ([step 7](browser-checks.md#7-click-then-read-what-it-sent)). Then read the new row through the
+   MCP. It is a real submission, so mark it as a test at once, before a queue or an automation
+   picks it up.
+6. **A second agent in a fresh session** redoes the probes, compares a neighbouring block on the
+   same table (it must still return the rows, which shows the guard is per block), reads the
+   settings back, matches the block's sha with the mirror, and checks with
+   `vibe_coding_block_list_versions` that no code write came after the first test row. It writes
+   nothing.
+7. **Test rows stay until a person deletes them** (in this practice agents delete nothing). List
+   them in the manifest so they can be purged
+   ([Live write pass](#live-write-pass-with-a-read-only-checker)).
+
+The cost of the guard is that the block can never read back its own row. A form that must show
+the submission needs another route, not the guard removed.
 
 ## Measuring
 
@@ -276,6 +357,19 @@ must pass): a date fix showed 18 failures on the deployed copy and none after.
     test can leave mid-save.
 - **Clear `sessionStorage` between tests that share a tab.** A draft feature leaked between tests
   and turned two unrelated date tests red.
+- **No browser needed for focus and hook logic: render the block's own code in jsdom.** To prove a
+  focus fix or a hook before and after, without the live app, bundle the block's module-scope
+  components and hooks with `esbuild` (`jsx: "automatic"`, and a stub plugin for the platform
+  imports: the `@/…` paths, `sonner` and `lucide-react`). Render them with real React 18.2, `jsdom`
+  and `date-fns`, and drive them with a mock data function. Run the same sequence on the pre-fix
+  and the post-fix file. In one case focus fell to `<body>` while a retry ran and after it
+  succeeded; after the fix it stayed on the action button. A hook that gates on read status is
+  covered the same way, with stubbed reads for pending, partly loaded, refetching, error and
+  success. Build the stub's export list from the file's `^import` lines (the `m` flag) and check
+  that each name is an identifier, because comments in a shared kit hold text such as
+  `import { … } from` that breaks the stub. This covers components and hooks; "Test pure logic in
+  node", below, covers logic outside React. jsdom does not reproduce Safari or Firefox focus, so it
+  proves the logic and the engine check in [Which engine ran](#which-engine-ran) still applies.
 
 ### A check that can fail
 
@@ -380,15 +474,52 @@ owner's go-ahead: the preview writes live data. On 2026-10-08 it ran after the o
   right before pushing, and start from the project's mirror, not a scratch copy.
 - **A reviewer re-reads the deployed hash, regenerates the diff, reruns the harness and checks that
   the tests a report cites exist.** One review cited a test that was not on disk.
+- **A reviewer also reads the code against the written decision.** Hash checks, replays and gates
+  cannot catch a build that departs from what was decided. In one build a control meant to stay
+  visible while its read loaded was hidden, and the code comment admitted it; a verify pass found
+  it. A control that keeps a repair reachable fails open: shown unless the read has settled (status
+  success and no next page) and the row is known to be fine. Test pending, partly loaded,
+  refetching, error and success, in the jsdom harness above. The rule is in
+  [ui-ux-guidelines.md §12](../ui-ux-guidelines.md#12-loading-states).
 - **Compare paired fixes side by side.** When one rule lands in several places, check where each block
   shows it, not only how it counts (two reports named the requests not yet fulfilled, Home did
   not). Diff a shared paragraph word for word before you push, because separate editors'
   sentences drift apart. Compare paired dialogs on first focus, close button, button colour and
   where the error shows, and grep every other reader of a field whose label changed.
+- **After the per-block reviews, run one cross-block contract check.** Two blocks can each pass
+  their own review and still disagree. One reviewer reads each pair of blocks that share a
+  contract: the setting keys and how each side parses them (range and fallback), status strings,
+  query parameters such as `?month=`, and shared aliases. In one build a block told staff that a
+  setting takes 1 to 36 with a fallback of 8, while the block that read it accepted 1 to 999. The
+  side-by-side rule above covers one rule landing in several places; this covers blocks that were
+  not edited together.
 - **Let a different agent, ideally a different model, check what one agent built.**
-- **A per-block pipeline** that held: author, two reviews, fixes, a hash-verified push, action
-  permissions re-applied and read back (a push resets them), a browser check at the sizes in
+- **A per-block pipeline** that held: author, two reviews, fixes, a hash-verified push (a large plan is cut by
+  one tested script: [softr-mcp.md → Which edit tool](softr-mcp.md#which-edit-tool-full-replace-vs-targeted-search-replace)),
+  action permissions re-applied and read back (a push resets them), a browser check at the sizes in
   [browser-checks.md → step 4](browser-checks.md#4-measuring-with-eval) with saves blocked, and a
   live write pass only where one is approved. A stage with nothing to do returns a placeholder
   string, never `null`: a `null` drops the item from every later stage. One block needed no edit or
   review, so its review stage returned `null` and it never got its sync (LCDB QA pass, 2026-10-08).
+  **Gate each stage on the evidence of the one before it.** A verify stage needs a non-empty pushed
+  sha, so before dispatching one, compare the mirror's and the base copy's sha with the push plan's
+  target sha: if the mirror still has the base sha and not the target, nothing is confirmed pushed
+  (the mirror moves last, so a push that landed but whose mirror move did not run looks the same),
+  so read the live `sourceSha256` with `includeCode: false` before deciding. **Stop
+  on a repeated access error.** When two stages report the same one (NOT_FOUND or FORBIDDEN on the
+  app or its database, say), hand it to the person instead of looping: a repair stage cannot fix a
+  login. A connector signed in to another Softr account fails exactly this way, and subagents
+  inherit that login. In one push of seven blocks, the ship, repair and verify stages of four of
+  them each reported the same NOT_FOUND.
+
+## Say what did not run
+
+Wherever a push or a pass is reported (the ship report, a doc update, the hand-off message), say
+which checks ran and which did not. A build can be gated, replayed and reviewed and never have been
+opened in a browser, and a report that says only "pushed" is read as "tested". Name each check
+that is still open (the browser pass at the sizes, a live write pass, the logged-out probe of a
+page that is not public yet, the re-check after a publish) and what blocks it. If a pass was
+stopped early, say where it stopped.
+
+Why: after one 18-block push the browser QA was stopped, and the owner opened the app before any
+live check had run, apart from one targeted privacy probe (2026-10-15).

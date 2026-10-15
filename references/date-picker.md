@@ -160,6 +160,23 @@ that showed the bug and in no other. So the copy is never edited in a block. The
    mirror's header date. The sha in the marker tells anyone reading a deployed block which kit it
    carries without diffing 800 lines.
 
+**A kit change also changes the text beside it.** The sync rewrites the marked region and nothing
+else, so a comment or a header note in the block that described the old kit is left behind, and it
+goes stale the moment the kit gains the feature. Typical cases: a comment saying a card "has no
+`copy` prop" and a header line saying a field is "left open for a kit change", both written before
+the kit gained the prop that made them wrong. Rewrite that host text in the same step as the sync,
+in every block that carries the kit. Search each block for the kit's names and for words like "kit"
+and "left open" before you push, because `check` compares only the region between the markers and
+will not see it.
+
+Then check the size of every block that carries the kit, even for a tiny kit edit. The `Block()`
+size budget in the checklist (about 30,000 B, a working budget, not a known Softr limit:
+[SKILL.md → Your Workflow](../SKILL.md#your-workflow)) leaves little headroom in the larger blocks
+(three sat between about 200 B and 1 KB under it). A kit change usually comes with a host edit, a
+new prop at a call site or a rewritten comment, and that edit lands in `Block()`. Where a block is
+that close, move JSX into module-scope components before adding code to it, so the host edit does
+not tip the block over.
+
 **The hash method.** The marker's sha is the sha256 of the kit file's bytes with the final newline
 counted (`shasum -a 256 Shared/DatePicker.tsx`, first 12 hex). The text between a block's markers
 is those same bytes: every line after the start marker, through the newline that ends the last kit

@@ -16,7 +16,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Tool names — the 2026-10-01 rename](#tool-names--the-2026-10-01-rename)
 - [Connection and auth](#connection-and-auth)
 - [Permissions model](#permissions-model)
-- [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints)
+- [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints), [a create-only connection on a public block](#a-create-only-connection-on-a-public-block) and [when a push is blocked](#when-a-push-is-blocked)
 - [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
 - [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups), [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher) and [data restrictions](#data-restrictions)
@@ -208,6 +208,10 @@ For block-building work you need **Applications & Forms: Full access** (to creat
 
 **Workspace membership is not enough.** The OAuth grant covers only the workspaces ticked on the authorization screen. On 2026-09-01 a user who was a member of a client's workspace in Softr still could not reach it through the MCP; re-authorizing the connector with that workspace ticked fixed it. When an app or workspace you can open in Studio is missing from `application_list` / `workspace_list`, check the grant under Settings → API tokens → Authorized apps.
 
+**A connector can also be signed in to the wrong Softr account.** It then reads as connected, with its full tool list, and still cannot see the app. In the case seen (2026-10-09), `application_get` answered `NOT_FOUND`, `database_get` answered `FORBIDDEN`, and `workspace_list` showed only workspaces that were not the client's. Subagents inherit that login, so a whole wave of blocks can be built and none of them pushed. `application_preview` fails the same way, so there is no browser fallback, and the published site shows only the published build.
+
+**Before any push, preview or QA wave, call `application_get` on the app id and `workspace_list`, and stop at once if the app's workspace is missing from the list.** Two calls up front are cheaper than finding out after the build work is done. Only the person can fix it: they re-authorise the connector (`/mcp`, or the claude.ai connector settings). Finished work that is blocked meanwhile is handled in [When a push is blocked](#when-a-push-is-blocked). A QA pass or a build pipeline stops on a repeated NOT_FOUND or FORBIDDEN instead of looping ([qa-playbook.md](qa-playbook.md#running-qa-with-several-agents-and-skeptics)).
+
 ## Vibe coding block tools
 
 Before writing any block code through the MCP, call `vibe_coding_block_get_docs` — it returns the current version of the [Vibe Coding Developer Guide](https://docs.softr.io/vibe-coding-developer-guide), which is the authority on hook signatures if it and this skill ever disagree. On runtime *behaviour* the guide's prose can lag a live capture, and where it does this skill says so: the guide still describes `useRecords({ enabled })` as a way to defer loading (checked 2026-10-06), while a 2026-09-18 network capture showed `useRecords` fetching anyway ([reading.md](../datasources/reading.md#userecords-ignores-enabled-false)). Trust the capture until a newer one says otherwise.
@@ -224,6 +228,19 @@ Before writing any block code through the MCP, call `vibe_coding_block_get_docs`
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
 
 **Set a new block's visibility with `vibe_coding_block_set_visibility` right after creating it, before any further code push.** A new block is visible to All users, and ADD_RECORD's default follows the block's visibility at compile time ([why](#the-array-argument-rejection-and-why-it-is-a-security-issue)). So every push to an ungated block reopens its ADD actions to logged-out visitors: a rebuild's pushes left 28 ADD_RECORD actions at All users (LCDB, 2026-10-05). `customUserGroupIds` is accepted only together with `LOGGED_IN_USERS`, and it narrows that group. Running the app as a user outside an Administrator-only block's group confirmed it: that user did not get the block (impersonation, 2026-10-08). Set groups by id, from `application_list_user_groups`, so a group renamed in Studio later changes nothing on the block (checked 2026-10-07).
+
+**A new block is created, pushed, given its id and mirrored by one job.** The block id exists only after `vibe_coding_block_create`, so a builder can only leave a placeholder for it in the file's header, such as "NOT DEPLOYED, the id is written here after the push". Changing that line afterwards breaks mirror = live, and four new blocks in one push each needed a separate header-only push afterwards (2026-10-15). So one job, the agent or person that pushes the block, does the whole sequence:
+
+1. Create the block, connect its data source if it reads or writes, and set its visibility (above).
+2. Push the code, and read back `sourceSha256`.
+3. Write the block id and the date into the header comment.
+4. Push that header-only change, as a small search-replace anchored on the header line, and read back `sourceSha256` again.
+5. Re-apply the Action permissions and read them back. The header-only push is one more recompile, so it resets them like any other push.
+6. Move the mirror to the pushed bytes.
+
+If the block is created without code (the path for a block with data: create it empty, `vibe_coding_block_connect_data_source`, then push), write the id and the date into the header before the first real push, so that push carries them, and skip steps 3 and 4. The header-only push is for a block whose first push already carried the placeholder.
+
+The job is done when the mirror's hash equals the live `sourceSha256`. A block is never handed back with the placeholder line still in its header.
 
 **Which read to use** (from the tools' own descriptions, 2026-10-01):
 
@@ -277,11 +294,31 @@ context. Keep the local mirror in step mechanically rather than by hand:
 2. Write the ops once, as data. Send them to the tool, and apply the **identical** ops to the local
    mirror with a script that asserts each `search` occurs exactly once before replacing it.
 3. Several rounds of ops are fine, but **each call is its own push**: it compiles and saves on its
-   own. Three things follow.
+   own. These follow.
+   - **Cut a large plan into calls by size and op count, with one tested script.** On a big rebuild
+     the plans were large: 84 to 110 ops and 113 to 134 KB were seen (2026-10-15). A tool that
+     splits a push in two and no further was not enough at that size, and a cut made by hand in each
+     push is its own source of error. No per-call limit is recorded here; plans of this size were
+     far more than one call should carry, so choose the caps yourself and keep every call small
+     enough to replay and gate. Write the script that cuts the plan once, give it a byte cap and an
+     op cap, test it, and let every push use the same script. Order the ops so each prefix is meant
+     to compile, then replay every split on the base and gate every state anyway, since a prefix
+     can still leave a helper undefined (next bullet).
    - **Every intermediate state must compile.** Replay the ops on the base and gate the text after
      each planned call before you send any of them. Top-down ops can leave a helper undefined
      halfway (only 3 of 54 op prefixes compiled in one plan), so keep the old helper in call 1 and
-     delete it in the last call.
+     delete it in the last call. **Compiling is a weaker test than rendering.** A middle state can
+     compile and still throw when the block renders, for example when one call names symbols that
+     only a later call adds (a block threw at render for a few minutes in one split push). In the
+     draft, which only the team sees, that is harmless. But never publish while a split push is in
+     flight, and publish only after the last call is read back against the plan's `sourceSha256`.
+   - **Replay the exact ops JSON you will send, read as bytes, on the exact base bytes**, and compare
+     the `sha256` after each call with the plan, instead of trusting the planner's own check. A
+     planner that reads files in text mode turns CRLF into LF, so its plan describes bytes that exist
+     nowhere while it still reports success; the replay of the sent JSON on the real base then fails
+     with "search occurs 0 times". When a polish edit changes the target after the ops were built,
+     rebuild the ops, replay and gate again, and set the old ops aside under another name so nobody
+     sends them.
    - **Write down the `sourceSha256` each call must return, and check it per call**, not only at the
      end. A mismatch means an op landed differently on one side. The digest describes the source
      Softr stored after merging your edits, not the edits you sent, which is what makes it usable
@@ -326,7 +363,8 @@ has drifted from the deployed block in ways you have not enumerated.
 It does not prove the block now holds the code you meant to send. Verified 2026-09-09: a push of a
 67KB block came back clean and had silently dropped one blank line at a read-chunk boundary — valid
 JavaScript, so the compiler had nothing to say. Only a byte comparison caught it. Treat every push as
-unverified until the deployed source is proven identical to your file.
+unverified until the deployed source is proven identical to your file. When you report the push, say
+which checks ran and which did not ([qa-playbook.md](qa-playbook.md#say-what-did-not-run)).
 
 **Since 2026-10-01 that proof is a hash, not a download.** Push results (create, full replace,
 search-replace) and `vibe_coding_block_get_code` carry `sourceSha256` and `sourceBytes`: the SHA-256
@@ -454,6 +492,14 @@ from the docs):
   settings edits included. Before calling a block "staged", compare the app's last publish time
   (`application_get`) with the version's `createdAt` (`vibe_coding_block_list_versions`): on
   2026-09-01 a block we believed staged went live with a publish 28 minutes after it was saved.
+
+#### When a push is blocked
+
+A push can be blocked while the work behind it is finished, for example when the connector is signed in to another account ([Permissions model](#permissions-model)). Three habits keep that work from being lost or mistaken for deployed (2026-10-09).
+
+- **Copy the work out of the session's scratch folder the same day.** A scratch folder can be wiped overnight, and one was. Put the working copy, the ops files and the plan into the project, in a pending-push folder one level below the page folder, so a glob over the mirrors (such as `<pages>/*/*.jsx`) skips it. Put "NOT DEPLOYED" and the expected shas in the file names. The mirror, and the base the ops were built on, stay at the deployed bytes until the push is read back, and a working-copy header that says "matches deployed <date>" counts as pending until then. The QA side of this, push and check scripts kept outside the scratch folder, is in [qa-playbook.md → Set-up](qa-playbook.md#set-up).
+- **Do the offline half of the push anyway.** Gate the working copy, run the [shared-kit sync check](date-picker.md#the-kit-between-markers) where the block carries a kit, replay the ops on the mirror, and confirm that the planned base equals the mirror. The retry then needs only the live sha proof, the push, the Action re-apply and the mirror move. A verify agent stuck behind the same block repeats these read-only proofs and reports them as notes, never as live passes.
+- **A base copied from the mirror is not a proof of what is deployed.** When the live read was unavailable, the ops were built on a base taken from the mirror. Mark that base unproven (an UNPROVEN note beside it), and treat ops built on it as not ready to send, until `vibe_coding_block_get_code` with `includeCode: false` returns the same `sourceSha256`. That is step 1 of the protocol above, for the case where the base itself was never read live.
 
 #### Unicode escapes come back decoded
 
@@ -624,7 +670,8 @@ Both edit paths recompile, so both reset Action permissions either way (Hard Con
 *Verified live 2026-09-18 (Softr Database; draft preview, "Preview as" different users, requests
 captured from the app iframe); the block-visibility row verified 2026-10-05 (HubSpot; preview link,
 impersonated users, direct POSTs); the data-restriction row verified 2026-10-13 (Softr Database; the
-same method).* A block's data lives behind per-connection endpoints, and these
+same method); the probe shapes and the create-only guard verified 2026-10-15 (Softr Database; a
+signed-in preview user, direct POSTs).* A block's data lives behind per-connection endpoints, and these
 are the gates that actually exist on them. Which name sits in the path matters when you read a network
 log or write a request guard:
 
@@ -641,13 +688,49 @@ log or write a request guard:
   read under the connection's id. That case (possibly a block without `datasource.define`) was not
   re-checked.
 
+**Writing a probe** (Softr Database, 2026-10-15; direct requests as a signed-in preview user):
+
+- **The body of a read** (the URL forms are above) has this shape; `filterCriteria` is optional:
+
+  ```json
+  {
+    "options": { "timeZone": "<zone>", "userLocale": "<locale>" },
+    "pageContext": null,
+    "filterCriteria": {
+      "filterConditionGroup": {
+        "logicalOperator": "AND",
+        "filterGroups": [
+          {
+            "logicalOperator": "AND",
+            "filters": [
+              { "subject": "<fieldId>", "type": "<type>", "operator": "<operator>", "value": "<value>" }
+            ]
+          }
+        ]
+      }
+    },
+    "pagingOption": { "offset": null, "count": 100 }
+  }
+  ```
+
+- **Auth rides on cookies, with no `Authorization` header:** `jwtToken` (readable by script),
+  `studioJwtToken` (HttpOnly), `previewVersion` and two redirection cookies. A `fetch` with
+  `credentials: "omit"` therefore gets 403. `jwtToken` is a session credential, so a probe prints
+  cookie names, never values.
+- **A GET is not a read.** A GET on `…/records` or `…/records/<id>` returns 500 for everyone.
+  `GET …/metadata` answers a signed-in session with the table id, name and primary field id and an
+  empty field list, and answers 403 without credentials.
+- **Every unauthenticated call gets the same 403 text**, "You cannot add or edit a record
+  because…", even a read. It says nothing about which gate refused the call, and a logged-out 403
+  does not prove the write guard.
+
 The gates:
 
 | Gate | Enforced server-side? |
 |---|---|
 | **Page VIEW permission** | **Yes.** A viewer who cannot view the page gets **403** ("block/action visibility rules…") from the block's datasource endpoint — crafting the request by hand does not get around it |
 | **The block's Visibility** (`predefinedUserGroup` + `customUserGroupIds`; `vibe_coding_block_set_visibility`) | **Yes.** A viewer outside the block's group gets the same **403**, on list and by-id, even where the page lets them in. The body reads like a write error on a read: "You cannot add or edit a record because either the block/action visibility rules, user group conditions, or the user/record data in the datasource has changed." Per block: the same table on an ungated block stays open. Five code pushes left the setting intact |
-| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — one of the two server-side ROW gates** (the other is the next row). A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found" |
+| **The connection's Source conditions** (Source tab / `vibe_coding_block_set_data_source_record_filters`) | **Yes — one of the two server-side ROW gates** (the other is the next row). A by-id request for a record the condition excludes answers differently per backend: **HTTP 200 with an empty body** on Softr Database (2026-09-18), **404** on HubSpot (2026-10-05). Treat both as "not found". A condition that matches nothing also closes a create-only connection's list: [below](#a-create-only-connection-on-a-public-block) |
 | **The app's data restrictions** (Studio → Users → Data Restrictions / `application_set_data_restriction`) | **Yes — the other ROW gate, app-wide per table.** A VIEW `ALLOW_ONLY` rule matching the owner's email to `{USER:::EMAIL}` cut an unfiltered block's list to each user's own row (`total` 1), and a by-id request for another user's record returned **HTTP 200 with an empty body**, as above. See [Data restrictions](#data-restrictions) |
 | A `where` filter in the block's code | No — it is a request parameter the caller controls. It can also **fail open**: on 2026-09-19 (Softr Database) a request filter on a field that was not in the connection's read-select union was silently ignored, with no error, and the query returned everything. Confirm the filtered field is selected on the connection and prove the `where` narrows the result (compare counts with and without it); see [reading.md](../datasources/reading.md#filters-fail-open). A `where` naming an alias missing from its own hook's `select` fails the other way and crashes the block (Hard Constraint 29) |
 | Which fields the block *renders*, a second / conditional `q.select`, `enabled: false` on `useRecords` | No — the endpoint returns the union of the connection's read selects to anyone allowed to call it (see [multi-datasource.md](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects)) |
@@ -673,6 +756,21 @@ permission rather than uniformly critical.
 value a block keeps in the URL, such as a `?q=` search holding client names, therefore goes to Softr's
 server with every save on that page (seen on a blocked save, 2026-10-08). Decide on purpose whether
 such a value may sit in the URL, and record the decision.
+
+#### A create-only connection on a public block
+
+*Seen 2026-10-15 on Softr Database, on one block: a signed-in preview user, the same direct POST before and after the guard, and a second session that redid the probes.* The block probed was a public application form. It connects its table for the write alone, selects no fields, and a fresh load sent no read at all: the create was its only request. Its records endpoint still answered. A signed-in session that POSTed to it got the table's row count as `total` and the record ids, with `fields: {}`. So any valid session could read how many rows the table holds and every record id, though no values, because the block selects none. Filters on fields the block does not select, and the body keys `select`, `fields` and `fieldIds`, were all ignored, so no value could be read or tested one at a time.
+
+The probe ran as a signed-in user while the page was still logged-in-only. What a logged-out visitor gets on the public page was not tested (see [Logged out](qa-playbook.md#logged-out)), and a sign-up or a check-in block was not probed either. The shape is the same as the union finding in [One connection = one read payload](../datasources/multi-datasource.md#one-connection--one-read-payload-the-union-of-its-selects), and [Proving a read guard](qa-playbook.md#proving-a-read-guard) is the order to prove a guard in.
+
+**As a precaution, assume the records endpoint of every create-only connection answers, and make it answer with nothing.** Close it with a Source record filter that matches nothing:
+
+- Call `vibe_coding_block_set_data_source_record_filters` for that data source with AND and one expression: a field IS a sentinel value no record holds, a string such as `__never_matches__`. Softr accepted it at the first try.
+- Afterwards the signed-in read returned `total 0` and no items, as did all ten filter and body-key variants, and none of the client filters tried could undo it (the field IS_NOT the sentinel, and an OR of other values; two were tried).
+- **It is enforced per block and per data source entry.** Two other blocks reading the same table still returned its rows, so every block that reads that table for a public page needs its own guard.
+- It touches no code. It leaves the `ADD_RECORD` action as it was and does not stop the create.
+- **The cost:** the block can never read back its own row. A version that must show a submission needs another route; the guard stays.
+- **A filter change creates no version** and does not move the preview's `&version=` number, so read it back with `vibe_coding_block_get_settings` (`dataSources[].condition`). Like any draft change it goes live only with the next app publish.
 
 #### Logged-in-user values in Source conditions
 
@@ -804,17 +902,25 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   position, not its place in the list. The list is not visual order where shared blocks are involved
   either: it showed the shared navigation header block after the page's content on every page except
   Home, in two apps (LCDB, 2026-10-05 to 08).
-- **A block created over MCP still lands at the bottom of the page**, and no tool places or reorders
-  blocks yet. Softr has said placement will come later. Until then, a human drags it into place in
-  Studio. Say so when you hand the block over.
+- **Where a block created over MCP lands is not predictable.** Earlier notes had a created block at
+  the bottom of the page. On 2026-10-15 one create put the block first among the page's content
+  blocks, above the existing one, and the tool's own description says it inserts the block right
+  after any header or navigation blocks. Do not assume either: state the wanted position in the
+  task, and read the page back with `application_page_get` after the create. No tool places or
+  reorders blocks yet (Softr has said placement will come later), so a human drags a misplaced
+  block into place in Studio. Say so when you hand the block over.
 - **Studio-only jobs, with no MCP tool** (checked against the roster of 2026-10-08):
   - setting a page's VIEW permissions (`application_page_get_permissions` only reads them);
   - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
   - navigation links (`application_page_get_block` on the shared Navigation block does not return them);
-  - putting a new page in the navigation: `application_page_create` makes the page, but no tool adds a nav item for it or sets
-    its VIEW permission. A new page inherits the app's default VIEW permission (logged-in users; seen 2026-10-05 and
-    2026-10-09), so narrow it in Studio and keep the block's own Visibility on the same group. What a nav button can
-    open, and how to open a block from one: [modal-pages.md](modal-pages.md);
+  - putting a new page in the navigation, or making it public: `application_page_create` makes the
+    page, but no tool adds a nav item for it or sets its VIEW permission. A new page starts at VIEW =
+    logged-in users, the app's default (seen 2026-10-05 and 2026-10-09), and EDIT = all users (seen
+    2026-10-15), so narrow the VIEW permission in Studio and keep the block's own Visibility on the
+    same group. A page that must be public (a public form, a sign-up or check-in page) is a Studio
+    step too: list it for the person, read the result back with `application_page_get_permissions`,
+    and do not call a public form live-tested until it has been reached logged out. What a nav
+    button can open, and how to open a block from one: [modal-pages.md](modal-pages.md);
   - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
   - the app's Custom Code and theme.
 - **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
@@ -1386,7 +1492,7 @@ those; see [the rename note](#tool-names--the-2026-10-01-rename).
 **Build-loop findings (verified live 2026-09-01, first end-to-end production build — 10 workflows; bullets dated later come from a second production build, 2026-09-18/19):**
 
 - **`workflow_create` instantiates an OLD version of the trigger node.** Immediately call `workflow_replace_trigger_node` with the **same trigger type** — the replacement lands at the current version with the current inputs. Example: `updateField` on `SOFTR_TABLES_RECORD_UPDATED` (fire only when a watched field changes; it takes an UPDATED_AT-type field, see "Trigger scope" below) only exists at v1.2.0; the version `workflow_create` instantiates doesn't have it. Do it before anything references the trigger: the replacement gets a **new node id** (see the `workflow_replace_node` bullet below).
-- **A Workflow FILTER node's condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). This is about the Workflows FILTER node only. A block's Source condition written with `vibe_coding_block_set_data_source_record_filters` **is** enforced (verified 2026-09-18 and 2026-10-05, [above](#what-the-server-enforces-on-a-blocks-data-endpoints)), so do not route it to Studio. A project agent once applied this rule to a block's Source filter and routed it to Studio for nothing. `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
+- **A Workflow FILTER node's condition written over MCP is inert — set it in Studio** (corrected 2026-10-06; this bullet used to say the MCP writes it). This is about the Workflows FILTER node only. A block's Source condition written with `vibe_coding_block_set_data_source_record_filters` **is** enforced (verified 2026-09-18, 2026-10-05 and 2026-10-15, [above](#what-the-server-enforces-on-a-blocks-data-endpoints)), so do not route it to Studio. A project agent once applied this rule to a block's Source filter and routed it to Studio for nothing. `workflow_update_node_inputs` with inputName `"condition"` accepts an `{operator, conditions: [...]}` object and stores it in the node's `inputs.condition`, a field the engine does not read. The engine evaluates the condition on the FILTER node's **outgoing path** (the `paths` entry whose `fromActionId` is the filter), and only the Studio builder writes that. **A filter built over MCP passes every run.** A 2026-09-19 audit of this very build showed it three ways: the one workflow actually running had empty `inputs` and its whole condition on the path; two others, edited in Studio afterwards, held one condition in `inputs.condition` and a different one on the path, so Studio reads and writes only the path.
   - **The official MCP docs agree:** "Branch and filter conditions can't be set through MCP yet ... deciding what sends a run down each path is something you finish in the builder" (docs.softr.io/mcp/workflows, checked 2026-10-05), and the FILTER spec declares `inputs: {}`. BRANCH conditions were not tested separately here; treat them the same way.
   - **How to build one:** add the FILTER over MCP if that is convenient, then open it in Studio, set its clauses and save. Never trust `inputs.condition` as a record of what the filter does; it can disagree with the path.
   - **How to check one:** read the workflow back with `workflow_get` and find the `paths` entry whose `fromActionId` is the filter; the condition must be there. FILTER nodes cannot be run with `workflow_test_node`, so this read-back is the only check before a real run.
@@ -1453,7 +1559,7 @@ A separate product class from the workspace server (live-observed 2026-08-31 on 
 
 When generating a block, pick the delivery path by what's connected:
 
-1. **WORKSPACE MCP server connected with Applications & Forms full access** (a per-application server does not count — it cannot create or deploy blocks; see the section above) — write the `.tsx` file locally first (it remains the source of truth and the reviewable artifact), then offer to deploy it directly: `vibe_coding_block_create` (or `vibe_coding_block_update_code` for edits), then `vibe_coding_block_connect_data_source` to wire up the data. Verify every push by its `sourceSha256` ([protocol](#verifying-a-push--the-deployed-source-is-the-only-proof)), and remember the action-permissions reset after every code push. A newly created block lands at the bottom of its page, so tell the user to drag it into place in Studio. After deploying, link the Studio page (`https://studio.softr.io/applications/{applicationId}/pages/{pageId}`) and offer `application_preview` / `application_publish` — publish only when asked, and mind the [preview-link auth warning](#application-management-tools).
+1. **WORKSPACE MCP server connected with Applications & Forms full access** (a per-application server does not count — it cannot create or deploy blocks; see the section above) — write the `.tsx` file locally first (it remains the source of truth and the reviewable artifact), then offer to deploy it directly: `vibe_coding_block_create` (or `vibe_coding_block_update_code` for edits), then `vibe_coding_block_connect_data_source` to wire up the data. Verify every push by its `sourceSha256` ([protocol](#verifying-a-push--the-deployed-source-is-the-only-proof)), and remember the action-permissions reset after every code push. Where a new block lands is not guaranteed ([Application management tools](#application-management-tools)): read the page back with `application_page_get`, and tell the user to drag a misplaced block into place in Studio. After deploying, link the Studio page (`https://studio.softr.io/applications/{applicationId}/pages/{pageId}`) and offer `application_preview` / `application_publish` — publish only when asked, and mind the [preview-link auth warning](#application-management-tools).
 2. **No workspace MCP (or read-only access)** — classic path: write the `.tsx` file and have the user paste it into Studio's Vibe Coding editor, then connect the data source in the **Source** tab themselves.
 
 Either way, never deliver code inline in chat (JSX character corruption — see SKILL.md workflow step 5).

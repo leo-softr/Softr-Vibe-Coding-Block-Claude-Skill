@@ -91,7 +91,7 @@ it behaves as a **union** of both branches, not a choice between them. Which is 
 
 ## One connection = one read payload (the union of its selects)
 
-*Verified live 2026-09-18; the block-visibility gate 2026-10-05.*
+*Verified live 2026-09-18; the block-visibility gate 2026-10-05; the create-only case 2026-10-15.*
 
 The records endpoint is per block + connection —
 `/blocks/<blockId>/datasources/<name>/records` (`<name>` is the name given in `datasource.define`; see the note below) — and it returns the **UNION of every field
@@ -114,10 +114,11 @@ whose only select was one email field still gave anyone who crafted the request 
 with its email (noted in a production block's security review, 2026-09-19). So wherever knowing a
 record id lets someone act (a by-id fetch, an update addressed by `recordId`, a link write that a
 Source condition then keys on), treat ids as access keys: a connection hands every row it releases,
-with its id, to every viewer allowed to call it. Narrowing the select does not withhold ids; only
-fewer rows (a Source condition) or a gated page or block does. A link field in a select ships the
-*linked* records' ids too (`{ id, label }`). To filter by a link without shipping them, filter on
-a readonly key looked up through the link instead
+with its id, to every viewer allowed to call it. Narrowing the select, even to nothing, does not
+withhold ids (a create-only connection is the extreme case, below); only fewer rows (a Source
+condition) or a gated page or block does. A link field in a select ships the *linked* records' ids
+too (`{ id, label }`). To filter by a link without shipping them, filter on a readonly key looked
+up through the link instead
 ([reading.md](reading.md#operator-semantics-on-the-server)).
 
 **Remedy.** Connect the **same table a second time** — Softr allows it, and the second connection
@@ -159,6 +160,32 @@ tickets connections, gave both members all 41 deals and 16 tickets, and gave cli
 user and logged-out visitors 403 on list and by-id. The gate belongs to the block, not the table:
 connect the same table to an ungated block and it is open again. See
 [../references/softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
+
+**A connection that selects nothing still answers.** A connection that exists only to create names
+no field in any select. The block probed was a public application form; a sign-up or a check-in has
+the same shape, but none was probed. A fresh load of that block sent no read at all: the create on
+Send was its only request. The records endpoint is still there. A signed-in session that POSTed to
+it by hand got the table's total row count and every record's id, each with empty `fields`
+(Softr Database, 2026-10-15). Filters on fields the block does not select, and the body keys
+`select`, `fields` and `fieldIds`, were all ignored, so no value could be read, and none could be
+tested one record at a time. The count and the ids leak all the same, and
+ids are access keys (above). The probe ran as a signed-in user on a page that only logged-in users
+may view. What a logged-out visitor gets on a public page was not tested, so treat that as open
+until you have tried it.
+
+As a precaution, for every create-only block, assume the endpoint answers, and make it answer with
+nothing: put a Source condition on that connection that no row can satisfy (for example a status
+field IS a value no record holds), then read the setting back with
+`vibe_coding_block_get_settings`; it sits on the draft until the app is published. The server
+enforces it per block and per connection, so a second block that reads the same table needs its
+own guard. The create keeps working. The cost is that this block can never read back its own row; a
+form that must show the submission needs another route, not the guard removed. Source conditions
+set over MCP are enforced, and the other server-side gates are listed in
+[softr-mcp.md](../references/softr-mcp.md#what-the-server-enforces-on-a-blocks-data-endpoints).
+The probe and the guard step by step are in
+[softr-mcp.md](../references/softr-mcp.md#a-create-only-connection-on-a-public-block), and the order
+to prove a guard in is in
+[qa-playbook.md](../references/qa-playbook.md#proving-a-read-guard).
 
 Two selects on different connections may reuse an alias name (`customer` on both) without
 colliding. Aliases resolve **per hook**, though: a hook's `where` / `orderBy` may name only aliases

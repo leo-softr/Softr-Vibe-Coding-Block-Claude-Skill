@@ -300,6 +300,8 @@ named like `Thursday, October 15, 2026`.
   ```
 
   Start it from an idle page, act, then read `window.__focus` (the snippet ran on a local test page).
+  The rules to point it at are in [common-patterns.md → Failures, focus and
+  Escape](common-patterns.md#failures-focus-and-escape).
 - **To find what moved the page**, wrap `window.scrollBy` and log its arguments, `scrollY` and a
   timestamp.
 - **Prove Escape order with a spy on `document`.** Add a bubbling `keydown` listener that logs each
@@ -468,6 +470,10 @@ save that completed. A run that wrote nothing listed only `records-trigger` entr
 `status`. For requests that complete, `--json` carries a `responseBody` field (reads, and saves in a
 write pass), though one run saw none for a save. So prove every save by reading the row back through
 the MCP, not from the logged response.
+
+To prove that a create still works after a server-side guard was added to its block, remove the save
+guard of step 6, prove that it is gone, press Send once and read this log: step 5 of
+[qa-playbook.md → Proving a read guard](qa-playbook.md#proving-a-read-guard).
 
 - **Test a double tap with a real double click**, not two `element.click()` calls in one task. Two
   scripted clicks in one task slipped past a guard held only in React state and sent two writes
@@ -979,6 +985,15 @@ on the published app, logged out.
   `application_preview` and open it again before checking anything, then prove which build loaded
   (step 2).
 - **The preview URL is a sign-in token.** Never share it ([why](softr-mcp.md#application-management-tools)).
+- **A probe script lists cookie names, never values.** The preview user's session cookie is a signed
+  token whose payload holds the account's email address. A probe that printed just its first 100
+  characters or so still gave away the header and the start of that payload (2026-10-15). The output
+  was not stored or reported, and the token dies with the preview, but it should never have been
+  printed. Print names only, for example `document.cookie.split('; ').map(c => c.split('=')[0])` in
+  an `eval` (an HttpOnly cookie is not in that list at all), and test a cookie by whether it is there,
+  not by what it holds. The same goes for the link: set the preview cookie in one command with its
+  output sent nowhere (`ab open '<previewUrl>' >/dev/null`, [step 2](#2-session-preview-cookie-page)),
+  and keep any URL or token out of script files, notes and reports.
 - **Attachment URLs are re-signed on every read:** compare by id, filename and size, never by URL.
 - **agent-browser answers dialogs on its own: `beforeunload`, and the `window.confirm` that
   `useNavigationBlocker` raises on a sidebar link, the phone tab bar or in-app Back.** A reload test of

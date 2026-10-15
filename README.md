@@ -183,14 +183,23 @@ softr-vibe-coding/
 │                                     # Oct 9 2026 (modal pages): a router row for modal-pages.md,
 │                                     # no overlay of the block's own on a page opened in a Softr
 │                                     # Modal (vh resolves against the modal box there), OPEN_URL
-│                                     # takes "MODAL" too
+│                                     # takes "MODAL" too; Oct 15 2026 (2.21.0): checklist lines
+│                                     # for a create-only connection (a Source condition that
+│                                     # matches nothing), a repair control that fails open, one
+│                                     # dirty function for the Discard strip and the leave guard,
+│                                     # focus after a Retry, one plural helper, and what to do
+│                                     # before the first push; Hard Constraint 23 names the
+│                                     # create-only case; router rows extended
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
 │                                     # spacing, motion, accessibility, AI slop checklist;
 │                                     # Oct 8 2026 (QA pass): number inputs, one network-error
 │                                     # helper, errors inside dialogs, confirm and void rules,
-│                                     # search/caps/columns, one counting rule per figure
+│                                     # search/caps/columns, one counting rule per figure;
+│                                     # Oct 15 2026: a control that keeps a repair reachable
+│                                     # fails open, one dirty rule for every discard prompt,
+│                                     # pluralise every count
 │
 ├── references/                       # Advanced patterns (loaded on demand)
 │   ├── helper-blocks.md              # Cross-block communication
@@ -260,7 +269,20 @@ softr-vibe-coding/
 │   │                                 # missing capability; Oct 13 2026 (2.19.0): saved views
 │   │                                 # (database_create_view: hide, sort, group, filter by field
 │   │                                 # id; an unknown id fails the whole call; names are not
-│   │                                 # unique; the list returns id and name only)
+│   │                                 # unique; the list returns id and name only);
+│   │                                 # Oct 15 2026: a connector signed in to another
+│   │                                 # account (application_get and workspace_list
+│   │                                 # first), a new block created, pushed, given its id
+│   │                                 # and mirrored by one job, a large push cut by size
+│   │                                 # and op count with one tested script and the exact ops
+│   │                                 # bytes replayed, a blocked push (keep the finished work
+│   │                                 # in the project, do the offline half, an unproven base),
+│   │                                 # the wire shapes for writing a probe against a block's
+│   │                                 # endpoints, a create-only connection still answers
+│   │                                 # (guard it with a Source condition that matches
+│   │                                 # nothing), a new block's page position is not
+│   │                                 # predictable, a new page is logged-in-only and a
+│   │                                 # public page is a Studio step
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -288,7 +310,8 @@ softr-vibe-coding/
 │   │                                 # repeated at every size; reviewing in code what each save
 │   │                                 # writes; Retry disabled during its check; routes can abort or
 │   │                                 # answer a read but not delay it; agent-browser also answers
-│   │                                 # the navigation blocker's confirm
+│   │                                 # the navigation blocker's confirm; Oct 15 2026:
+│   │                                 # a probe lists cookie names, never values
 │   ├── qa-playbook.md                # QA of a whole app, in the order to run it (Oct 8
 │   │                                 # 2026): set-up (draft, served build, client zone,
 │   │                                 # one session per agent), never writing by accident,
@@ -304,7 +327,13 @@ softr-vibe-coding/
 │   │                                 # round 3): check a select's field list and shared aliases
 │   │                                 # before a fix, the synthesis names fix site, change and
 │   │                                 # expected figure, an empty stage returns a placeholder, never
-│   │                                 # null
+│   │                                 # null; Oct 15 2026: the connector's account proven first,
+│   │                                 # push scripts kept outside the scratch folder, a block's
+│   │                                 # own code rendered in jsdom, proving a read guard, a
+│   │                                 # cross-block contract check, pipeline stages gated on the
+│   │                                 # evidence of the one before, stopping on a repeated
+│   │                                 # access error, a logged-out probe proves little while
+│   │                                 # the page is logged-in-only, saying what did not run
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -350,7 +379,9 @@ softr-vibe-coding/
 │   │                                 # history.back() link may escape the blocker; Oct 9 2026 (QA
 │   │                                 # round 3): Softr's link handling needs the click on the link
 │   │                                 # element itself; Oct 9 2026: the in-block modal opens from
-│   │                                 # the block's own UI, from the nav see modal-pages.md
+│   │                                 # the block's own UI, from the nav see modal-pages.md;
+│   │                                 # Oct 15 2026: one dirty rule for both guards, a Retry
+│   │                                 # that unmounts and a disabled focus target
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity
@@ -406,7 +437,9 @@ softr-vibe-coding/
 │                                     # deferred focus fix-up, Safari focus,
 │                                     # "yyyy-MM-dd" values), verification (Oct 7 2026),
 │                                     # short-screen fit + kit testing (Oct 8 2026);
-│                                     # read a native date input's .value before a swap (Oct 9 2026)
+│                                     # read a native date input's .value before a swap (Oct 9 2026);
+│                                     # a kit change also changes the comments beside it, and the
+│                                     # Block() size is checked after a kit edit (Oct 15 2026)
 │
 ├── tools/                            # Bundled CLI scripts (run, not read)
 │   ├── get-airtable-base             # Full Airtable base schema export (bash + jq)
@@ -424,7 +457,8 @@ softr-vibe-coding/
     │                                 #   every row carries its record id (Oct 6 2026);
     │                                 #   reads go to .../datasources/<name>/records, <name> the
     │                                 #   define name (Oct 8 2026); check a connection's field list
-    │                                 #   and shared aliases before changing a select (Oct 9 2026)
+    │                                 #   and shared aliases before changing a select (Oct 9 2026);
+    │                                 #   a create-only connection still answers, so guard it (Oct 15 2026)
     ├── reading.md                    # useRecords, filtering, sorting, pagination,
     │                                 # metrics, charts, current user; no detail-page
     │                                 # auto-scoping, useRecords ignores enabled:false,
@@ -437,7 +471,9 @@ softr-vibe-coding/
     │                                 # totals wait for every page, group-name checks break on a
     │                                 # Studio rename, one useMetric per item via a probe component,
     │                                 # a non-finite metric shows "unknown", check an existing
-    │                                 # read's where before reuse
+    │                                 # read's where before reuse; Oct 15 2026: a client filter
+    │                                 # cannot undo a Source condition, and a repair control
+    │                                 # stays shown until a paginated read has settled
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes;
     │                                 # Actions register per table (Sep 18 2026);
