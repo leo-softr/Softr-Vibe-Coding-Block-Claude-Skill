@@ -56,7 +56,7 @@ deployment; treat it as standing platform behavior, not a one-off.
   read-only, so the code says what the platform does.
 - A mutation hook's `fields:` select does **not** join the connection's read union — write-only
   fields are not shipped to the browser by the records endpoint.
-- **Corollary for an admin-only write (a void, an adjustment).** The server enforces it only when it is the block's only action of its type on that table. A void whose table sees no other UPDATE (normal work there only creates rows): restrict that UPDATE_RECORD action to the administrators' group. A stock adjustment written as a new ledger row is an ADD_RECORD, so it is enforceable only if nothing else in the block adds rows to that table. When normal work shares the action (receiving shares ADD_RECORD with the adjustment, toggling shares UPDATE_RECORD with the void), the write can only be hidden in the browser: move it to a separate group-gated block or a workflow if it has to be enforced. In one app, two voids were server-enforced because each was its table's only UPDATE, while one adjustment and one void shared their action with normal work and stayed browser-only (LCDB, 2026-10-07).
+- **Corollary for an admin-only write (a void, an adjustment).** The server enforces it only when it is the block's only action of its type on that table. A void whose table sees no other UPDATE (normal work there only creates rows): restrict that UPDATE_RECORD action to the administrators' group. A stock adjustment written as a new ledger row is an ADD_RECORD, so it is enforceable only if nothing else in the block adds rows to that table. When normal work shares the action (receiving shares ADD_RECORD with the adjustment, toggling shares UPDATE_RECORD with the void), the write can only be hidden in the browser: move it to a separate group-gated block or a workflow if it has to be enforced. In one app, two voids were server-enforced because each was its table's only UPDATE, while one adjustment and one void shared their action with normal work and stayed browser-only (2026-10-07).
 
 Practical upshot for the post-push permission pass (see
 [softr-mcp.md](../references/softr-mcp.md#the-array-argument-rejection-and-why-it-is-a-security-issue)):
@@ -82,9 +82,9 @@ Verified by direct experiment (April 2026): adding a new field to `q.select` + `
 
 Because the parser only inspects your hooks and `q.select` mappings (not the JSX tree), inputs rendered conditionally inside `<Dialog>`, `<Sheet>`, or any subtree gated by state are still bound to the Action correctly. Verified by direct experiment, May 2026.
 
-**Keep each `hook.mutateAsync(...)` call on the hook variable inside the function that declares the hook.** If a module-scope helper has to write, pass it the hook (or a callback that calls it). Move the code that does not write to module scope instead: a queue runner's state, row memos, dialog state, paging effects. That also makes it testable on its own. This is by analogy, not tested either way: the parser reads a hook's call site statically, as it does for inline select options and nested update payloads, and a write call moved out of sight might lose its Action with no error (LCDB QA pass, 2026-10-08).
+**Keep each `hook.mutateAsync(...)` call on the hook variable inside the function that declares the hook.** If a module-scope helper has to write, pass it the hook (or a callback that calls it). Move the code that does not write to module scope instead: a queue runner's state, row memos, dialog state, paging effects. That also makes it testable on its own. This is by analogy, not tested either way: the parser reads a hook's call site statically, as it does for inline select options and nested update payloads, and a write call moved out of sight might lose its Action with no error (QA pass, 2026-10-08).
 
-Moving that code out also keeps `Block()` small. The LCDB pass held `Block()` under about 30,000 B by moving dialog state, write queues, row memos and effects into custom hooks and functions at module scope (moving the state of two dialogs freed 3.35 KB in one block). 30,000 B is the budget that pass kept; whether Softr enforces a limit was not checked.
+Moving that code out also keeps `Block()` small. One app's QA pass held `Block()` under about 30,000 B by moving dialog state, write queues, row memos and effects into custom hooks and functions at module scope (moving the state of two dialogs freed 3.35 KB in one block). 30,000 B is the budget that pass kept; whether Softr enforces a limit was not checked.
 
 ## Record Mutations
 
@@ -153,7 +153,7 @@ sources (inferred, untested elsewhere). So:
   later as well; see
   [Fields the source changes after the write](#fields-the-source-changes-after-the-write).
 
-**One hook serving two surfaces** (a row's Save and a dialog's action): a hook-level `onError` cannot know where to show the error. Leave it off and show the error from each handler's catch, with that handler's context: the row toasts, the dialog shows it inside itself (LCDB QA pass, 2026-10-08).
+**One hook serving two surfaces** (a row's Save and a dialog's action): a hook-level `onError` cannot know where to show the error. Leave it off and show the error from each handler's catch, with that handler's context: the row toasts, the dialog shows it inside itself (QA pass, 2026-10-08).
 
 #### CRITICAL: The `useRecordUpdate` payload shape (and the retired `.mutate()`-only rule)
 
@@ -268,7 +268,7 @@ Rules that make this safe:
   to `undefined`.
 - **Gate the whole flow on the hooks' `enabled` booleans**, same as any mutation UI.
 
-What a QA pass over 15 blocks added to these rules (LCDB, 2026-10-08), each from a queue that sent stale values, wrote twice, or locked a dialog for good:
+What a QA pass over 15 blocks added to these rules (2026-10-08), each from a queue that sent stale values, wrote twice, or locked a dialog for good:
 
 - **Lock the inputs after a failure.** Keep them in a `<fieldset disabled>` until Retry or Start over, so a Retry sends what the screen shows. A Retry once sent the values from the first click while the editable form showed new ones. (Inputs inside a disabled fieldset still report `.disabled === false`; test `matches(":disabled")`.)
 - **Set the in-flight guard in a ref, before the first `await`.** State is a render late and a fast double tap gets through it: a deployed block created 2 records on a double click with a 300ms save.
@@ -608,7 +608,7 @@ a distribution date) take the `"yyyy-MM-dd"` form; **timestamp** fields (`*_at` 
 take `new Date().toISOString()`. Writing a full timestamp into a date-semantics field invites
 timezone-shift bugs — compare and display such fields on the `yyyy-MM-dd` slice.
 
-**A "today" that a save writes into a date-only field** is `format(new Date(), "yyyy-MM-dd")`, worked out in the click handler. Never `new Date().toISOString().slice(0, 10)`: that is the UTC day, which is tomorrow on a US evening. And never a value computed at render or mount: a verify action stamped the render-time day, which is yesterday on a page left open past midnight (LCDB QA pass, 2026-10-08). The same local-time rule covers a "Generated" stamp in an export or printout: local time with its UTC offset ([common-patterns.md → CSV export](../references/common-patterns.md#csv-export)).
+**A "today" that a save writes into a date-only field** is `format(new Date(), "yyyy-MM-dd")`, worked out in the click handler. Never `new Date().toISOString().slice(0, 10)`: that is the UTC day, which is tomorrow on a US evening. And never a value computed at render or mount: a verify action stamped the render-time day, which is yesterday on a page left open past midnight (QA pass, 2026-10-08). The same local-time rule covers a "Generated" stamp in an export or printout: local time with its UTC offset ([common-patterns.md → CSV export](../references/common-patterns.md#csv-export)).
 
 ### Date Range
 
@@ -727,7 +727,7 @@ Verified by direct experiment (May 2026): POST to this endpoint with field IDs a
 
 ### Audit and change-log rows
 
-Cross-table writes often include an audit row (who changed what, when). The write pass and its checker found these gaps (LCDB, 2026-10-08):
+Cross-table writes often include an audit row (who changed what, when). The write pass and its checker found these gaps (2026-10-08):
 
 - **Stamp who and when (`updated_by`) on every write path,** creates and voids included. Several saves left it empty because the field was missing from the write select.
 - **A change-log row written before a create cannot name the new record.** Write another row once the create's id comes back, and guard the log-first write so it is never re-sent. One override left a row with the record id "pending-create".

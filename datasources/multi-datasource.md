@@ -192,7 +192,7 @@ colliding. Aliases resolve **per hook**, though: a hook's `where` / `orderBy` ma
 from that hook's own `select`, or the block crashes at runtime — see
 [reading.md](reading.md#filter-and-sort-aliases-must-be-in-the-same-hooks-select).
 
-**Before you change a connection's selects, check what the connection already reads** (LCDB QA
+**Before you change a connection's selects, check what the connection already reads** (QA
 pass, 2026-10-08):
 
 - **Adding a field to a `select`:** confirm that the field id is in that connection's field list in

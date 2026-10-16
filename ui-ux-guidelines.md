@@ -360,7 +360,7 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 - **Error messages:** Always inline, directly below the field. Write as instruction: "Enter a valid email address" not "Invalid email."
 - **Success states:** Show green check icon on validated fields.
 - **Required fields:** Mark explicitly.
-- **A required field has no silent default, and an enumerated required field offers no empty option.** In one app a pre-filled "Parent" was saved on every pickup where nobody changed it, and a required status could be blanked through its empty option. The form's mode follows the record's own type: a group record asks for its number of people, not one person's hours (LCDB QA pass, 2026-10-08).
+- **A required field has no silent default, and an enumerated required field offers no empty option.** In one app a pre-filled "Parent" was saved on every pickup where nobody changed it, and a required status could be blanked through its empty option. The form's mode follows the record's own type: a group record asks for its number of people, not one person's hours (QA pass, 2026-10-08).
 - **Dates of things that already happened refuse the future** (a pickup, a receipt). In that app, future-dated rows were counted in this month's tiles.
 - **Implausible amounts ask for confirmation instead of being refused** ([inline confirm](references/common-patterns.md#inline-confirm-in-place-of-a-button)).
 - **A fallback error ("Add a line") shows only when no specific line error did, and the error strip is cleared at the start of every attempt.** In that app, an old save error sat beside a newer field error.
@@ -370,7 +370,7 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 - **In a browser set to a region that writes a decimal comma, `1,000` is read as 1, not refused.** No `badInput` is raised, so test the raw string as well (headless Chromium on a Mac followed the system region). Probing with `5e` works in any region.
 - **Whole numbers:** test the raw string against `^\d+$` and parse with `Number`, never `parseInt` (`parseInt("1e3")` is 1) or `Math.floor` (2.5 cut to 2). **Money:** a text input with `inputMode="decimal"`.
 - **One validator for Save, the live total and the hint**, with the field's upper bound in it ([writing.md → Number](datasources/writing.md#number)). A total or warning built on an invalid entry stays hidden until the entry is fixed (a total once warned with a wrong figure while one line was invalid).
-- **Test by typing with the keyboard, in Firefox too.** Browser-automation `fill` cannot enter unreadable text. Saved values seen in one QA pass (LCDB, 2026-10-08): "1600-" saved a drive's quantity as blank, "2..5" saved 0 packs, "1,200" wrote 1 (Chromium under a decimal-comma region).
+- **Test by typing with the keyboard, in Firefox too.** Browser-automation `fill` cannot enter unreadable text. Saved values seen in one QA pass (2026-10-08): "1600-" saved a drive's quantity as blank, "2..5" saved 0 packs, "1,200" wrote 1 (Chromium under a decimal-comma region).
 
 ### Error Message Formula:
 
@@ -384,7 +384,7 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 
 **Never blame the user.** "Please enter a date in MM/DD/YYYY format" not "You entered an invalid date."
 
-**Network errors come from one helper.** The browser's own words ("Failed to fetch", Safari's "Load failed", "NetworkError") reach users unless something maps them. Map them to one plain sentence through one helper per block, with the same text in every block: "[What] was not saved: the app could not reach the database. Check the connection and try again." Log the raw error with `console.error`. Messages the code writes itself don't go through the helper, `[what]` is singular, and a partial save never reads "was not saved. The family was saved but…". A `TypeError` from a code bug also reads as a connection failure, so look at the console when the message looks wrong (LCDB QA pass, 2026-10-08).
+**Network errors come from one helper.** The browser's own words ("Failed to fetch", Safari's "Load failed", "NetworkError") reach users unless something maps them. Map them to one plain sentence through one helper per block, with the same text in every block: "[What] was not saved: the app could not reach the database. Check the connection and try again." Log the raw error with `console.error`. Messages the code writes itself don't go through the helper, `[what]` is singular, and a partial save never reads "was not saved. The family was saved but…". A `TypeError` from a code bug also reads as a connection failure, so look at the console when the message looks wrong (QA pass, 2026-10-08).
 
 ### Layout:
 - **Single-column forms** are easier to complete than multi-column.
@@ -434,7 +434,7 @@ Vestibular disorders affect ~35% of adults over 40. Always respect `prefers-redu
 - Check `status === 'pending'` and render skeleton.
 - Check `status === 'error'` and render error state with retry.
 - **Try again re-reads every read that is in error**, not only the main list. A Try again that re-read only the main list left the other reads failed: rows then said "No children on record" and the duplicate check ran without children.
-- **Say "did not load" only after a read has failed;** while it loads, just disable the action. A create that checks for duplicates waits for a complete, successful read of what it checks against (a product was created while the product list had failed, and passed its own duplicate-name check; LCDB QA pass, 2026-10-08).
+- **Say "did not load" only after a read has failed;** while it loads, just disable the action. A create that checks for duplicates waits for a complete, successful read of what it checks against (a product was created while the product list had failed, and passed its own duplicate-name check; QA pass, 2026-10-08).
 - **A control that keeps a repair reachable fails open.** A button that finishes a half-saved action (completing a void whose reversal rows did not all save, re-sending a line that failed) shows until the data proves it is not needed. Gate it on "the read has settled and shows no repair is needed", never on "a failure was seen": `!settled || needsRepair` keeps it reachable, while `failed || (ready && needsRepair)` hides it during the load, so a user who arrives mid-load cannot finish the action. For a paginated read, `settled` is `status === "success"` and no next page ([reading.md](datasources/reading.md#loading-all-records-auto-pagination)). The control shows while the read is pending, partly loaded or in error, and hides only once the read has fully settled and found nothing to repair; after the repair itself, a refetch keeps the last settled answer instead of flickering. This is the opposite of the duplicate-check rule above, and both hold: an action that does harm on incomplete data fails closed (disabled until the read is complete), a control whose absence strands the user fails open. Test pending, partly loaded, refetching, error and success. Replay, gate and sync checks cannot catch a build that departs from the written decision (one build hid the button during the load, though the decision said to keep it showing, and its own code comment said so), so read the code against the decision before a push ([qa-playbook.md](references/qa-playbook.md#running-qa-with-several-agents-and-skeptics)).
 - Never render an empty block.
 
@@ -453,7 +453,7 @@ Empty states are a critical UX moment — not an afterthought. They are onboardi
 ### Rules:
 - Do not say "No data" — be specific and human. "You don't have any projects yet."
 - If empty due to search/filter, offer to clear the filter. When a filter hides every match for the search, say how many it hides and offer to drop only that filter, keeping the search text ("No partners match" while an inactive one did).
-- **Copy fits the role reading it.** Never send a user to a page they cannot open: in one app, empty states told volunteers to use a Settings page that only administrators can open (LCDB QA pass, 2026-10-08).
+- **Copy fits the role reading it.** Never send a user to a page they cannot open: in one app, empty states told volunteers to use a Settings page that only administrators can open (QA pass, 2026-10-08).
 - Center-align with generous `py-16` or `py-24` padding.
 
 ---
@@ -559,7 +559,7 @@ Users always need to know: *Where am I? Where can I go? How do I get back?*
 - **A list's search covers every field the list shows,** including child records shown with it (children under a family, a roster's interests and training). A home search could not find a family by a child's name, and a roster search ignored the interests and training it displayed (two searches that found nothing found 4 and 5 rows after the fix).
 - **No silent caps.** Show "Showing N of M" and page through every matching row: a history list stopped at 200 of 481 rows without a hint.
 - **Size columns from real rows at the block's real width.** Give text columns minimum widths and badges `whitespace-nowrap`, and break emails at the `@` with `<wbr>` ([anti-patterns.md](references/anti-patterns.md#layout--styling)). Names and emails broke mid-word in narrow columns, and a log table overflowed a tablet (which container to key the table/card switch on: Mobile adaptation above).
-- **Rows dated after today stay listed and marked,** not dropped. **An open inline edit closes when the list's period changes,** or it points at a row the new range no longer lists. (The cases in this subsection are from the LCDB QA pass, 2026-10-08.)
+- **Rows dated after today stay listed and marked,** not dropped. **An open inline edit closes when the list's period changes,** or it points at a row the new range no longer lists. (The cases in this subsection are from one QA pass, 2026-10-08.)
 
 ---
 
@@ -576,7 +576,7 @@ Users always need to know: *Where am I? Where can I go? How do I get back?*
 - Every chart needs: title, axis labels, legend (if multi-series), hover tooltip.
 - **Bar charts** for comparisons, **line charts** for trends, **pie/donut charts** sparingly.
 - **Avoid 3D charts** — they distort values.
-- **One counting rule per figure, the same on every page.** Leave voided rows out and drop entities whose rows net to zero (a partner with only voided rows got a row of zeros). Label periods honestly: a clipped month, "to date" for the current year, all from one period helper. In QA of 15 blocks, the "same number on every page" check found 7 of the 15 major findings (LCDB, 2026-10-08).
+- **One counting rule per figure, the same on every page.** Leave voided rows out and drop entities whose rows net to zero (a partner with only voided rows got a row of zeros). Label periods honestly: a clipped month, "to date" for the current year, all from one period helper. In QA of 15 blocks, the "same number on every page" check found 7 of the 15 major findings (2026-10-08).
 - **Print each ratio through one helper, and normalise `-0` in the display formatter** (a report showed "-0 items out" for an empty year, and 72% against 72.1% for the same figure). When splitting a total by a ratio, round one share and give the other the remainder, set a fallback for a zero denominator and say so in its label.
 - **A note that belongs to a row of tiles is a grid item of that grid,** and `grid-rows-subgrid` keeps the figures aligned when a label wraps.
 
@@ -618,7 +618,7 @@ Avoid the "hero metric layout template" — big number, small label, supporting 
 - **Start with `flex-col`**, stack to `md:flex-row` or grid layouts at larger screens. Beside Softr's sidebar navigation, switch on the block's width instead (`@min-[48rem]:flex-row` under an `@container` wrapper). See [Breakpoint strategy](#breakpoint-strategy) below.
 - **No horizontal overflow.** Use `overflow-x-hidden` as safety net.
 - **Touch targets: 44px minimum.**
-- **Filter pills wrap (`flex-wrap`) instead of scrolling sideways,** and are 44px tall below the phone container width. In one app, type pills were cut off on phones and portrait tablets with no hint, and measured 36px (LCDB QA pass, 2026-10-08).
+- **Filter pills wrap (`flex-wrap`) instead of scrolling sideways,** and are 44px tall below the phone container width. In one app, type pills were cut off on phones and portrait tablets with no hint, and measured 36px (QA pass, 2026-10-08).
 - **Measure a lengthened placeholder at every size** (canvas `measureText` with the input's font against its content box): a new search placeholder was cut at three sizes.
 - **Hover states are desktop-only.** Never depend on `:hover` for essential actions.
 - Form fields: `w-full` on mobile.
@@ -671,7 +671,7 @@ Consider pointer and hover capabilities, not just viewport width. A laptop with 
 - **Describe end states:** "would then be over the limit", not "would take it over".
 - **A partial save says "not fully saved", never "not saved".** The second invites entering the whole session again.
 - **A hint that names a button comes from the same condition that shows the button.** In one app, a hint named a button that was not on screen.
-- **When a short message becomes a sentence, check every place it shows** for `truncate`, `max-w` or title-only display: in one app a new 100-character error was cut to "the app c…" (LCDB QA pass, 2026-10-08).
+- **When a short message becomes a sentence, check every place it shows** for `truncate`, `max-w` or title-only display: in one app a new 100-character error was cut to "the app c…" (QA pass, 2026-10-08).
 - **Pluralise every count, and scan the whole block for the same slip, not only the line you saw.** "1 items" showed in two places of one block (a live total and a save-panel line) while the block's other counts were already right. Look for template literals, a JSX space followed by a noun, and a bare noun after a number formatter (`{fmt(n)} item`). Use one helper, `plural(n, one, many)`, that returns the number and the word as a single string. Where the figure is styled differently from the word (a monospace figure beside body text), write the figure in its own span and choose the word with `n === 1`: `<span style={mono}>{fmt(n)}</span> {n === 1 ? "item" : "items"}`.
 
 ### Voice vs Tone:

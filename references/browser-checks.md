@@ -8,11 +8,11 @@ CSS](#testing-custom-code-header-css) was verified 2026-10-05, except where it s
 [the client's time zone](#1-the-clients-time-zone) on 2026-10-08. The served-build proof in step 2,
 the measuring and sizes rules in step 4, the create-save guard in step 6, [Forcing
 states](#forcing-states) and [Exports and printouts](#exports-and-printouts) come from one
-end-to-end QA pass of a 15-block app on 2026-10-08 (LCDB QA pass); a snippet marked as a sketch was
+end-to-end QA pass of a 15-block app on 2026-10-08; a snippet marked as a sketch was
 run on a local test page, not on a Softr preview. The corrected build proof in step 2, the click
 under the tab bar in step 3, the focus recorder and Escape spy in step 4, [walking a successful
 save](#walk-a-successful-save-without-writing), the one-source route, the note on aborted requests in
-step 7 and two Gotchas come from the second round of that pass, the same day (LCDB QA round 2), run
+step 7 and two Gotchas come from the second round of that pass, the same day, run
 on a Softr preview.
 
 ## When to use it
@@ -128,7 +128,7 @@ the toolbar shell that frames it, so `document` in `eval` is the app's.
 
 **Do not wait for `networkidle` while a route aborts the block's reads** ([Forcing
 states](#forcing-states)). The data hooks keep retrying, and the call did not return before the
-shell's 120 s timeout (LCDB QA pass, 2026-10-08). Poll instead: fixed `ab wait 3000` steps, each
+shell's 120 s timeout (QA pass, 2026-10-08). Poll instead: fixed `ab wait 3000` steps, each
 followed by an `eval` that looks for the expected text inside the shadow root. A selector-based wait
 does not cross the shadow root (see Gotchas), so it cannot be the fallback.
 
@@ -172,7 +172,7 @@ ran on previews in the second round.
   not 0. Search the rest of the block for look-alikes before you choose the old string.
 
 **Never text-search the whole page HTML for the string:** Softr also inlines the block's source,
-comments included, so an old string can still match inside a comment that is never shown (LCDB QA
+comments included, so an old string can still match inside a comment that is never shown (QA
 pass, 2026-10-08: a search of the page matched a code comment; the served `index.js` held "Reload
 the page and try again." once and the removed "Refreshing" zero times).
 
@@ -196,7 +196,7 @@ after the name misses it.
   bar) covers the point. Then `root.elementFromPoint(x, y)`, with the root found in step 4, must
   return the element you mean, such as the modal backdrop and not the panel. The second call alone
   ignores a fixed light-DOM bar on top, so a phone-size test that uses only it passes under the tab
-  bar (LCDB QA pass, 2026-10-08).
+  bar (QA pass, 2026-10-08).
 - **A ref under Softr's phone tab bar is not clicked.** At a phone size `ab click @ref` stops with
   "covered by a.softr-nav-link" (seen at 568×320) instead of scrolling the element clear. In one
   `eval`, scroll it to the middle of the strip with an instant scroll, then click in the next call:
@@ -204,7 +204,7 @@ after the name misses it.
   with `el` found as in step 4 (the page scrolls smoothly otherwise: see the measuring rules).
 - **A backdrop has no accessible name, so no ref.** Pick a point outside the panel that the hit test
   shows is the backdrop, then send the whole press and release the backdrop's guards listen to:
-  `ab mouse move X Y`, `ab mouse down`, `ab mouse up` (LCDB QA pass, 2026-10-08: a backdrop click
+  `ab mouse move X Y`, `ab mouse down`, `ab mouse up` (QA pass, 2026-10-08: a backdrop click
   with a calendar open closed only the calendar).
 - **A removed control is proven by searching every shadow root** for its text, `aria-label`, `title`
   and icon class, not `document`, which finds nothing inside a block.
@@ -241,14 +241,14 @@ machine's locale: 7 October reads `07/10/2026` in a UK-locale browser and `10/07
 so the shown text depends on the machine that runs the check, while `.value` is always
 `yyyy-mm-dd`. It matters wherever a native date input is left: an old block, the filter inputs of
 [native-block-filters.md](native-block-filters.md), and the before-and-after comparison when a field
-is swapped for the brand picker (LCDB QA pass, 2026-10-08).
+is swapped for the brand picker (QA pass, 2026-10-08).
 
 A block that uses the brand `DatePicker` ([date-picker.md](date-picker.md)) has no date input: the
 field is a button with a ref in `-i`. Click it, then click the day by its ref; each day is a button
 named like `Thursday, October 15, 2026`.
 
 **Measuring rules.** Measure every claim instead of eyeballing it; each of these once turned a wrong
-"pass" into a finding (LCDB QA pass, 2026-10-08).
+"pass" into a finding (QA pass, 2026-10-08).
 
 - **Prove the console capture on every load.** Run `ab console --clear` before each `open`, then
   log a probe after it (`ab eval "console.error('probe')"`) and see it listed. An empty console
@@ -379,7 +379,7 @@ the client's zone ([step 1](#1-the-clients-time-zone)):
   check shows it ([writing.md → Date](../datasources/writing.md#date)). A timestamp takes
   `toISOString()`. A panel that opens only after a save (a duplicate warning behind Create) cannot
   be reached in a write-blocked check: show in the code that it formats through the same function
-  as a surface you can see. In the LCDB pass a Verify action wrote the render-time `today` (fixed
+  as a surface you can see. In one QA pass a Verify action wrote the render-time `today` (fixed
   2026-10-08), and a duplicate-family panel was cleared this way.
 - **A "today" taken as the UTC day is wrong only part of the day.**
   `new Date().toISOString().slice(0, 10)` is tomorrow from 5 pm in Los Angeles (4 pm in winter), so
@@ -389,7 +389,7 @@ the client's zone ([step 1](#1-the-clients-time-zone)):
     zone's offset before midnight until midnight (17:00 to 24:00 in Los Angeles in summer, 16:00 in
     winter). East of UTC it is from midnight until the offset (00:00 to 03:00 in Athens). Log the
     client's local time with each check (`TZ=America/Los_Angeles date`). A check at 00:50 in Los
-    Angeles cannot show the bug, because both days agree (LCDB QA pass, 2026-10-08: two write-pass
+    Angeles cannot show the bug, because both days agree (QA pass, 2026-10-08: two write-pass
     runs at 00:50 saved the right dates and still proved nothing about this class).
   - **What first:** form date defaults, "no later than today" limits, this-month figures, ages, and
     stamps in printouts and exports. A CSV "Generated" line read 2026-10-08T05:49Z while the client's
@@ -477,7 +477,7 @@ guard of step 6, prove that it is gone, press Send once and read this log: step 
 
 - **Test a double tap with a real double click**, not two `element.click()` calls in one task. Two
   scripted clicks in one task slipped past a guard held only in React state and sent two writes
-  that no user can send, while a real double click sent one (LCDB QA pass, 2026-10-08). Send the
+  that no user can send, while a real double click sent one (QA pass, 2026-10-08). Send the
   real thing at a point you have hit-tested ([step 3](#3-reaching-into-the-block)):
   `ab mouse move X Y`, then `ab mouse down`, `ab mouse up`, `ab mouse down`, `ab mouse up`; it sent
   one write on a preview. The shorter form is `ab dblclick @<ref>`, run on a preview dialog in the
@@ -523,7 +523,7 @@ Failed reads, slow saves, odd values and month ends rarely show up in normal use
 screen on purpose. None of these changes data: each is a browser-only trick. But the write guard
 ([step 6](#6-block-saves-before-any-click-and-prove-it)) must be in place in every session, and a new
 session starts without it. **Verified 2026-10-08** with agent-browser 0.38.1 against a real preview
-(LCDB QA pass); the two scripts and the route patterns are the ones that pass used.
+(the QA pass); the two scripts and the route patterns are the ones that pass used.
 
 ### A fake clock
 

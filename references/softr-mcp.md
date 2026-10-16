@@ -227,7 +227,7 @@ Before writing any block code through the MCP, call `vibe_coding_block_get_docs`
 
 Editable settings via MCP are the same fields as the block's **Content → Settings** panel; sort and record filters are the same as the **Source** tab. Duplicating from a version is the safe way to try an alternative — the original keeps working while you experiment on the copy.
 
-**Set a new block's visibility with `vibe_coding_block_set_visibility` right after creating it, before any further code push.** A new block is visible to All users, and ADD_RECORD's default follows the block's visibility at compile time ([why](#the-array-argument-rejection-and-why-it-is-a-security-issue)). So every push to an ungated block reopens its ADD actions to logged-out visitors: a rebuild's pushes left 28 ADD_RECORD actions at All users (LCDB, 2026-10-05). `customUserGroupIds` is accepted only together with `LOGGED_IN_USERS`, and it narrows that group. Running the app as a user outside an Administrator-only block's group confirmed it: that user did not get the block (impersonation, 2026-10-08). Set groups by id, from `application_list_user_groups`, so a group renamed in Studio later changes nothing on the block (checked 2026-10-07).
+**Set a new block's visibility with `vibe_coding_block_set_visibility` right after creating it, before any further code push.** A new block is visible to All users, and ADD_RECORD's default follows the block's visibility at compile time ([why](#the-array-argument-rejection-and-why-it-is-a-security-issue)). So every push to an ungated block reopens its ADD actions to logged-out visitors: a rebuild's pushes left 28 ADD_RECORD actions at All users (2026-10-05). `customUserGroupIds` is accepted only together with `LOGGED_IN_USERS`, and it narrows that group. Running the app as a user outside an Administrator-only block's group confirmed it: that user did not get the block (impersonation, 2026-10-08). Set groups by id, from `application_list_user_groups`, so a group renamed in Studio later changes nothing on the block (checked 2026-10-07).
 
 **A new block is created, pushed, given its id and mirrored by one job.** The block id exists only after `vibe_coding_block_create`, so a builder can only leave a placeholder for it in the file's header, such as "NOT DEPLOYED, the id is written here after the push". Changing that line afterwards breaks mirror = live, and four new blocks in one push each needed a separate header-only push afterwards (2026-10-15). So one job, the agent or person that pushes the block, does the whole sequence:
 
@@ -256,13 +256,13 @@ The job is done when the mirror's hash equals the live `sourceSha256`. A block i
   push](#verifying-a-push--the-deployed-source-is-the-only-proof) (verified live 2026-10-01). It drops
   only the source: the response still carries every data source's field list. It came to about 1 KB for
   a block with few connections, but about 40 KB on a block with 11, and `vibe_coding_block_get_settings`
-  was the same size (LCDB QA rounds, 2026-10-08). Read it once after a push, not after every call.
+  was the same size (QA rounds, 2026-10-08). Read it once after a push, not after every call.
 - `vibe_coding_block_list_versions` with **`includeCode: false`** and **`limit: 1`** is the cheap "did
   anything change" read. It returns the newest entry only, with its list id, `versionNumber`, `title`,
   `prompt` and `createdAt`, and no source and no data-source list, so it is far smaller than
   `vibe_coding_block_get_code` or `vibe_coding_block_get_settings` (the sizes above). A QA pass used it
   per block to show that nobody pushed during the run: the newest `createdAt` was earlier than the
-  first save (LCDB QA round 2, 2026-10-08). It sees code writes only: a settings-only change adds no
+  first save (QA round 2, 2026-10-08). It sees code writes only: a settings-only change adds no
   version, and Source conditions and Action permissions are not versioned
   ([below](#vibe-coding-gotchas-official)). Whether connecting or disconnecting a data source adds a
   version was not tested.
@@ -327,7 +327,7 @@ context. Keep the local mirror in step mechanically rather than by hand:
      draft.** Send the calls back to back, re-apply restricted permissions once after the last call,
      then read them back. Anyone who publishes in between ships the intermediate state. In one
      two-call push, an Administrator-only void action was open to any logged-in user for about two
-     minutes, between call 1 and the re-apply (LCDB, 2026-10-08). Mark the calls in their
+     minutes, between call 1 and the re-apply (2026-10-08). Mark the calls in their
      `versionName` ("… (part 1 of 2)").
 
 **Shrink the ops before you send them.** Trim the common prefix and suffix of each search/replace
@@ -338,7 +338,7 @@ file, and that a long run of one character is easy to miscount when it is retype
 state each op applies to: ops apply in order, and only the first occurrence is replaced. Replay the
 ops on the base to rebuild the target byte for byte. Smaller payloads mean less text retyped through
 the model, and every shrunk push matched its hash on the first try: one plan went from 20,665 B to
-10,721 B, another from 19.8 to 16.5 KB, and one header edit's search from 1,173 B to 40 B (LCDB,
+10,721 B, another from 19.8 to 16.5 KB, and one header edit's search from 1,173 B to 40 B (on
 2026-10-08). A large insertion needs no full replace: one op anchored on a short unique line carried a
 33 KB component, and the returned hash matched the replayed file. On a long one-line header, use a
 short unique tail of the line as the search.
@@ -386,7 +386,7 @@ definition says, check that `sourceCode` came back `null`.
    source, diff it against yours and reconcile. Do not overwrite work you have not seen.
    - **A Studio edit is one cause, not the only one.** Another session or agent can push (and
      publish) in between: a second session pushed to five blocks and published while a QA pass was
-     running, which left every scratch copy stale (LCDB, 2026-10-08). And an agent can push, then die
+     running, which left every scratch copy stale (2026-10-08). And an agent can push, then die
      before it writes the mirror: twice the mirror held a version older than the deployed block, and
      the version history rebuilt what was live.
    - **So compare again at review time and right before the push**, not only before editing, and
@@ -402,7 +402,7 @@ definition says, check that `sourceCode` came back `null`.
    an invented identifier — and the push is the first thing that reports them.
    - **This gate is weaker than Softr's compiler for TypeScript.** esbuild strips types without
      checking them, so a duplicate `type X` passes, and Softr then refuses the push with `Identifier
-     'X' has already been declared` (a reviewed block, refused at the second declaration; LCDB,
+     'X' has already been declared` (a reviewed block, refused at the second declaration,
      2026-10-08). The `jsx` loader cannot parse type annotations at all, so TypeScript source in a
      `.jsx` file needs `--loader:.jsx=tsx`. Add a duplicate-declaration check, for example `tsc
      --noEmit` failing on TS2300, TS2451 and TS2393, and grep the file for each new top-level name
@@ -446,7 +446,7 @@ array argument ([below](#the-array-argument-rejection-and-why-it-is-a-security-i
 segment in the path the page loads, `…/vibe-coding/…/<blockId>/<buildId>/index.js`.
 `vibe_coding_block_list_versions` returns `NOT_FOUND` for it, even though that tool's own description
 says it accepts a write tool's `versionId`. Every pushing agent in two QA rounds met both ids, and
-two looked the build id up in `list_versions` and got `NOT_FOUND` (LCDB, 2026-10-08). The two ids do
+two looked the build id up in `list_versions` and got `NOT_FOUND` (2026-10-08). The two ids do
 two jobs:
 
 - **To prove the preview serves a push**, compare the push result's `versionId` with the build id in the
@@ -456,7 +456,7 @@ two jobs:
 
 **A push call that times out may still have landed.** Read `sourceSha256` with `includeCode: false`
 before you send anything again. A call that answered "server isn't responding" had landed: the
-read-back matched the planned hash, and nothing was retried (LCDB, 2026-10-08). A re-sent search-replace
+read-back matched the planned hash, and nothing was retried (2026-10-08). A re-sent search-replace
 fails on text it already changed, or applies twice where the replacement still contains the search. A
 refused push stores nothing, so read the deployed hash back before you send the fix as well. And
 when the deployed block, the working copy and the mirror already hash the same, skip the push: every
@@ -880,7 +880,7 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 
 **Email senders, as the MCP shows them** (read 2026-09-10 and 2026-09-18): `workspace_list_email_senders` lists each workspace sender with a `confirmed` flag, and an address that was added but never verified reads `confirmed: false`. `application_get` showed the app's own sender as `<subdomain>@softr.app`. In a workflow, a `SOFTR_SEND_EMAIL` node chooses its sender through the optional `emailSenderSignatureId` input. Before publishing a workflow that must send from a particular address, check that the address is in the list and confirmed.
 
-**Three setup facts from an app build** (LCDB, 2026-10-05 to 07):
+**Three setup facts from an app build** (2026-10-05 to 07):
 
 - **A plan caps its custom user groups, so check the cap before designing roles.** The app's public config, `window.application_context` on its `/login` page, carried `numberOfCustomUserGroups` (3 on that plan) and `signUpSettings.policy`. It is a read-only check and needs no login. The cap forced a late redesign from four groups to three. On a plan with none, `application_create_user_group` was refused: "Custom user groups are not included in your plan. Upgrade to create them." (2026-10-13)
 - **A new app comes with a default test user** (`testuser@example.com`, seen in the one app we created) in no group. Deactivate it before go-live, or keep it as the no-group test account. An app made with `application_create` on 2026-10-13 had none: `application_list_users` listed only the two users we added.
@@ -892,7 +892,7 @@ Combined with the database tools (`database_create` / `database_create_table` / 
 
 > **application_preview links are auth tokens.** Per the server's own instructions, a preview link **signs its opener in as the user who requested it** and lasts about a day. Give it only to that user, and mint a fresh one with another `application_preview` call rather than re-sending an old link. Never paste a preview link into a shared channel.
 >
-> **The `&version=<n>` in a preview link is an app-level number, not a block version, and it does not prove which code is served.** By Softr's design a link keeps serving the version it was minted for, but in one app every freshly minted link read the same `&version=153` for about 16 hours, across dozens of block pushes and two app publishes, and each link served the newest block build (LCDB QA pass, 2026-10-07 to 08). Prove what is served by the script's build id, as in [the `versionId` note](#verifying-a-push--the-deployed-source-is-the-only-proof). After every push, still mint a new link (or press the preview's `#refresh-button`) before you check anything. Whether a link minted *before* a push keeps serving the old build was not re-tested.
+> **The `&version=<n>` in a preview link is an app-level number, not a block version, and it does not prove which code is served.** By Softr's design a link keeps serving the version it was minted for, but in one app every freshly minted link read the same `&version=153` for about 16 hours, across dozens of block pushes and two app publishes, and each link served the newest block build (QA pass, 2026-10-07 to 08). Prove what is served by the script's build id, as in [the `versionId` note](#verifying-a-push--the-deployed-source-is-the-only-proof). After every push, still mint a new link (or press the preview's `#refresh-button`) before you check anything. Whether a link minted *before* a push keeps serving the old build was not re-tested.
 
 **Reading pages and blocks:**
 
@@ -901,7 +901,7 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   still mentions it). For a block nested in a column or tab container, the container's slots set its
   position, not its place in the list. The list is not visual order where shared blocks are involved
   either: it showed the shared navigation header block after the page's content on every page except
-  Home, in two apps (LCDB, 2026-10-05 to 08).
+  Home, in two apps (2026-10-05 to 08).
 - **Where a block created over MCP lands is not predictable.** Earlier notes had a created block at
   the bottom of the page. On 2026-10-15 one create put the block first among the page's content
   blocks, above the existing one, and the tool's own description says it inserts the block right
@@ -928,7 +928,7 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   per its description, a restriction whose group was deleted keeps the id, reads with a `null` group
   name and applies to nobody). Then in Studio, where the MCP cannot see: Page Rules rows
   and navigation-link visibility. A group that came back clean on both was deleted by hand
-  (LCDB, 2026-10-07).
+  (2026-10-07).
 - **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
   version's `createdAt` are ISO-8601 UTC with millisecond precision, studio-side and tables-side
   alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
@@ -980,7 +980,7 @@ connection's field reference key set to `id`. The HubSpot version (2026-10-05) i
   `application_list_user_groups`.** A group left in condition mode with nothing filled in reads back as
   a condition holding one blank rule (no field, no operator). What that rule matches is unverified, so
   switch the group to a manual list before anyone relies on it. A read-back found this on a group
-  that was meant to be manual (LCDB, 2026-10-07).
+  that was meant to be manual (2026-10-07).
 - **Keep the top administrator group a manual list.** A condition on users-table fields hands
   membership to anyone who can edit those fields in the table, so they could promote themselves.
 
@@ -1273,7 +1273,7 @@ Known limits and behaviors (per official docs):
   `options.maxLength`: on 2026-10-13 a starter table's Name carried 1,024, two fields made by
   `database_create_table` carried 2,147,483,647, and the field reference says 255 (ours).
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
-- **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours, LCDB,
+- **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours,
   2026-10-08, both rounds of a QA pass). Two metrics in one call were refused more often than not.
   A metric is `{ field, aggregation }` inside `metrics`: the key is `aggregation`, not `function`
   (an easy slip). In the first round, two metrics on different fields returned `BAD_REQUEST` every
@@ -1293,7 +1293,7 @@ Known limits and behaviors (per official docs):
 - **`database_search_records`:** filters name fields by id in `leftSide`. A sort on `updatedAt` was
   silently ignored, and a filter on `id` was rejected.
 - **`database_create_field` on a LINKED_RECORD always creates a single-valued inverse** on the target
-  table, named after the source table. Links defined inside `database_create_table` got none (LCDB,
+  table, named after the source table. Links defined inside `database_create_table` got none (on
   2026-10-05). Make the inverse multi-valued (`database_update_field`, `options.allowMultipleEntries:
   true`) unless one-to-one is meant. Otherwise a second link silently overwrites the first, as in
   [the single-valued pair trap](../datasources/writing.md#linked-record-write-traps-verified-live-2026-08-26).

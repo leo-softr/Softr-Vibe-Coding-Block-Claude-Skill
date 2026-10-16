@@ -556,7 +556,7 @@ on the trigger from the console (a synthetic click does not move focus either), 
 typing with real key events. A browser-automation "type" action that inserts text without key
 events drops it into the last focused text field, which makes a correct Combo look broken.
 
-**The incident: LCDB, 2026-10-07.** A browser check reported that in B4's New
+**The incident, 2026-10-07.** A browser check reported that in B4's New
 partner modal, letters typed after opening the click-only "Partner type" list went into
 Organization name, and Escape then showed the modal's "Discard your changes?" strip while the
 list stayed open. Part of that report came from the test tool, whose "type" action wrote into the
@@ -623,7 +623,7 @@ Everything else — the trigger, the card, the rows — stays flat.
       `role="combobox"`
 - [ ] The trigger is named with `aria-labelledby="<label id> <trigger id>"`, so its accessible
       name holds the field and the selected value. An `aria-label` with only the field name
-      replaces the button's own text, so a screen reader never hears the value (LCDB QA write
+      replaces the button's own text, so a screen reader never hears the value (QA write
       pass, 2026-10-08: an edit dialog's dropdowns announced "Partner type" and nothing else,
       while another block's dropdowns announced both)
 - [ ] Loading and empty states (`"Nothing matches that."`)

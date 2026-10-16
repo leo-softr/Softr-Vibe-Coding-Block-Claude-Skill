@@ -16,7 +16,7 @@ strings as the native field, so swapping one for the other changes nothing that 
 The kit picks a day. A time of day or a month-only value has no kit yet; build one on the same
 rules before adding the native field back.
 
-**Where it comes from.** On 2026-10-07 the LCDB app (a Softr Database app with Softr's sidebar
+**Where it comes from.** On 2026-10-07 one project (a Softr Database app with Softr's sidebar
 navigation) set out to replace all 21 native date fields across 12 blocks, after the browser
 calendar was flagged on the Reports page and again on Inventory's transaction history.
 The component was built once, checked in a React 18.2 shadow-root harness (22 checks, Chromium and
@@ -136,7 +136,7 @@ that showed the bug and in no other. So the copy is never edited in a block. The
    project that re-skins it gets another number.
 
    ```tsx
-   // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 3bb0cdae9c91 - edit there, not here =====
+   // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 a2e17a008be5 - edit there, not here =====
    /** DatePicker — brand-styled date field … (the kit file, byte for byte)
    …
    // ===== /DatePicker =====
@@ -203,7 +203,7 @@ argument is the marker name):
   python3 Shared/kit-sync.py sync  DatePicker Shared/DatePicker.tsx */*.jsx
 
 The kit's markers in a block (the start line names the kit file and the first 12 hex of its sha256):
-  // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 3bb0cdae9c91 - edit there, not here =====
+  // ===== DatePicker: verbatim copy of Shared/DatePicker.tsx sha256 a2e17a008be5 - edit there, not here =====
   ...the kit file, byte for byte...
   // ===== /DatePicker =====
 Blocks without the markers are skipped. check exits 1 when any copy differs from the kit; sync rewrites the
@@ -254,7 +254,7 @@ def main():
 main()
 ```
 
-Tested on 2026-10-07 on copies of two LCDB blocks: `check` passes against their kit, flags both as
+Tested on 2026-10-07 on copies of two production blocks: `check` passes against their kit, flags both as
 stale against a changed kit, `sync` rewrites only the marked region, and syncing back to the
 original kit gives a file byte-identical to the original block. Blocks without the markers are
 skipped. Run again on 2026-10-08 against the kit below: `check` flagged a block carrying an old sha,
@@ -467,7 +467,7 @@ active day, Today, Clear; an extra stop before the day is the capped grid's scro
 ([browser-checks.md → Block saves before any click, and prove it](browser-checks.md#6-block-saves-before-any-click-and-prove-it)),
 pick a day, save, and read the aborted request's payload: the field holds the same string the native
 field sent for that day (`"2026-10-15"`, not a timestamp). Clear sends what an emptied native field
-sent, unless the block deliberately changed it (one LCDB block now saves a cleared optional date as
+sent, unless the block deliberately changed it (one block in that app now saves a cleared optional date as
 `null`). When you read the native field before the swap, read its `.value`: the text it shows
 follows the browser's locale ([browser-checks.md → 4](browser-checks.md#4-measuring-with-eval)).
 
@@ -565,7 +565,7 @@ The tokens sit in `DP_C` at the top, and the Tailwind class strings repeat some 
 hex, because a class string cannot read a constant (each string has a comment saying which hex is
 which token). Change both, with a find-and-replace per hex over the kit file:
 
-| Token | Kit value (LCDB) | Used for |
+| Token | Kit value | Used for |
 |---|---|---|
 | `primary` | `#680058` | Selected day, today's ring, focus rings, Today button, the open trigger's border |
 | `primaryDeep` | `#4E0042` | Hover on the selected day |
@@ -605,13 +605,13 @@ After a re-skin, the kit file's sha changes; sync it into every block.
 
 ## The kit file
 
-Below is the whole kit, ready to save as the project's kit file. It is the LCDB kit approved on
+Below is the whole kit, ready to save as the project's kit file. It is the kit approved on
 2026-10-08. Its code is the approved file's, byte for byte. Only comments differ, worded to make
-sense outside the project: the one name in the first comment is "LCDB", and a block label, a
+sense outside the project: the first comment carries no project name, and a block label, a
 style-guide file name, a place name, a colour name and a note on the top bar are replaced by plain
 wording. The project's own file keeps the original comments, so its sha256 is `7766c741b271…` and
 its markers carry that. The text below is 807 lines and ends with one newline. Saved as a file it
-has sha256 `3bb0cdae9c911fbfc21451c05e9c0802f3fafaf6713d10e2def676da28f863ec` (`shasum -a 256`,
+has sha256 `a2e17a008be54cf2012b86250a41983cfd3d2f7d1dfd3845929e4720fe547e99` (`shasum -a 256`,
 final newline counted; the method is under
 [The kit between markers](#the-kit-between-markers)).
 
@@ -628,7 +628,7 @@ not scroll, and Safari releases older than the current WKWebView's handling of `
 <summary>DatePicker.tsx (807 lines)</summary>
 
 ```tsx
-/** DatePicker — brand-styled date field for Softr Vibe Coding blocks (LCDB), replacing native
+/** DatePicker — brand-styled date field for Softr Vibe Coding blocks, replacing native
  * <input type="date">: its calendar pop-up is browser UI that no CSS reaches, so this one is drawn in the block's own
  * DOM. Paste everything below this comment at MODULE scope (never inside Block()). Built 2026-10-07; 22 checks pass
  * in a React 18.2 shadow-root harness with Tailwind v4 (Chromium 149 and macOS Firefox 157, TZ America/Los_Angeles,

@@ -6,7 +6,7 @@ are in [browser-checks.md](browser-checks.md), the MCP in [softr-mcp.md](softr-m
 shapes in [datasources/](../datasources/overview.md).
 
 **Verified 2026-10-08.** Written from one end-to-end QA pass of a 15-block back-office app on Softr
-Database (LCDB QA pass): 68 findings, two rounds of fixes and a live write pass. Each rule below
+Database: 68 findings, two rounds of fixes and a live write pass. Each rule below
 cost someone a wrong result first. The second round of the pass, the same day, added the walk of a
 successful save and what the read-only checker does (QA round 2). Later builds and pushes added,
 on 2026-10-15, how to keep the push scripts, a jsdom render of a block's own code, a recipe for
@@ -90,7 +90,7 @@ pass against a client's database has to leave no trace.
     field).
 
   `database_search_records` ignores a sort on `updatedAt` and rejects a filter on `id`, so do not
-  rely on either to show "nothing unlisted" (LCDB write pass checker, 2026-10-08).
+  rely on either to show "nothing unlisted" (write pass checker, 2026-10-08).
 - **A race you cannot reproduce live with writes blocked stays in the local harness**, and the
   report says so. "A second row still saving" is one: the first write fails at once, so the second
   is never reached.
@@ -101,7 +101,7 @@ pass against a client's database has to leave no trace.
 
 Role bugs were found only when a pass compared roles side by side: hints that pointed users to pages
 they could not open, admin pages that opened blank for volunteers, and an update action with no
-record condition (LCDB QA pass, 2026-10-08).
+record condition (QA pass, 2026-10-08).
 
 - **Check each page as an administrator, as an ordinary user, and as a logged-in user in no
   group.** Impersonate rather than log in
@@ -285,7 +285,7 @@ A page can look right and be wrong, and a browser cannot tell. Compare it with t
 ## Testing edges on purpose
 
 The happy path passed everywhere. The real bugs were on these edges, and several checks passed
-without reaching the step they asserted (LCDB QA pass, 2026-10-08). The mechanics for the
+without reaching the step they asserted (QA pass, 2026-10-08). The mechanics for the
 first five are in [browser-checks.md → Forcing states](browser-checks.md#forcing-states).
 
 - **A fake clock**: month end, year end, a clock change.
@@ -500,7 +500,7 @@ owner's go-ahead: the preview writes live data. On 2026-10-08 it ran after the o
   [browser-checks.md → step 4](browser-checks.md#4-measuring-with-eval) with saves blocked, and a
   live write pass only where one is approved. A stage with nothing to do returns a placeholder
   string, never `null`: a `null` drops the item from every later stage. One block needed no edit or
-  review, so its review stage returned `null` and it never got its sync (LCDB QA pass, 2026-10-08).
+  review, so its review stage returned `null` and it never got its sync (QA pass, 2026-10-08).
   **Gate each stage on the evidence of the one before it.** A verify stage needs a non-empty pushed
   sha, so before dispatching one, compare the mirror's and the base copy's sha with the push plan's
   target sha: if the mirror still has the base sha and not the target, nothing is confirmed pushed
