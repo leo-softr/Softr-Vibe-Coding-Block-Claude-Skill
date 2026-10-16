@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.21.1] - 2026-10-16
+- Drop project labels from evidence tags; keep the dates (2.21.1)
+
 ## [2.21.0] - 2026-10-15
 - QA lessons from a pushed and published app round (2.21.0)
 
