@@ -550,6 +550,8 @@ event reaches `document`. The in-block modal's document listener returns early o
 `e.defaultPrevented`, so the modal stays open and clean. Either guard alone covers that modal,
 but keep both: another document-level listener may not check `defaultPrevented`.
 
+That holds for the in-block modal. A shadcn/Radix `Dialog` hears Escape on `document` in the capture phase, before the Combo's handler runs, so it needs its own guard fed by a registry of open panels ([common-patterns.md → Failures, focus and Escape](common-patterns.md#failures-focus-and-escape)).
+
 **To reproduce Safari in any browser,** focus the text field before the Combo, call `.click()`
 on the trigger from the console (a synthetic click does not move focus either), and read
 `activeElement` on the block's shadow root. It must be the search box or the trigger. Test
@@ -625,6 +627,10 @@ Everything else — the trigger, the card, the rows — stays flat.
       name holds the field and the selected value. An `aria-label` with only the field name
       replaces the button's own text, so a screen reader never hears the value (QA write
       pass, 2026-10-08: an edit dialog's dropdowns announced "Partner type" and nothing else,
-      while another block's dropdowns announced both)
+      while another block's dropdowns announced both). With no visible label element (a
+      filter in a row of filters, a `bare` inline editor in a table cell), build the
+      `aria-label` from the field and the value shown, `"Filter by status: " + shown`, so it
+      follows the pick; a fixed label such as "All statuses" over another shown value is a bug
+      (QA pass, 2026-10-16, [ui-ux-guidelines.md](../ui-ux-guidelines.md#keyboard-and-screen-reader))
 - [ ] Loading and empty states (`"Nothing matches that."`)
 - [ ] No `@/components/ui/select` import anywhere in the file

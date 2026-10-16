@@ -21,6 +21,7 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Clear Softr's sticky bars](#clear-softrs-sticky-bars)
 - [A modal above Softr's bars](#a-modal-above-softrs-bars)
 - [Inline confirm in place of a button](#inline-confirm-in-place-of-a-button)
+- [A form open while its record changes](#a-form-open-while-its-record-changes)
 - [Drafts that survive a reload](#drafts-that-survive-a-reload)
 - [CSV export](#csv-export)
 
@@ -830,6 +831,8 @@ What a QA pass of 15 app blocks found in dialogs like this one (2026-10-08): dia
 - **In review, list every `disabled=` that is still tied to a busy or failed state** (a main action, a Try again in an error well, a Discard on a restored-draft note) and put each in the focus test: press it, then [record where focus goes over time](browser-checks.md#4-measuring-with-eval) instead of reading it once.
 - **A control that unmounts on its own success drops focus to `<body>`.** Discard on a restored-draft note, Set active on an Inactive banner, a paging button on the last page: move focus to a stable, always-mounted target first. For a dismissed note, reuse the form's focus-first-control call (`setTimeout(…, 0)`, through a ref in the shadow root, not `document.getElementById`). For a paging button, keep the footer and make it a `tabIndex={-1}` paragraph ("All N shown") that takes the focus.
 - **Escape closes only the innermost layer**: an open list, a calendar, an inline question, then the dialog. Each inner layer calls `preventDefault` + `stopPropagation`; the modal's listener returns on `defaultPrevented`.
+- **Inside a shadcn/Radix `Dialog` that rule needs one more guard.** (The in-block modal is the default on pages with Softr's navigation, see [A modal above Softr's bars](#a-modal-above-softrs-bars); this is for a block that does use shadcn's `Dialog`.) Radix hears Escape on `document` in the capture phase, before any handler inside the dialog runs (its escape hook adds the keydown listener with `{ capture: true }`, read from `@radix-ui/react-use-escape-keydown` 1.x, 2026-10-16), so a Combo's or calendar's own `preventDefault` + `stopPropagation` cannot stop it: Escape with a list open closed the whole dialog and lost what was typed. Keep a registry of the open panels (a module-scope Set that the Combo adds itself to on open and leaves on close) and give `DialogContent` an `onEscapeKeyDown` that calls `event.preventDefault()` while the registry is not empty. One Escape then closes the newest panel, and the next closes the dialog. Seen failing, then fixed, on a report form with 8 pickers: 14 checks in its New and Edit dialogs passed after the guard (QA pass, 2026-10-08). The same guard added to a second dialog was checked in code only (2026-10-16).
+- **A shadcn `Dialog` opened from a button in a block cannot give focus back by itself.** It has no `DialogTrigger`, so on close Radix focuses the element that was active when it opened (`document.activeElement`, read from `@radix-ui/react-focus-scope` 1.x); inside a shadow root that is the block's host element, which cannot take focus, and focus lands on `<body>`. Remember the opener when the dialog opens (a ref set in the click handler) and pass `onCloseAutoFocus={(event) => { event.preventDefault(); openerRef.current?.focus(); }}` to `DialogContent`. When the opener was a menu item that closes with its menu, hand over the menu's button. Seen live on a project header's dialogs (QA pass, 2026-10-16): Escape on Rename and Escape or Cancel on Add item returned focus to the control that opened them; Archive uses the same code and was not run.
 - **Don't render the dialog as `open && !loadError`.** A background read that fails while it is open would unmount it. Keep an open dialog mounted whatever a read does.
 - **Room for the X at every breakpoint**: set the header's sides separately (`pl-* pr-14`), because `px-*` at a breakpoint overrides `pr-*` ([anti-patterns.md](anti-patterns.md#layout--styling)).
 
@@ -867,6 +870,21 @@ function ConfirmStrip({ text, safeLabel, actionLabel, onSafe, onAction }: {
   );
 }
 ```
+
+## A form open while its record changes
+
+A form filled from a record once (on first load, after its own save, after Discard) goes stale when the record changes under it: a colleague saves the same record, or the window-focus refetch ([reading.md](../datasources/reading.md#userecords----fetch-a-paginated-list)) brings back what someone else wrote. The form keeps its old values while "dirty" is measured against the new record, so the card says "Unsaved changes" that nobody made, and the next Save writes the whole stale form back over the colleague's change. Last write wins, and nothing says so.
+
+Keep a **baseline** beside the form: the form as it was last filled from the record.
+
+- **Hold the baseline in a ref** and set it whenever the form is filled from the record (first load, the person's own save, Discard, a link, unlink or create action that re-fills the form) and nowhere else.
+- **Dirty is the form against the baseline, key by key** ([ui-ux-guidelines.md](../ui-ux-guidelines.md#15-error-prevention-and-destructive-actions)), not the form against the record.
+- **Save sends only the keys that differ from the baseline** ([writing.md → Send only what changed](../datasources/writing.md#critical-the-userecordupdate-payload-shape-and-the-retired-mutate-only-rule)), and on success moves the baseline to what it saved before the re-read lands.
+- **When the record changes under an open form, merge.** For each key, a field still equal to the baseline takes the record's new value (the colleague's change appears and "Unsaved changes" stays off); a field the person edited keeps their value; then the baseline becomes the new record's form. A key both people changed keeps the person's edit, and their Save overwrites the colleague's on purpose: say so in a note or a confirmation if that matters.
+
+Refilling the whole form whenever the data changes is not the answer: it wipes what the person is typing. The counter fix in [anti-patterns.md → Hooks & React](anti-patterns.md#hooks--react) (bump a counter the fill effect depends on) has the same problem here.
+
+Seen on an item card with 33 fields (QA pass, 2026-10-16): with a colleague's ETA change simulated through a mocked read while notes had been typed, the untouched ETA box took the new value, the typed notes stayed, and the Save body carried only the notes. The overwrite before the fix is read from the code, not captured: it takes two sessions on one record.
 
 ## Drafts that survive a reload
 

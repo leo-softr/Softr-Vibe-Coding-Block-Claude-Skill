@@ -130,6 +130,8 @@ updateRecord.mutate(
 );
 ```
 
+This shape is right while only one write per hook can be in flight. Callbacks passed to `.mutate()` belong to the latest call only, so a table with a picker or a Save on every row uses `updateRecord.mutateAsync(payload).then(ok, err)` and a pending flag per record id ([writing.md → Overlapping writes on one hook](../datasources/writing.md#overlapping-writes-on-one-hook)).
+
 **Payload shapes or `enabled` stays `false`:**
 1. Update payload is `{ recordId, fields: {...} }` — NOT flat `{ recordId, status: "..." }`
 2. Create payload is FLAT — `{ name: "..." }`, no `fields` wrapper
@@ -165,8 +167,9 @@ deleteRecord.mutate(record.id);  // Just the ID string
 `.enabled`, `.status`, `.error`, `.mutate()`, `.mutateAsync()`, `.reset()`
 
 Both `.mutate(payload, { onSuccess, onError })` and `await .mutateAsync(payload)` derive
-Actions correctly on the current platform (verified 2026-08-25). Use `.mutate` for
-fire-and-forget single writes, `mutateAsync` for sequenced flows. (Pre-2026-08 platforms only
+Actions correctly on the current platform (verified 2026-08-25). Use `.mutate` for a
+fire-and-forget single write that cannot overlap another on the same hook, `mutateAsync` for
+sequenced flows and for per-row edits that can overlap. (Pre-2026-08 platforms only
 recognized the literal `.mutate(` token — relevant only when maintaining old apps.)
 
 ## Linked Records Picker

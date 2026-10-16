@@ -45,7 +45,9 @@ block, [browser-checks.md](browser-checks.md) is enough.
 - **Check changes in the preview (the draft), not the live app.** A push reaches the draft, and the
   live app changes only when someone publishes. Only two things run on the published app: the
   [logged-out checks](#logged-out) and the re-check after a publish.
-- **Mint a fresh preview link for each session and after every push** (`application_preview`). The
+- **Mint a fresh preview link for each session and after every push** (`application_preview`), and
+  again when a page in a long pass lands on `/login`: that is the session ending, not a permission
+  fault ([browser-checks.md → Gotchas](browser-checks.md#gotchas)). The
   link is a sign-in token: never print it, store it, or write it into a script file
   ([browser-checks.md → Gotchas](browser-checks.md#gotchas)).
 - **Prove which build is served before you judge a change**
@@ -294,6 +296,7 @@ first five are in [browser-checks.md → Forcing states](browser-checks.md#forci
   lands, the payload a void sends ([Walk a successful
   save](browser-checks.md#walk-a-successful-save-without-writing)). Focus is recorded over time, not
   read once ([step 4](browser-checks.md#4-measuring-with-eval)).
+- **The record changing under an open form**: change one field in the form, change another field of the same record from a second session (or through a mocked read), then bring the first tab back so the hooks refetch ([Forcing states](browser-checks.md#forcing-states)). The untouched field should take the new value, the typed one should stay, and Save should send only the typed one ([A form open while its record changes](common-patterns.md#a-form-open-while-its-record-changes)).
 - **Partial and total read failures**, then every Try again and every section after it.
 - **Served reads** for empty-like values: `null`, `''`, `0`, and the field missing. A blank number
   is not zero: `Number(null)` and `Number("")` are both 0, and a partner with no monthly allocation

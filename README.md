@@ -190,6 +190,9 @@ softr-vibe-coding/
 │                                     # focus after a Retry, one plural helper, and what to do
 │                                     # before the first push; Hard Constraint 23 names the
 │                                     # create-only case; router rows extended
+│                                     # Oct 16 2026 (2.22.0): checklist clauses for an empty-list message that waits for every
+│                                     # page, overlapping edits on one hook (mutateAsync), and a Radix Dialog's Escape guard and
+│                                     # focus return
 │
 ├── ui-ux-guidelines.md               # Design reference
 │                                     # 26 sections: hierarchy, color, typography,
@@ -200,6 +203,8 @@ softr-vibe-coding/
 │                                     # Oct 15 2026: a control that keeps a repair reachable
 │                                     # fails open, one dirty rule for every discard prompt,
 │                                     # pluralise every count
+│                                     # Oct 16 2026 (2.22.0): "Name: value" screen-reader names for pickers, a skeleton until
+│                                     # every page is in, the baseline for a form open while its record changes
 │
 ├── references/                       # Advanced patterns (loaded on demand)
 │   ├── helper-blocks.md              # Cross-block communication
@@ -312,6 +317,8 @@ softr-vibe-coding/
 │   │                                 # answer a read but not delay it; agent-browser also answers
 │   │                                 # the navigation blocker's confirm; Oct 15 2026:
 │   │                                 # a probe lists cookie names, never values
+│   │                                 # Oct 16 2026 (2.22.0): fire the refetch events on window, a preview session can expire
+│   │                                 # mid-pass, the Escape spy sees capture-phase listeners
 │   ├── qa-playbook.md                # QA of a whole app, in the order to run it (Oct 8
 │   │                                 # 2026): set-up (draft, served build, client zone,
 │   │                                 # one session per agent), never writing by accident,
@@ -334,6 +341,8 @@ softr-vibe-coding/
 │   │                                 # evidence of the one before, stopping on a repeated
 │   │                                 # access error, a logged-out probe proves little while
 │   │                                 # the page is logged-in-only, saying what did not run
+│   │                                 # Oct 16 2026 (2.22.0): the record-changing-under-an-open-form edge; a /login landing
+│   │                                 # means the session ended
 │   ├── advanced-integrations.md      # Shadow DOM CSS isolation
 │   │                                 # Leaflet, Mapbox, TinyMCE, Quill, FullCalendar
 │   ├── native-chrome-styling.md      # Restyle Softr's native shell (header, footer,
@@ -364,6 +373,8 @@ softr-vibe-coding/
 │   │                                 # Oct 8 2026 (QA pass): rows for parseISO and Number() on
 │   │                                 # date-only and blank fields, || defaults, click-event flags,
 │   │                                 # focus lost on self-removing buttons, grid and overflow traps
+│   │                                 # Oct 16 2026 (2.22.0): a per-row .mutate row and the overlapping-saves scope; a caveat on
+│   │                                 # the refill-the-form row
 │   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
@@ -382,6 +393,8 @@ softr-vibe-coding/
 │   │                                 # the block's own UI, from the nav see modal-pages.md;
 │   │                                 # Oct 15 2026: one dirty rule for both guards, a Retry
 │   │                                 # that unmounts and a disabled focus target
+│   │                                 # Oct 16 2026 (2.22.0): a form open while its record changes (baseline ref, send only
+│   │                                 # changes, merge); Radix Dialog Escape and focus return
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity
@@ -411,6 +424,7 @@ softr-vibe-coding/
 │   │                                 # field mapping, component skeleton,
 │   │                                 # Softr navigation variables, container queries;
 │   │                                 # error.message mapped through one helper (Oct 8 2026)
+│   │                                 # Oct 16 2026 (2.22.0): .mutate callbacks fire for the last call only
 │   ├── searchable-dropdown.md        # THE dropdown pattern for blocks
 │   │                                 # why native <select> and shadcn <Select> both
 │   │                                 # break in the shadow DOM, composedPath()
@@ -427,6 +441,8 @@ softr-vibe-coding/
 │   │                                 # opening moves focus into the Combo and Escape closes only
 │   │                                 # the list (Oct 7 2026); the trigger named with
 │   │                                 # aria-labelledby so the value is announced (Oct 8 2026)
+│   │                                 # Oct 16 2026 (2.22.0): a Radix Dialog hears Escape before the Combo does (capture phase),
+│   │                                 # and the "Name: value" aria-label check
 │   └── date-picker.md                # THE date field for blocks: no native
 │                                     # <input type="date"> (its calendar is browser
 │                                     # UI no CSS reaches); the DatePicker kit (API +
@@ -474,6 +490,8 @@ softr-vibe-coding/
     │                                 # read's where before reuse; Oct 15 2026: a client filter
     │                                 # cannot undo a Source condition, and a repair control
     │                                 # stays shown until a paginated read has settled
+    │                                 # Oct 16 2026 (2.22.0): the empty message of a list narrowed in the browser waits for
+    │                                 # every page; a pointer to the stale-form pattern
     ├── writing.md                    # Mutations, sequential write queues, uploads,
     │                                 # linked record format, cross-table writes;
     │                                 # Actions register per table (Sep 18 2026);
@@ -485,6 +503,8 @@ softr-vibe-coding/
     │                                 # Retry disabled during its check; Oct 13 2026: a file on
     │                                 # the assistant's machine goes in through the MCP upload link;
     │                                 # data restrictions over MCP, a link written by name
+    │                                 # Oct 16 2026 (2.22.0): overlapping writes on one hook (.mutate keeps the last call's
+    │                                 # callbacks, .mutateAsync is per call), send only what changed
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape
@@ -492,6 +512,8 @@ softr-vibe-coding/
     │                                 # Oct 8 2026 (QA pass): a blank NUMBER arrives as null (test
     │                                 # blank, then Number), parseISO shows a date-only day early
     │                                 # too, compare date-only values as yyyy-MM-dd text
+    │                                 # Oct 16 2026 (2.22.0): attachment thumbnails (small, medium, large) and a helper that
+    │                                 # picks the small one
     ├── rest-api.md                   # useProxyFetch + useQuery (full docs)
     ├── softr-database.md             # Native DB — field IDs, no rate limits; checkbox,
     │                                 # formula float, EMAIL lists, link label = display

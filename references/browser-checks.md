@@ -309,7 +309,11 @@ named like `Thursday, October 15, 2026`.
   empty log together with the dialog count (`[role="dialog"]` still there) and focus back on the
   trigger: the three together show the calendar stopped the key before the dialog saw it, which an
   empty log alone does not. What the second Escape should do is in [date-picker.md → Verifying a
-  block](date-picker.md#verifying-a-block) (step 3 there).
+  block](date-picker.md#verifying-a-block) (step 3 there). A shadcn/Radix `Dialog` listens in the
+  capture phase, so a bubbling spy proves nothing about it: for that dialog the evidence is the
+  dialog count (`[role="dialog"]` still there after the first Escape with a list open, gone after the
+  second) and focus on the trigger ([common-patterns.md → Failures, focus and
+  Escape](common-patterns.md#failures-focus-and-escape)).
 - **Truncation, placeholders and text under a close button:** `scrollWidth > clientWidth` everywhere
   a message shows (a 100-character message was cut to "This line was not saved: the app c…"), canvas
   `measureText` for a placeholder, and `Range.getClientRects` for header text under an absolutely
@@ -639,7 +643,10 @@ ab network unroute '<the same pattern>'                               # never ba
   state disappears while Try again re-reads, because the data library resets the read to loading.
   Load the page, add the route, then trigger a background re-read without a click:
   `window.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus'))`.
-  It refetched on one block and not on another (probably only once the data is stale). If nothing
+  Dispatch both on `window`, not on `document`: the data library listens on `window` (read from its
+  source), and a plain `new Event(...)` does not bubble, so one dispatched on `document` never reaches
+  that listener (checked against the library in a script, 2026-10-16). It refetched on one block and
+  not on another (probably only once the data is stale). If nothing
   re-reads, abort the read, reload, wait for the error (about 11 s), then install the read-holding fetch
   wrapper (the one in the bullet above, so untried as said there), unroute, and press Try again.
 - **Test Try again by failing every read, restoring them, pressing it once, and then checking every
@@ -940,6 +947,12 @@ on the published app, logged out.
 
 ## Gotchas
 
+- **A preview session can expire in the middle of a pass.** A page that was working then lands on
+  `/login`, and every later read looks like a permissions failure or an empty app (seen in a QA pass,
+  2026-10-16; how long a session lasts was not measured). Before blaming the app, check where the
+  page actually is (`ab eval "location.pathname"`), then mint a new link with `application_preview` and open it once
+  with output sent to `/dev/null`. Re-install the save guard and re-run its probe after the reload,
+  because the route belongs to the page load.
 - **zsh does not word-split.** `AB="agent-browser --session x"; $AB open …` fails with "command not
   found": use the function. Agent shells usually keep no functions or variables between calls, so
   define `ab`, and grep any ref, in the call that uses them; the browser lives on in the daemon.

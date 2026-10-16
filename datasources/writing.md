@@ -169,17 +169,35 @@ updateRecord.mutate({ recordId: id, status: "Active" }, { onSuccess, onError });
 
 Note the asymmetry: **update payloads nest under `fields:`, create payloads are flat** (no wrapper). Verified live 2026-08-25.
 
+**Send only what changed.** A value of `undefined` in the `fields: { ... }` literal is dropped when the payload becomes JSON, while the key stays in the source, so Softr's Action parser still lists the field. A Save can therefore write only the fields the person changed by writing every field as `key: changed("key") ? value : undefined`, without shrinking the action's field list. Checked on an item card with 33 written fields (QA pass, 2026-10-16): editing the notes sent `{"fields":{"<notes field id>":"…"}}` and nothing else (the PATCH body, read in a preview with saves blocked), and the block's UPDATE_RECORD action still listed all 33. The static-mapping rule in [reading.md](reading.md) is about `q.select`, not about the values in a payload. Do not use `null` for "leave alone": `null` clears the field (Softr Database number and text fields, see [Writing to Field Types](#writing-to-field-types)); that it clears an attachment was not tried, so treat it as likely. A Save that sends only changes needs the form's values as they were when it was filled to compare against: [A form open while its record changes](../references/common-patterns.md#a-form-open-while-its-record-changes).
+
 **`.mutateAsync()` is fully supported (verified live 2026-08-25 — supersedes the old rule).**
 Until mid-2026 this skill documented that the Action parser only recognized the literal
 `.mutate(` token, and that any mutation written as `.mutateAsync(...)` produced no derived
 Action (verified by direct experiment, May 2026, on the then-current platform). The current
 platform derives Actions for `mutateAsync` call sites too — a 15-block production deployment
 built its entire multi-row write layer on `await hook.mutateAsync(...)` with Actions deriving
-correctly on every block. Use `.mutate(payload, { onSuccess, onError })` for fire-and-forget
-single writes; use `await .mutateAsync(payload)` when the code must sequence writes or branch
-on the result (see [Sequential Multi-Row Writes](#sequential-multi-row-writes-mutateasync)).
+correctly on every block. Use `.mutate(payload, { onSuccess, onError })` for a fire-and-forget
+single write that cannot overlap another one on the same hook; use `await .mutateAsync(payload)`
+when the code must sequence writes or branch on the result (see
+[Sequential Multi-Row Writes](#sequential-multi-row-writes-mutateasync)), or when a second write
+can start before the first returns ([Overlapping writes on one hook](#overlapping-writes-on-one-hook)).
 If you're maintaining an old app where an Action refuses to derive, the legacy `.mutate(`-only
 parser is worth checking before deeper debugging.
+
+#### Overlapping writes on one hook
+
+**Callbacks passed to `.mutate(payload, { onSuccess, onError })` belong to the latest call on that hook.** TanStack Query documents it: callbacks given to `mutate` fire once, for the last mutation only, while handlers set on the hook itself run for every call. Softr's hooks look like TanStack Query's (`.status`, `.mutateAsync`, a refetch on window focus), so expect the same here. In a stand-alone check with `@tanstack/query-core` 5.104.3, the observer subscribed as a mounted component's is, row A's write failing and row B's starting 20 ms later ran only B's `onSuccess`; A's failure reached nobody (QA pass, 2026-10-16). Not reproduced on a live Softr block before the fix (inferred); the fix below was checked live.
+
+It bites wherever a second write can start before the first returns: a status picker or a Save on every row of a table, a checkbox on every line. Row A's pending state is cleared only by its own callbacks, so row A stays locked on the new label, its success toast never shows, and a failed write looks saved until a reload.
+
+- Call `rowUpdate.mutateAsync(payload).then(ok, err)`. Each call returns its own promise, so each row clears its own pending state and shows its own toast. Keep the call on the hook variable ([Actions register per table](#actions-register-per-table-not-per-hook-or-connection)).
+- Keep the pending state per record id (a map keyed by id), not one boolean or one `savingId`: a second row's Save would otherwise take over the first row's spinner.
+- Show a failure once: in the hook-level `onError` or in the call's own handler, not both (see "One hook serving two surfaces" above).
+- Softr still derives the UPDATE_RECORD action for a block whose only update call is `.mutateAsync` (its `actions` list read on two blocks, QA pass, 2026-10-16).
+- `.mutate(payload, { onSuccess, onError })` stays fine where only one write per hook can be in flight, such as a dialog's Save with its button locked while it saves.
+
+Seen live after the change (QA pass, 2026-10-16): with every write held 1.5 s and then failed, two rows changed back to back in an item table both released their old label and each showed one error toast, and so did two rows saved back to back in a quick-search list.
 
 ### useRecordDelete
 

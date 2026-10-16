@@ -89,9 +89,28 @@ You'll see exactly which field is an object. Add `getFieldValue()` around it.
 | Linked Record (via useRecord/useRecords) | `{ label: string, id: string }` — usually an array of these, but a link can arrive as a **single object** (verified live 2026-09-18); normalise with `Array.isArray(v) ? v : (v ? [v] : [])`. `label` is the linked table's display field, so it changes if that field does (Softr Database, verified 2026-09-19; [softr-database.md](softr-database.md#gotchas)) |
 | Linked Record (via useLinkedRecords) | `{ id: string, title: string }` -- different! |
 | User, Created By, Updated By | `{ avatarUrl, id, name, email }` |
-| Attachment | `{ filename, id, type, url }` |
+| Attachment | `{ filename, id, type, url }`, and `thumbnails` on images ([below](#attachment-thumbnails)) |
 | Formula | `string or number` |
 | Lookup (multi-value) | array of **strings**, one element per linked record: `["#1042#"]`, and `[]` when empty (verified live 2026-09-19, Softr Database). `getFieldValue()` joins it for display; a `contains` filter on it tests each element ([reading.md](reading.md#operator-semantics-on-the-server)) |
+
+### Attachment thumbnails
+
+An image attachment's read also carries `thumbnails`, an array of `{ size, url }` entries with `size` "small", "medium" or "large" (200, 600 and 1,200 px wide, as in [softr-mcp.md](../references/softr-mcp.md#putting-files-into-attachment-fields)); the in-block read has it too (seen 2026-10-16, QA pass). The small one is a CloudFront URL with `rs:fit:200:0` in its path and an `exp:` stamp about two hours after the read, the lifetime of the original's signed link. A 24-32 px photo tile, a table row photo or a card thumbnail should load it, not the original `url`: in one app the 242 photos were 46.7 MB as originals and 1.61 MB as small thumbnails (measured from the records), and a table that shows a few hundred rows fetched them all. Keep the original `url` for a full-size view, a lightbox or a download.
+
+```jsx
+function smallThumbnailUrl(a) {
+  if (a && typeof a === "object" && Array.isArray(a.thumbnails)) {
+    for (var i = 0; i < a.thumbnails.length; i++) {
+      var t = a.thumbnails[i];
+      if (t && t.size === "small" && t.url) return String(t.url);
+    }
+  }
+  return "";
+}
+var src = smallThumbnailUrl(photo) || (photo && photo.url) || "";   // the original is the fallback
+```
+
+Fall back to the original when `thumbnails` is missing or empty (a non-image file, or thumbnails still being made; the second case was not seen). Seen live on an item card (QA pass, 2026-10-16): both 26px component tiles loaded a 200px-wide thumbnail, while the 218px main photo kept the original, which is wider than 200px.
 
 ## Record Structure
 

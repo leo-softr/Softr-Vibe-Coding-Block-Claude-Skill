@@ -67,7 +67,7 @@ var items = (data && data.pages) ? data.pages.flatMap(function(p) { return p.ite
 
 **Two behaviours that look like bugs** (measured with reads aborted, QA pass, 2026-10-08):
 
-- **The hooks refetch when the window regains focus,** so `isRefetching` turns true with no click. A busy label driven by it flickers each time the user comes back to the tab; drive busy labels from the click.
+- **The hooks refetch when the window regains focus,** so `isRefetching` turns true with no click. A busy label driven by it flickers each time the user comes back to the tab; drive busy labels from the click. The same refetch can change a record under a form that is open: see [A form open while its record changes](../references/common-patterns.md#a-form-open-while-its-record-changes).
 - **A failed read is retried about three times before `status` turns `"error"`.** The error shows 6 to 20 seconds after the failure starts (7 to 13 seconds in most checks), and the block shows loading until then. A check that waits 3 to 5 seconds sees "Loading", not the error state.
 
 **House rule: one `useRecords` per connection.** It is not a documented platform limit — Hard Constraint 13 in SKILL.md says when to filter client-side, when to add a connection, and when a server-side `where` is the better choice. Multiple `useMetric` calls ARE allowed.
@@ -126,6 +126,8 @@ useEffect(function() {
 ```
 
 **A total, count or export built from a paginated list waits until every page has loaded** (`hasNextPage` false) and no read is in error. Until then it shows loading, never a number from the pages so far: a summary line read "0 children" while the children read was still on its first page or had failed, and a history list was capped instead of paged. [Printing](../references/printing.md#4-the-print-button-waits-for-the-data) applies the same rule to Print. A control that finishes a half-saved action does the opposite: it stays shown until the read has fully settled ([ui-ux-guidelines.md §12](../ui-ux-guidelines.md#12-loading-states)).
+
+**The same wait applies to the empty message of a list narrowed in the browser.** A read with no server-side `where` that the block cuts down to one record's rows (every item, 100 a page, narrowed to one project) has the project's rows only once their page has arrived. `status` is already `"success"` after page 1, so `status === "pending"` alone is not enough: a project whose items sat on page 2 or 3 said "No items on this project yet." until the last page came in. Keep the skeleton while `status === "pending"`, `hasNextPage` is true or a page is being fetched, and show the empty message only when `status` is `"success"`, there is no next page and the narrowed list is empty. The auto-load-all effect above does not prevent it by itself: it passes through the partly loaded states. A server-side `where` on the owner keeps page 1 relevant; client-side narrowing is Hard Constraint 13's answer for a small table, and the empty message is where a table that has outgrown "small" shows it. Seen live after the fix (QA pass, 2026-10-16): with page 1 holding none of a project's items and page 2 held for 6 s, the table showed skeleton rows and no empty message, then the rows. The wording before the fix is read from the code, not captured live: both projects in that app had items on page 1.
 
 ## useRecord -- Fetch a Single Record
 
