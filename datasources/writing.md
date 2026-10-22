@@ -698,6 +698,8 @@ tested there, nor on other data sources._
 
 Plain string. To clear a value, both `null` and `""` work for Softr Database text fields (verified by direct experiment, May 2026, for `useRecordUpdate`). Behavior on other data sources has not been independently verified.
 
+**Keep a single-line text value to 1,024 characters, whatever the field declares.** A write carrying a 1,565-character value, in a field that declares a `maxLength` of 2,147,483,647, was refused with a `400` and nothing was stored (verified live 2026-10-19, through the Tables API). The 1,024 is Softr's documented Short text limit (read 2026-10-22), not a tested one: 307 characters were accepted and nothing between 307 and 1,565 was tried. See [softr-database.md → Gotchas](softr-database.md#gotchas). Use a LONG_TEXT field (65,536 characters) for text that can run long.
+
 ### Phone
 
 **Unformatted international format only**: `+` followed by digits — nothing else (e.g. `+12125550100`). Some datasources (Monday.com is the one the official guide names) reject values containing spaces, dashes, or parentheses. Strip all non-digit characters except the leading `+` before submitting (official sanitizer from the developer guide):

@@ -194,6 +194,8 @@ Two auth methods:
 
 Revoke or edit access anytime in **Settings → API tokens** (Authorized apps section for OAuth, token list for PATs).
 
+**A connector the person has just reconnected can sit at `pending`, and its tools appear one turn later** (verified live 2026-10-19). The person said it was connected mid-turn; the session's connector status still read `pending`, enabling it answered "already enabled", the reconnect call could not find it by name or id, and the roughly 140 Softr tools (deferred, schemas through a tool search) were there only at the start of the next turn. Do not loop on reconnect calls. Say what you are waiting for, end the turn, look again at the start of the next one, and then run the account check below before any write. Why the tools wait for the next turn was not investigated.
+
 ## Permissions model
 
 Permissions are chosen per workspace across **three areas with bundled levels** — not granular per-tool scopes. Each level includes everything below it (no "write without read").
@@ -921,6 +923,13 @@ Combined with the database tools (`database_create` / `database_create_table` / 
     step too: list it for the person, read the result back with `application_page_get_permissions`,
     and do not call a public form live-tested until it has been reached logged out. What a nav
     button can open, and how to open a block from one: [modal-pages.md](modal-pages.md);
+  - inviting an app user: `application_add_user` creates the user with status `NOT_INVITED`, in no
+    group, and sends nothing (read back on four users, verified live 2026-10-19). No tool in the
+    roster of that day is named for inviting, and neither user tool's description mentions it;
+    `application_set_user_activation` only activates or deactivates. Its `active: true` means "not deactivated", not "able to sign in" (per the tool's
+    description): NOT_INVITED, INVITED and PENDING_VERIFICATION all read `active: true` and none has
+    signed in, so go by `status` and never tell the person an added user can sign in. The invite
+    itself is a Studio step (Users); that was not exercised;
   - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
   - the app's Custom Code and theme.
 - **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
@@ -1269,9 +1278,17 @@ Known limits and behaviors (per official docs):
 - **SINGLE_LINE_TEXT fields carry a 1,024-character `maxLength`** (ours: two fields of a production
   table, found in a 2026-09-10 schema audit and confirmed live 2026-09-18, recorded in a block's code
   comment). A block that appends to such a field has to keep the total under it; what a longer write
-  does was not tested. Use LONG_TEXT for anything that grows. The limit is per field, so read its
-  `options.maxLength`: on 2026-10-13 a starter table's Name carried 1,024, two fields made by
-  `database_create_table` carried 2,147,483,647, and the field reference says 255 (ours).
+  does on a 1,024 field was not tested. Use LONG_TEXT for anything that grows. The limit is per
+  field, so read its `options.maxLength`: on 2026-10-13 a starter table's Name carried 1,024, two
+  fields made by `database_create_table` carried 2,147,483,647, and the field reference says 255
+  (ours).
+  **A declared `maxLength` is not the enforced limit** (verified live 2026-10-19). One POST that
+  carried a 1,565-character value and a 1,774-character value, in two fields declaring 2,147,483,647,
+  was refused: `400` "The value entered for 'SINGLE_LINE_TEXT' is invalid. Please enter a valid
+  value." Which of the two values caused it was not separated. A 307-character value had been
+  accepted earlier. Softr's field-types page gives Short text as 1,024 characters (read
+  2026-10-22; the 255 in the field reference is older text), so 1,024 is documented but nothing
+  between 307 and 1,565 was tried. The refused POST created nothing. See [softr-database.md → Gotchas](../datasources/softr-database.md#gotchas).
 - Limits: 100 records per `database_create_records` call, 200 records per read (silently capped, not an error), 2 group-by fields in `database_aggregate_records`. For big tables prefer a filter or aggregate over paging. The read cap is per call, not a ceiling: `database_list_records` takes `offset`, and on 2026-09-01 `limit` 200 with `offset` 0 to 2,400 read a 2,549-row table in 13 calls, every record id unique, no gap or overlap (ours).
 - **`database_aggregate_records`: one metric per call, and prove every filter narrows** (ours,
   2026-10-08, both rounds of a QA pass). Two metrics in one call were refused more often than not.

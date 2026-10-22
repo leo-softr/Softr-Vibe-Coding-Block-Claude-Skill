@@ -288,6 +288,10 @@ softr-vibe-coding/
 │   │                                 # nothing), a new block's page position is not
 │   │                                 # predictable, a new page is logged-in-only and a
 │   │                                 # public page is a Studio step
+│   │                                 # Oct 19 2026 (2.22.1): a reconnected connector can sit at
+│   │                                 # pending until the next turn, application_add_user does not
+│   │                                 # invite (status NOT_INVITED, invite in Studio), a declared
+│   │                                 # SINGLE_LINE_TEXT maxLength is not the enforced limit
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -505,6 +509,8 @@ softr-vibe-coding/
     │                                 # data restrictions over MCP, a link written by name
     │                                 # Oct 16 2026 (2.22.0): overlapping writes on one hook (.mutate keeps the last call's
     │                                 # callbacks, .mutateAsync is per call), send only what changed
+    │                                 # Oct 19 2026 (2.22.1): keep single-line text to the documented 1,024 whatever
+    │                                 # the field declares
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape
@@ -523,6 +529,9 @@ softr-vibe-coding/
     │                                 # CREATED_AT added later is backfilled, users-table sync makes
     │                                 # every row with an email an app user, an "entered by" value
     │                                 # is self-reported
+    │                                 # Oct 19 2026 (2.22.1): a declared SINGLE_LINE_TEXT maxLength is not
+    │                                 # its limit (documented: 1,024); a Node script sets
+    │                                 # res.setEncoding("utf8") when reading API responses
     ├── airtable.md                   # Column names, PAT vs OAuth, rate limits
     ├── google-sheets.md              # Text formatting, 50-100 user cap
     ├── hubspot.md                    # 15 objects (listed ≠ usable), field model,
