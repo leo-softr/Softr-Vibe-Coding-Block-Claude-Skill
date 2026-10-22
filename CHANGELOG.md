@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.22.1] - 2026-10-22
+- Field learnings from a six-projects import: text length, Node UTF-8, user invites, pending connector (2.22.1)
+
 ## [2.22.0] - 2026-10-16
 - Field lessons from a bug-fix round: overlapping saves, stale forms, Radix Escape, thumbnails (2.22.0)
 
