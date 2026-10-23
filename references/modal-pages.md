@@ -51,6 +51,17 @@ button at that page with Open in **Modal**. In Studio:
 4. The button's own visibility: the group that may use it. Narrow the page's VIEW permission to the
    same group (see [Pitfalls](#pitfalls)).
 
+**Over MCP** (roster of 2026-10-23), steps 1 to 3 and the button's visibility are one
+`application_navigation_set_items` call: a new item in the `buttons` list, such as
+`{ "type": "LINK", "action": "OPEN_PAGE", "pageId": "<the block's page>", "title": "Create activity", "openIn": "MODAL", "modalSize": "MD", "modalType": "POPUP" }`
+with a `visibility`, and every button already there sent back as `{ "id": "<item id>" }`
+([softr-mcp.md](softr-mcp.md#navigation-menus-and-their-items)). Per the tool's description a
+button is a link and takes `modalSize` (SM, MD, LG or XL) and `modalType` (POPUP or SLIDING) when it
+opens in a modal. Adding page links this way was verified live on 2026-10-23, but in a menu slot and
+without `openIn: "MODAL"`, so read the button back with `application_navigation_get` and check its
+`openIn`, `modalSize` and `modalType`. Narrowing the page's VIEW permission stays a Studio step. Like
+the Studio picker, an `OPEN_PAGE` item takes a page and no hash.
+
 A block's own `<NavigationAction>` or `navigate()` with `openIn: "MODAL"` also opens the page in a
 modal, with the builder's `modalSize` and `modalType` (documented). That it is this same dialog is
 unverified. Given a `recordId` and `datasourceId`, it adds `?recordId=<id>` to the destination
@@ -102,8 +113,9 @@ the in-block modal in [common-patterns.md](common-patterns.md#a-modal-above-soft
   modal: it leaves the opener page for the entry before it). 5.0.3 has its own dialog with the same
   iframe, a fixed size M and centre placement, keeps no URL state, and gives the button the bare
   `/<slug>` as its `href`. 5.0.0 could not be read. The MCP does not show which version an app
-  serves (`application_page_get_block` returns the navigation block without one); whether Studio
-  shows it was not checked. The probe below reads it.
+  serves (`application_page_get_block` returns the navigation block without one, and the `version`
+  that `application_navigation_get` returns is a hash of the menu's state for edits, not this
+  package version); whether Studio shows it was not checked. The probe below reads it.
   <!-- LIVE-CHECK: on any staff page in the preview, run performance.getEntriesByType('resource').map(r=>r.name).filter(n=>n.includes('/blocks/navigation/')) and [...document.querySelectorAll('.softr-topbar a.softr-nav-button')].map(a=>[a.textContent.trim(),a.getAttribute('href'),a.getAttribute('aria-haspopup')]). Record the nav version and the href shape here. -->
 - **The app's custom code runs in the page** (read from code). The app's header and footer custom
   code reach the modal page: the renderer injects them with no check for modal mode, and the server
@@ -360,8 +372,10 @@ On a direct visit there is no Done; the primary button is Log another.
   <!-- LIVE-CHECK: on a page that still has a block with a substring interceptor, check whether the new nav <a> got the attribute the block stamps on matching links (for Create activity: aria-haspopup="dialog" and document.documentElement.dataset.hsdemoCreateActivity === 'ready'). With a slug free of the marker it must be absent. -->
 - **A new page takes the app's default VIEW permission, and only Studio can change it.**
   `application_page_create` makes the page with the app's default VIEW (logged-in users in this app;
-  seen 2026-10-05 and 2026-10-09). No MCP tool narrows it or adds
-  the nav item ([softr-mcp.md](softr-mcp.md#application-management-tools)). Narrow the page's VIEW in
+  seen 2026-10-05 and 2026-10-09). No MCP tool narrows it (checked against the roster of
+  2026-10-23; [softr-mcp.md](softr-mcp.md#application-management-tools)). The nav button can be
+  added over MCP ([above](#when-to-use-it)), but its visibility only hides the button: it does not
+  gate the page. Narrow the page's VIEW in
   Studio **and** keep the block's own Visibility on the same group: the page gate and the block gate
   are separate, and a viewer outside the page's Visibility lands on Softr's 401 page (documented),
   which inside a modal presumably renders in the iframe (unverified).

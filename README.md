@@ -258,7 +258,8 @@ softr-vibe-coding/
 │   │                                 # Oct 9 2026 (QA round 3): no long hyphen runs in search
 │   │                                 # strings, the aggregate metric key is aggregation, not
 │   │                                 # function; Oct 9 2026 (modal pages): no tool adds a new
-│   │                                 # page to the navigation or narrows its VIEW permission;
+│   │                                 # page to the navigation or narrows its VIEW permission
+│   │                                 # (the navigation half superseded on Oct 23);
 │   │                                 # Oct 13 2026: files into attachment fields
 │   │                                 # (upload link for a local file, one file per POST, the
 │   │                                 # link expires in about 5 minutes; attach from a URL; an
@@ -292,6 +293,11 @@ softr-vibe-coding/
 │   │                                 # pending until the next turn, application_add_user does not
 │   │                                 # invite (status NOT_INVITED, invite in Studio), a declared
 │   │                                 # SINGLE_LINE_TEXT maxLength is not the enforced limit
+│   │                                 # Oct 23 2026 (2.22.2): the navigation tools (application_navigation_*,
+│   │                                 # application_list_icons, application_page_set_navigation): set_items adds
+│   │                                 # nav items with existing ones sent as { id } (verified live), the menu model,
+│   │                                 # layouts and settings; still Studio-only: a page's VIEW/EDIT permission, its
+│   │                                 # title, Pages panel folders and nesting
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the
@@ -356,7 +362,8 @@ softr-vibe-coding/
 │   │                                 # app frame for sidebar apps (Oct 5 2026);
 │   │                                 # sidebar navigation with no top bar on desktop (Oct 8 2026);
 │   │                                 # opening a block from the navigation: what a nav
-│   │                                 # item can open, styling the Modal button (Oct 9 2026)
+│   │                                 # item can open, styling the Modal button (Oct 9 2026);
+│   │                                 # nav items and layout over MCP too (Oct 23 2026)
 │   ├── modal-pages.md                # Blocks on a page opened in a Softr Modal (Oct 9
 │   │                                 # 2026, read from Softr's bundles, live check
 │   │                                 # pending): why a block that must open from the nav
@@ -367,7 +374,8 @@ softr-vibe-coding/
 │   │                                 # the opener, no toasts, Escape, the beforeunload
 │   │                                 # close guard); closing from inside; a page-mode
 │   │                                 # recipe; pitfalls (a link interceptor catching
-│   │                                 # the nav button, the page's inherited permission)
+│   │                                 # the nav button, the page's inherited permission);
+│   │                                 # the nav button added over MCP (Oct 23 2026)
 │   ├── native-block-filters.md       # Dynamic date / URL-param filters + custom filter
 │   │                                 # controls on native List/Grid blocks — wide-range
 │   │                                 # sentinel, inject into filter row, survive re-renders

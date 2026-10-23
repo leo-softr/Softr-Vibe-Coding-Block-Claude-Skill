@@ -19,7 +19,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 - [Vibe coding block tools](#vibe-coding-block-tools) — incl. [what the server enforces on a block's data endpoints](#what-the-server-enforces-on-a-blocks-data-endpoints), [a create-only connection on a public block](#a-create-only-connection-on-a-public-block) and [when a push is blocked](#when-a-push-is-blocked)
 - [Adopting Studio-AI-generated code](#adopting-studio-ai-generated-code)
 - [Vibe coding gotchas (official)](#vibe-coding-gotchas-official)
-- [Application management tools](#application-management-tools) — incl. [condition-based user groups](#condition-based-user-groups), [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher) and [data restrictions](#data-restrictions)
+- [Application management tools](#application-management-tools) — incl. [navigation menus and their items](#navigation-menus-and-their-items), [condition-based user groups](#condition-based-user-groups), [testing as any user via "Preview as"](#testing-as-any-app-user-without-logins--the-preview-as-switcher) and [data restrictions](#data-restrictions)
 - [Browsing integrations (external data sources)](#browsing-integrations-external-data-sources)
 - [Softr Database tools](#softr-database-tools) — incl. [putting files into attachment fields](#putting-files-into-attachment-fields), [choosing a table's primary field](#choosing-a-tables-primary-field) and [saved views](#saved-views)
 - [Workflows](#workflows)
@@ -32,7 +32,7 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 | Area | What the assistant can do | Official docs |
 |---|---|---|
 | Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases; choose a table's primary field; put files into attachment fields, from a URL or from a file on the assistant's machine | https://docs.softr.io/mcp/databases |
-| Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; read and set data restrictions; preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
+| Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; read and set data restrictions; read and edit navigations (menu items, layout, display settings, which navigation a page shows); preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
 | Vibe coding blocks | Create and edit blocks, manage settings, visibility, versions, data source connections | https://docs.softr.io/mcp/vibe-coding |
 | Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
 | Workflows | Build, wire, test, and publish workflows — 28 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
@@ -173,6 +173,16 @@ All but two were exercised on 2026-10-13 on a throwaway database and app (ours).
 documented from their descriptions only: `application_delete_data_restriction`, because agents
 delete nothing, and `report_missing_capability`, because every call files a report with Softr's
 product team.
+
+The roster of 2026-10-23 adds the navigation tools: `application_navigation_list`,
+`application_navigation_get`, `application_navigation_create`, `application_navigation_rename`,
+`application_navigation_delete`, `application_navigation_set_items`,
+`application_navigation_set_layout`, `application_navigation_update_settings`,
+`application_list_icons` and `application_page_set_navigation` (see
+[Navigation](#navigation-menus-and-their-items)). `application_navigation_set_items` was exercised
+on 2026-10-23 on a client app; the rest are documented from their descriptions. The page reads
+that go with them, `application_page_get_block`, `application_page_get_permissions` and
+`application_get_access_overview`, were in the roster already (renamed on 2026-10-01).
 
 ## Connection and auth
 
@@ -874,7 +884,8 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 |---|---|
 | Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_update_data_source` (point/swap the app's data source), `application_update_pwa_settings` (installable-app name, short name and theme colour; new 2026-10-01) |
 | App users and groups | `application_list_users`, `application_add_user`, `application_remove_user`, `application_set_user_activation`, `application_list_user_groups`, `application_create_user_group`, `application_update_user_group`, `application_delete_user_group`, `application_create_user_connection`, `application_get_user_connection`, `application_remove_user_connection` |
-| Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions`, `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
+| Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions` (reads only), `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
+| Navigation | `application_navigation_list`, `application_navigation_get`, `application_navigation_create`, `application_navigation_rename`, `application_navigation_delete`, `application_navigation_set_items`, `application_navigation_set_layout`, `application_navigation_update_settings`, `application_list_icons`, `application_page_set_navigation` (in the roster of 2026-10-23; see [Navigation](#navigation-menus-and-their-items)) |
 | Data restrictions | `application_list_data_restrictions`, `application_set_data_restriction`, `application_delete_data_restriction` (in the roster of 2026-10-13; see [Data restrictions](#data-restrictions)) |
 | Publish / preview | `application_preview`, `application_publish` |
 | Workspace | `workspace_list`, `workspace_list_email_senders`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
@@ -911,18 +922,20 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   task, and read the page back with `application_page_get` after the create. No tool places or
   reorders blocks yet (Softr has said placement will come later), so a human drags a misplaced
   block into place in Studio. Say so when you hand the block over.
-- **Studio-only jobs, with no MCP tool** (checked against the roster of 2026-10-08):
-  - setting a page's VIEW permissions (`application_page_get_permissions` only reads them);
-  - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
-  - navigation links (`application_page_get_block` on the shared Navigation block does not return them);
-  - putting a new page in the navigation, or making it public: `application_page_create` makes the
-    page, but no tool adds a nav item for it or sets its VIEW permission. A new page starts at VIEW =
-    logged-in users, the app's default (seen 2026-10-05 and 2026-10-09), and EDIT = all users (seen
-    2026-10-15), so narrow the VIEW permission in Studio and keep the block's own Visibility on the
+- **Studio-only jobs, with no MCP tool** (checked against the roster of 2026-10-23):
+  - setting a page's VIEW or EDIT permissions (`application_page_get_permissions` only reads them).
+    A page made with `application_page_create` starts at VIEW = logged-in users, the app's default
+    (seen 2026-10-05, 2026-10-09 and again 2026-10-22 to 23), and EDIT = all users (seen
+    2026-10-15 and again 2026-10-22 to 23), so narrow the VIEW permission in Studio and keep the block's own Visibility on the
     same group. A page that must be public (a public form, a sign-up or check-in page) is a Studio
     step too: list it for the person, read the result back with `application_page_get_permissions`,
-    and do not call a public form live-tested until it has been reached logged out. What a nav
-    button can open, and how to open a block from one: [modal-pages.md](modal-pages.md);
+    and do not call a public form live-tested until it has been reached logged out;
+  - setting a page's title: `application_page_create` takes a name and a path,
+    `application_page_list` reads the title, and no tool sets it (2026-10-23);
+  - the Pages panel's folders and nesting: per `application_page_create`'s description a new page
+    lands at the top level and the tool does not control nesting or order, and no other tool in the
+    roster places a page;
+  - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
   - inviting an app user: `application_add_user` creates the user with status `NOT_INVITED`, in no
     group, and sends nothing (read back on four users, verified live 2026-10-19). No tool in the
     roster of that day is named for inviting, and neither user tool's description mentions it;
@@ -931,18 +944,124 @@ Combined with the database tools (`database_create` / `database_create_table` / 
     signed in, so go by `status` and never tell the person an added user can sign in. The invite
     itself is a Studio step (Users); that was not exercised;
   - renaming a block (a block deployed into a new page's placeholder keeps the title "Vibe coding block");
-  - the app's Custom Code and theme.
+  - the app's Custom Code and theme (the navigation bars' colour variant, size and roundness are
+    navigation settings, set with `application_navigation_update_settings`).
+
+  Navigation used to be on this list. Since the roster of 2026-10-23 a nav item for a new page, the
+  items of any menu, the menu's layout and which menu a page shows all go over MCP:
+  [Navigation](#navigation-menus-and-their-items). What a nav button can open, and how to open a
+  block from one: [modal-pages.md](modal-pages.md).
 - **Before a human deletes a user group, prove it unused.** First by id over MCP: block visibility,
-  action permissions, page permissions and data restrictions (`application_list_data_restrictions`;
+  action permissions, page permissions, data restrictions (`application_list_data_restrictions`;
   per its description, a restriction whose group was deleted keeps the id, reads with a `null` group
-  name and applies to nobody). Then in Studio, where the MCP cannot see: Page Rules rows
-  and navigation-link visibility. A group that came back clean on both was deleted by hand
-  (2026-10-07).
+  name and applies to nobody) and nav item visibility (`application_navigation_get` on every
+  navigation in `application_navigation_list`, items inside categories included, plus the buttons
+  and the user menu). Then in Studio, where the MCP cannot see: Page Rules rows. A group that came
+  back clean on both was deleted by hand (2026-10-07, when nav item visibility was still read in
+  Studio).
 - **Timestamps are UTC with a `Z`.** Since 2026-10-01, timestamps such as `publishedAt` or a
   version's `createdAt` are ISO-8601 UTC with millisecond precision, studio-side and tables-side
   alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
   no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
   read any older logged value as UTC, never as local time.
+
+### Navigation (menus and their items)
+
+*`application_navigation_set_items` exercised on 2026-10-23 on a client app. The other lines are
+per the tools' descriptions (roster of 2026-10-23) and were not exercised.*
+
+**The model.** An app can have several navigations (menus), and each page shows at most one of
+them, or none. `application_navigation_list` comes first: it gives each navigation's id, title,
+desktop and mobile layout, and the `pageIds` showing it. A page in no list shows no navigation.
+Which entries a user sees is set per item, so one navigation can serve every group. Only apps on
+Softr's current page builder have this navigation; per its description, `application_navigation_create`
+refuses a legacy app with 400.
+
+**Reading a menu.** `application_navigation_get` returns the two slots, `primary` and `secondary`
+(trees), the action `buttons`, the `userMenu` (the avatar menu), the display `settings` and a
+`version`. Each item has an id, a type and a title:
+
+- a **LINK** has an action: `OPEN_PAGE` with a `pageId`, `OPEN_URL` with a `url`, or `SIGN_OUT`
+  (Softr-managed, cannot be removed). It reports `openIn` (`SELF`, `TAB` or `MODAL`, with
+  `modalSize` and `modalType`). The descriptions name no Scroll to action; how a Scroll to item made
+  in Studio reads back was not seen;
+- a **CATEGORY** is a sub-menu holding `children`, with its `subMenuStyle` and `showIcons`;
+- every item carries its `visibility` (user groups and devices);
+- a page link that shows a `destination` instead of a `pageId` points at a path no page has any
+  more: re-point it with `application_navigation_set_items`.
+
+`version` identifies this state of the navigation, a hash such as `c2689b36b0245861`, and
+`application_navigation_set_items` needs it. It is not the navigation block's package version
+(5.0.x) that [modal-pages.md](modal-pages.md#what-softr-renders) talks about.
+
+**Where the slots show** depends on the layout. Desktop `top` puts both slots in the top bar, `side`
+both in the sidebar, and only `top_and_side` splits them (primary in the top bar, secondary in the
+sidebar). Mobile `top` puts both in the top bar's menu, `bottom` both in a bottom tab bar (4-5
+items, the rest under More), and `top_and_bottom` splits them the same way. `hasSecondarySlot: false`
+means nothing can go in the secondary slot. `application_navigation_set_layout` changes the layout
+for the devices given.
+
+**Adding or changing items: `application_navigation_set_items`** (verified live 2026-10-23). Two
+new page links went into the secondary slot of a navigation: "Requests" (icon `inbox-01`, visible
+to Administrator and Office Manager) and "Fundraising" (icon `coins-stacked-01`, visible to
+Administrator). The 12 existing items were sent as `{ id }` only, and on read-back each kept its
+icon, label, target and user-group visibility (navigation version `c2689b36b0245861`). The rules,
+from the description:
+
+- **Each list you send replaces that list, and an item left out of every list you send is
+  removed**, a category with everything in it. So read the menu with `application_navigation_get`
+  first and send every item you keep. A list you leave out (`buttons`, say) is not touched.
+- **An existing item needs only its id**, plus any field to change; it is moved to where it sits in
+  the list and keeps everything else. That is how the 12 items above kept their icons and
+  visibility.
+- **A new item has no id**, for example
+  `{ "type": "LINK", "action": "OPEN_PAGE", "pageId": "<page id>", "title": "Orders", "icon": "receipt" }`.
+  An `OPEN_URL` link's `url` takes `http(s)`, `mailto`, `tel`, `sms`, a domain, or a path starting
+  with `/` or `#`. A category is `{ "type": "CATEGORY", "title": "Admin", "children": [ … ] }`;
+  categories nest at most 3 levels deep, and links one level deeper.
+- **Pass `expectedVersion`**, the `version` you read. If the menu changed since, the call is refused
+  with 409: read it again and resend.
+- **Icons come from `application_list_icons`** (kebab-case Untitled UI names such as `home-01`). Any
+  other name becomes `link-01`, or `folder` on a category. Call it once and reuse the list.
+- **Visibility:** `{ "predefinedUserGroup": "LOGGED_IN_USERS", "customUserGroupIds": ["<group id>"], "devices": ["laptop", "mobile"] }`.
+  Custom group ids (from `application_list_user_groups`) apply only with `LOGGED_IN_USERS`, and `[]`
+  clears them; only the visibility fields given change. A new page link starts out visible to the
+  same groups as its page, and re-pointing a link resets that, so set the groups on the item
+  yourself when they matter.
+- **An item's type and action cannot change.** To turn a page link into a URL link, or a link into
+  a category, leave it out and add the replacement without an id.
+- **Sign-out links and items marked `deletable: false` stay** even when left out, at the end of
+  their list.
+- **Any invalid item fails the whole call** and changes nothing; the error says what to fix. The
+  call returns the whole navigation and the ids of the items created.
+
+After the call, read the navigation back with `application_navigation_get` and compare every
+item's title, icon, target and visibility with the copy you read first, as for a block push.
+
+**Hiding an item is not access control.** Visibility only hides the menu entry: who may open the
+page is the page's own VIEW permission, and that is still set in Studio
+([Studio-only jobs](#application-management-tools) above). A page left out of every menu is still
+reachable by its URL.
+
+**The other navigation tools** (per their descriptions, not exercised):
+
+- `application_navigation_create` adds a navigation beside the others. Its `primary`, `secondary`,
+  `buttons` and `userMenu` take items without ids, shaped as for `set_items`. With `pageIds`, those
+  pages move to it (a page shows one); without them it is on no page, except an app's first
+  navigation, which goes on every page. Either way it becomes the navigation that new blank pages
+  get. `title` names it in Studio's navigation picker only.
+- `application_page_set_navigation` chooses which navigation a page shows, replacing the one it had;
+  with no `navigationId` the page shows none. The onboarding page cannot show one.
+- `application_navigation_rename` renames it (builders see the title, app users never do).
+- `application_navigation_update_settings` changes display settings: slot section titles, the user
+  menu on or off, the logo variant and position, how links and buttons show, where the in-app
+  notification inbox sits, and the bars' colour variant, size and roundness per device. Each setting
+  given replaces its value, and one the navigation does not list in `settings` is refused. Do not
+  set the mobile notifications variant to `STANDALONE_ICON` while the mobile layout is `bottom`: the
+  inbox would not show on mobile.
+- `application_navigation_delete` deletes a navigation and all its items, leaves every page that
+  showed it with none, and cannot be undone. Confirm with the person first; to move pages to another
+  navigation, use `application_page_set_navigation` instead.
 
 ### Reporting a missing capability
 

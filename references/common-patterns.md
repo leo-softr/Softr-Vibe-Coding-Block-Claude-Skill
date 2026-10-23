@@ -688,7 +688,7 @@ The project this comes from hard-coded 72px (a bar plus 16px) at the top, and at
 
 ## A modal above Softr's bars
 
-**This modal opens from the block's own UI** (a button, a row, an event the block listens for). To open a block from Softr's navigation, give the block a page of its own and open that page in a Softr Modal instead: Studio's Open page picker lists pages only (seen in Studio 2026-10-09), so an Open page item cannot point at a hash or an in-block popup (whether Studio's Open URL field takes a relative `/page#hash` was not tried). See [modal-pages.md](modal-pages.md).
+**This modal opens from the block's own UI** (a button, a row, an event the block listens for). To open a block from Softr's navigation, give the block a page of its own and open that page in a Softr Modal instead: Studio's Open page picker lists pages only (seen in Studio 2026-10-09), so an Open page item cannot point at a hash or an in-block popup (whether Studio's Open URL field takes a relative `/page#hash` was not tried; over MCP, `application_navigation_set_items` takes one per its description, and whether it then opens the popup was not tried). The MCP's Open page item takes a page id, so it cannot carry a hash either. See [modal-pages.md](modal-pages.md).
 
 On an app page with Softr's navigation, shadcn's `Dialog` and `Sheet` don't work cleanly. Two things go wrong:
 
