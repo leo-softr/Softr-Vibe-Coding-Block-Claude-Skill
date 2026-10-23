@@ -298,6 +298,10 @@ softr-vibe-coding/
 │   │                                 # nav items with existing ones sent as { id } (verified live), the menu model,
 │   │                                 # layouts and settings; still Studio-only: a page's VIEW/EDIT permission, its
 │   │                                 # title, Pages panel folders and nesting
+│   │                                 # Oct 23 2026 (2.22.3): roster drift outside navigation: send_feedback
+│   │                                 # replaces report_missing_capability (four types), application_update_data_source
+│   │                                 # and application_update_pwa_settings are gone, new application_configure_user_sessions,
+│   │                                 # workspace_verify_email_sender (sender DNS records) and integration_get_sample_records
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the

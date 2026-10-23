@@ -32,9 +32,9 @@ The official Softr MCP server (`https://mcp.softr.io/mcp`) gives an AI assistant
 | Area | What the assistant can do | Official docs |
 |---|---|---|
 | Databases | Query, filter, aggregate; create/update **and delete** records; build **and delete** tables, fields, databases; choose a table's primary field; put files into attachment fields, from a URL or from a file on the assistant's machine | https://docs.softr.io/mcp/databases |
-| Applications | **Create whole apps**; manage app users and login settings; swap an app's data source; read apps, pages, blocks, permissions, user groups; read and set data restrictions; read and edit navigations (menu items, layout, display settings, which navigation a page shows); preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
+| Applications | **Create whole apps**; manage app users, login and session settings; read apps, pages, blocks, permissions, user groups; read and set data restrictions; read and edit navigations (menu items, layout, display settings, which navigation a page shows); preview; publish — see [Application management tools](#application-management-tools) | https://docs.softr.io/mcp/apps |
 | Vibe coding blocks | Create and edit blocks, manage settings, visibility, versions, data source connections | https://docs.softr.io/mcp/vibe-coding |
-| Integrations | Browse external data sources connected to the workspace, down to field level | https://docs.softr.io/mcp/integrations |
+| Integrations | Browse external data sources connected to the workspace, down to field level, and read a sample of their real records | https://docs.softr.io/mcp/integrations |
 | Workflows | Build, wire, test, and publish workflows — 28 tools and a 418-node trigger/action catalog; see [Workflows](#workflows) | https://docs.softr.io/mcp/workflows |
 
 `workspace_list` is often the first call — it turns "my Sales workspace" into the workspace ID every other tool needs. The server's own instructions now start from `application_list` (applications and their workspace IDs) and `database_list` (databases), and keep `workspace_list` for turning a workspace name into an ID.
@@ -99,7 +99,7 @@ Most new names are the old words reordered. These are the ones you would not gue
 | | `set_application_login` | `application_set_login` |
 | | `configure_application_sign_up` | `application_configure_sign_up` |
 | | `configure_application_email_sender` | `application_configure_email_sender` |
-| | `update_application_data_source` | `application_update_data_source` |
+| | `update_application_data_source` | `application_update_data_source` *(not in the roster of 2026-10-23)* |
 | | `get_access_control` | `application_get_access_overview` |
 | | `list_application_users` | `application_list_users` |
 | | `add_application_user` | `application_add_user` |
@@ -119,7 +119,7 @@ Most new names are the old words reordered. These are the ones you would not gue
 | | `get_page_permissions` | `application_page_get_permissions` |
 | | `preview_app` | `application_preview` |
 | | `publish_app` | `application_publish` |
-| | *(new)* | `application_update_pwa_settings` |
+| | *(new)* | `application_update_pwa_settings` *(not in the roster of 2026-10-23)* |
 | Databases | `list_databases` | `database_list` |
 | | `search_databases` | `database_search` |
 | | `get_database` | `database_get` |
@@ -167,7 +167,7 @@ above: `database_create_attachment_upload_link` and `database_attach_file_from_u
 (see [Choosing a table's primary field](#choosing-a-tables-primary-field)),
 `application_list_data_restrictions`, `application_set_data_restriction`,
 `application_delete_data_restriction` (see [Data restrictions](#data-restrictions)) and
-`report_missing_capability` (see [Reporting a missing capability](#reporting-a-missing-capability)) and
+`report_missing_capability` (since replaced by `send_feedback`: see [Sending feedback to Softr](#sending-feedback-to-softr)) and
 `database_create_view` (see [Saved views](#saved-views); released to production 2026-10-13).
 All but two were exercised on 2026-10-13 on a throwaway database and app (ours). The two left are
 documented from their descriptions only: `application_delete_data_restriction`, because agents
@@ -183,6 +183,21 @@ The roster of 2026-10-23 adds the navigation tools: `application_navigation_list
 on 2026-10-23 on a client app; the rest are documented from their descriptions. The page reads
 that go with them, `application_page_get_block`, `application_page_get_permissions` and
 `application_get_access_overview`, were in the roster already (renamed on 2026-10-01).
+
+**Gone, replaced or new outside navigation in the roster of 2026-10-23:**
+
+- `report_missing_capability` is gone. `send_feedback` takes its place and covers more than missing
+  capabilities: [Sending feedback to Softr](#sending-feedback-to-softr).
+- `application_update_data_source` and `application_update_pwa_settings` are gone, and no other tool
+  in that roster is named for swapping an app's data source or setting the installable-app name,
+  short name and theme colour. Treat both as Studio jobs until a tool comes back. (A block's own data
+  source is still set per block with `vibe_coding_block_connect_data_source`.)
+- New: `application_configure_user_sessions` (how long a login lasts and the inactivity timeout:
+  [Application management tools](#application-management-tools)), `workspace_verify_email_sender`
+  (re-checks a sender's confirmation and DNS records: [Email senders](#application-management-tools))
+  and `integration_get_sample_records` (real records from an external table:
+  [Browsing integrations](#browsing-integrations-external-data-sources)). All three are documented
+  from their descriptions; none was exercised.
 
 ## Connection and auth
 
@@ -882,16 +897,20 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 
 | Group | Tools |
 |---|---|
-| Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_update_data_source` (point/swap the app's data source), `application_update_pwa_settings` (installable-app name, short name and theme colour; new 2026-10-01) |
+| Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_configure_user_sessions` (login length and inactivity timeout; in the roster of 2026-10-23). `application_update_data_source` and `application_update_pwa_settings` (both in the roster of 2026-10-01) are not in the roster of 2026-10-23 |
 | App users and groups | `application_list_users`, `application_add_user`, `application_remove_user`, `application_set_user_activation`, `application_list_user_groups`, `application_create_user_group`, `application_update_user_group`, `application_delete_user_group`, `application_create_user_connection`, `application_get_user_connection`, `application_remove_user_connection` |
 | Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions` (reads only), `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
 | Navigation | `application_navigation_list`, `application_navigation_get`, `application_navigation_create`, `application_navigation_rename`, `application_navigation_delete`, `application_navigation_set_items`, `application_navigation_set_layout`, `application_navigation_update_settings`, `application_list_icons`, `application_page_set_navigation` (in the roster of 2026-10-23; see [Navigation](#navigation-menus-and-their-items)) |
 | Data restrictions | `application_list_data_restrictions`, `application_set_data_restriction`, `application_delete_data_restriction` (in the roster of 2026-10-13; see [Data restrictions](#data-restrictions)) |
 | Publish / preview | `application_preview`, `application_publish` |
-| Workspace | `workspace_list`, `workspace_list_email_senders`, `get_workspace_integrations` (distinct from the [integrations drill-down](#browsing-integrations-external-data-sources) below) |
-| Feedback to Softr | `report_missing_capability` (in the roster of 2026-10-13; see [Reporting a missing capability](#reporting-a-missing-capability)) |
+| Workspace | `workspace_list`, `workspace_list_email_senders`, `workspace_verify_email_sender` (in the roster of 2026-10-23). `get_workspace_integrations` has been missing since the roster of 2026-10-06; `integration_list` covers it ([integrations drill-down](#browsing-integrations-external-data-sources) below) |
+| Feedback to Softr | `send_feedback` (in the roster of 2026-10-23, in place of `report_missing_capability`; see [Sending feedback to Softr](#sending-feedback-to-softr)) |
 
 **Email senders, as the MCP shows them** (read 2026-09-10 and 2026-09-18): `workspace_list_email_senders` lists each workspace sender with a `confirmed` flag, and an address that was added but never verified reads `confirmed: false`. `application_get` showed the app's own sender as `<subdomain>@softr.app`. In a workflow, a `SOFTR_SEND_EMAIL` node chooses its sender through the optional `emailSenderSignatureId` input. Before publishing a workflow that must send from a particular address, check that the address is in the list and confirmed.
+
+*Per the tools' descriptions (roster of 2026-10-23), not exercised:* a sender has two states. `confirmed` says whether the confirmation link sent to its mailbox was clicked; until it is, apps keep sending from the default Softr address. `domainVerified` says whether the sender domain's DKIM (TXT) and Return-Path (CNAME) records are in place; without them mail already goes out from the custom address, but receiving servers trust it less and may file it as spam or reject it. `workspace_list_email_senders`, `application_get` (its `emailSender`) and `application_configure_email_sender` report both, with the `dnsRecords` to add (type, host relative to `zone`, value, and `fqdn` for DNS providers that want the full name), but as last checked, so they can be out of date. `workspace_verify_email_sender` (`workspaceId` and the sender's `signatureId`) checks again with Softr's email provider. Call it only after the person says the records are added, and do not loop on it: DNS changes can take up to 24 hours, and a check made before a record existed can stay cached as failing for a while.
+
+**Session length** (per the tool's description, roster of 2026-10-23, not exercised): `application_configure_user_sessions` sets `sessionExpiration` (`24_HOURS`, `7_DAYS`, `30_DAYS` or `90_DAYS`, the default) and `inactivityTimeout` (`5_MINUTES` to `3_HOURS`, or `NEVER`, the default). Pass at least one; the other keeps its value. `application_get` reads both under `userSessions` (null for an app without login). Values other than the defaults need a paid plan with advanced security, and on other plans the call fails with a payment-required error. Shorter values make users sign in more often, so agree them with the person first.
 
 **Three setup facts from an app build** (2026-10-05 to 07):
 
@@ -1063,16 +1082,29 @@ reachable by its URL.
   showed it with none, and cannot be undone. Confirm with the person first; to move pages to another
   navigation, use `application_page_set_navigation` instead.
 
-### Reporting a missing capability
+### Sending feedback to Softr
 
-*Per the tool's description (roster of 2026-10-13); not exercised.* `report_missing_capability`
-records a short report for Softr's product team when the user asks for something no tool can do: a
-missing tool, a missing option on a tool, or information no tool returns. It grants nothing in the
-conversation. Its description rules out errors, missing permissions, bugs in a tool that exists, and
-anything the user can do in Studio themselves. It takes `description` (required, at most 500
-characters), `attemptedTask` (at most 500), and the `workspaceId` or `applicationId` when known.
-Write the need in your own words and leave out personal data and record contents. Every call goes to
-Softr, so treat it like a message sent for the user: offer it, and file it only when they agree.
+*Per the tool's description (roster of 2026-10-23); not exercised.* `send_feedback` records a short
+note for Softr's product team. It replaced `report_missing_capability` (roster of 2026-10-13), which
+covered only the first of its four types:
+
+- `MISSING_CAPABILITY` (the default): the user asked for something no tool can do (a missing tool,
+  a missing option on a tool, or information no tool returns), whether or not Studio offers it.
+  Check the available tools first. Unlike the old tool's description, this one does not rule out
+  what the user can do in Studio.
+- `BUG_REPORT`: a tool did something other than its description says, or failed in a way that
+  changing the arguments could not fix. Not for an error you can correct and retry, or a missing
+  permission. Pass `toolName`.
+- `UNCLEAR_DOCS`: a tool did what its description says, but the description (or a docs tool's
+  output) left out or contradicted what you needed, so you had to guess or retry. Pass `toolName`.
+- `OTHER`: anything else the user asks to pass on. Show the person the exact text first and send
+  only the text they approved.
+
+It takes `description` (required, at most 500 characters), `type`, `attemptedTask` (at most 500),
+`toolName`, and the `workspaceId` or `applicationId` when known. It grants nothing and fixes
+nothing in the conversation. Write the note in your own words and leave out personal data and record
+contents. Every call goes to Softr, so treat it like a message sent for the user, whatever the type:
+offer it, and send it only when they agree.
 
 ### Condition-based user groups
 
@@ -1308,7 +1340,32 @@ integration_list                     the workspace's integrations: id, name, typ
         │                            GOOGLE_BIGQUERY (a dataset), SMARTSUITE (a solution), CLICKUP (a space)
         └── integration_list_tables          tables or sheets
             └── integration_list_table_fields   fields, types, options, primary field
+                integration_get_sample_records  a sample of real records (roster of 2026-10-23)
 ```
+
+**Reading real values: `integration_get_sample_records`** (per the tool's description, roster of
+2026-10-23, not exercised). It reads up to `limit` records (default 20, at most 100) from an
+external table, after `integration_list_table_fields` and before any code, filter, user-group
+condition or status mapping that names one of the table's values. Values are case- and
+whitespace-sensitive at runtime, so use them exactly as returned (`sold`, not `Sold`).
+
+- **What comes back:** `records` (id plus `fields`, keyed by the table's `fieldReferenceKey`; long
+  text cut at 500 characters), a `valueSummary` per field (up to 20 distinct values in first-seen
+  order, `truncated`, `distinctCount`, `emptyCount`, and `complex` for object values such as
+  attachments and links, which are read from `records`), the table's `fields`, and `totalCount` when
+  the source reports it. It is the quickest way to learn a status or role column's real options
+  where the field metadata has none (Google Sheets, SQL text columns). Everything is derived from the
+  sample, so a value missing from it may still be in the table; call again with `fields` set to that
+  column and a higher `limit`.
+- **It needs an app:** pass the `applicationId` of the vibe-coding app being built (create it first),
+  plus the same ids as `integration_list_table_fields` (with `schema` for the types that have one).
+- **The first read of a table no Softr app has used** starts its sync. A large Airtable base or sheet
+  may not finish within the call and answers `CONFLICT`: retry after about 10 seconds, once or
+  twice. The read is reused once the app connects the table.
+- **Not for Softr tables:** for `SOFTR_TABLES` use `database_list_records` or
+  `database_search_records`.
+- **It puts real client records into the conversation.** Ask for the fields you need with `fields`,
+  and keep values that identify people out of notes and commits.
 
 **Which types can be browsed and connected through MCP.** Per the tools' own descriptions
 (2026-10-01): `SOFTR_TABLES`, `AIRTABLE`, `GOOGLE_SHEET`, `MICROSOFT_EXCEL`, `NOTION`, `MONDAY`,
