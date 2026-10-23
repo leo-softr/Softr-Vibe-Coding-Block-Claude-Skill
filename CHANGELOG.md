@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.23.0] - 2026-10-23
+- Page permissions and page delete over MCP: public pages no longer a Studio step (2.23.0)
+
 ## [2.22.3] - 2026-10-23
 - Roster drift outside navigation: send_feedback, gone and new tools (2.22.3)
 
