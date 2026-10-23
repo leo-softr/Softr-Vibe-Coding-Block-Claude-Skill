@@ -159,8 +159,8 @@ curl -s -o /dev/null -w '%{http_code}\n' "https://$HOST/sign-up"   # 404 when si
   an anonymous visitor would get once the page is public. What proves a block-level guard is the
   signed-in comparison across blocks that read the same table
   ([below](#proving-a-read-guard)). State which half is proven. A page made over the MCP starts at
-  the app's default VIEW permission (logged-in users), and making it public is a Studio step
-  ([softr-mcp.md](softr-mcp.md#application-management-tools)). Once the page is public, repeat the
+  the app's default VIEW permission (logged-in users), and making it public is
+  `application_page_set_permissions` ([softr-mcp.md](softr-mcp.md#pages-permissions-and-deleting)). Once the page is public, repeat the
   logged-out probe from `curl` with no cookies and from a private window. Expect 403, or 200 with
   `total` 0; a record id or a field value anywhere in the body is a failure. Then submit the form
   once from a logged-out browser and watch the row land.

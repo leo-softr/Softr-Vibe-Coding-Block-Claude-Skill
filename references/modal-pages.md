@@ -48,7 +48,7 @@ button at that page with Open in **Modal**. In Studio:
    block's defaults are MD and POPUP (read from code), so with no pickers the modal is size M,
    centred.
    <!-- LIVE-CHECK: open Studio, Navigation, a top-bar button, Open in Modal: are size and type shown? Note the labels and defaults here. -->
-4. The button's own visibility: the group that may use it. Narrow the page's VIEW permission to the
+4. The button's own visibility: the group that may use it. Narrow the page's VIEW permission (`application_page_set_permissions`) to the
    same group (see [Pitfalls](#pitfalls)).
 
 **Over MCP** (roster of 2026-10-23), steps 1 to 3 and the button's visibility are one
@@ -59,7 +59,7 @@ with a `visibility`, and every button already there sent back as `{ "id": "<item
 button is a link and takes `modalSize` (SM, MD, LG or XL) and `modalType` (POPUP or SLIDING) when it
 opens in a modal. Adding page links this way was verified live on 2026-10-23, but in a menu slot and
 without `openIn: "MODAL"`, so read the button back with `application_navigation_get` and check its
-`openIn`, `modalSize` and `modalType`. Narrowing the page's VIEW permission stays a Studio step. Like
+`openIn`, `modalSize` and `modalType`. Narrow the page's VIEW permission with `application_page_set_permissions`. Like
 the Studio picker, an `OPEN_PAGE` item takes a page and no hash.
 
 A block's own `<NavigationAction>` or `navigate()` with `openIn: "MODAL"` also opens the page in a
@@ -370,13 +370,12 @@ On a direct visit there is no Done; the primary button is Log another.
   The same applies to a CSS rule such as `a[href*="…"]`: see
   [Opening a block from the navigation](native-chrome-styling.md#opening-a-block-from-the-navigation).
   <!-- LIVE-CHECK: on a page that still has a block with a substring interceptor, check whether the new nav <a> got the attribute the block stamps on matching links (for Create activity: aria-haspopup="dialog" and document.documentElement.dataset.hsdemoCreateActivity === 'ready'). With a slug free of the marker it must be absent. -->
-- **A new page takes the app's default VIEW permission, and only Studio can change it.**
+- **A new page takes the app's default VIEW permission; change it with `application_page_set_permissions`.**
   `application_page_create` makes the page with the app's default VIEW (logged-in users in this app;
-  seen 2026-10-05 and 2026-10-09). No MCP tool narrows it (checked against the roster of
-  2026-10-23; [softr-mcp.md](softr-mcp.md#application-management-tools)). The nav button can be
+  seen 2026-10-05 and 2026-10-09). Since 2026-10-23 the VIEW permission is settable over MCP
+  ([softr-mcp.md](softr-mcp.md#pages-permissions-and-deleting)). The nav button can be
   added over MCP ([above](#when-to-use-it)), but its visibility only hides the button: it does not
-  gate the page. Narrow the page's VIEW in
-  Studio **and** keep the block's own Visibility on the same group: the page gate and the block gate
+  gate the page. Narrow the page's VIEW **and** keep the block's own Visibility on the same group: the page gate and the block gate
   are separate, and a viewer outside the page's Visibility lands on Softr's 401 page (documented),
   which inside a modal presumably renders in the iframe (unverified).
 - **The page is also a real page.** A direct visit, a link opened in a new tab and a shared URL show

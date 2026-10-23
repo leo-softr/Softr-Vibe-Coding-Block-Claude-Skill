@@ -296,12 +296,15 @@ softr-vibe-coding/
 │   │                                 # Oct 23 2026 (2.22.2): the navigation tools (application_navigation_*,
 │   │                                 # application_list_icons, application_page_set_navigation): set_items adds
 │   │                                 # nav items with existing ones sent as { id } (verified live), the menu model,
-│   │                                 # layouts and settings; still Studio-only: a page's VIEW/EDIT permission, its
+│   │                                 # layouts and settings; still Studio-only: a page's EDIT permission, its
 │   │                                 # title, Pages panel folders and nesting
 │   │                                 # Oct 23 2026 (2.22.3): roster drift outside navigation: send_feedback
 │   │                                 # replaces report_missing_capability (four types), application_update_data_source
 │   │                                 # and application_update_pwa_settings are gone, new application_configure_user_sessions,
 │   │                                 # workspace_verify_email_sender (sender DNS records) and integration_get_sample_records
+│   │                                 # Oct 23 2026 (2.23.0): application_page_set_permissions (a page's VIEW only: public
+│   │                                 # pages over MCP, refusals seen, nav item takes the page's group) and application_page_delete
+│   │                                 # (home and utility pages refused, the page's nav item is left behind as a dead link)
 │   ├── browser-checks.md             # Checking a pushed block in a browser with
 │   │                                 # the agent-browser CLI (ask before installing):
 │   │                                 # preview cookie, shadow-DOM refs grepped in the

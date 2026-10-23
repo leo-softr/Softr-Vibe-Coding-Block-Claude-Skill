@@ -64,7 +64,7 @@ Most new names are the old words reordered. These are the ones you would not gue
 | `search_databases` | `database_search` |
 | `list_integrations` (earlier `list_data_sources`) | `integration_list` |
 | `list_data_source_databases` / `_schemas` / `_tables` / `_table_fields` | `integration_list_databases` / `_schemas` / `_tables` / `_table_fields` |
-| `get_page`, `get_block`, `list_pages`, `create_page`, `get_page_permissions` | `application_page_get`, `application_page_get_block`, `application_page_list`, `application_page_create`, `application_page_get_permissions` |
+| `get_page`, `get_block`, `list_pages`, `create_page`, `get_page_permissions` | `application_page_get`, `application_page_get_block`, `application_page_list`, `application_page_create`, `application_page_get_permissions` (`application_page_set_permissions` and `application_page_delete` are new, 2026-10-23) |
 | `preview_app`, `publish_app` | `application_preview`, `application_publish` |
 | `create_database`, `get_database`, `list_databases`, `update_database`, `delete_database` | `database_create`, `database_get`, `database_list`, `database_update`, `database_delete` |
 
@@ -899,7 +899,7 @@ The Applications area goes well beyond reads (roster as delivered 2026-10-01; be
 |---|---|
 | Apps | `application_list`, `application_get`, `application_create` (create a whole app via MCP), `application_set_name`, `application_set_subdomain`, `application_set_domain`, `application_set_login`, `application_configure_sign_up`, `application_configure_email_sender`, `application_configure_user_sessions` (login length and inactivity timeout; in the roster of 2026-10-23). `application_update_data_source` and `application_update_pwa_settings` (both in the roster of 2026-10-01) are not in the roster of 2026-10-23 |
 | App users and groups | `application_list_users`, `application_add_user`, `application_remove_user`, `application_set_user_activation`, `application_list_user_groups`, `application_create_user_group`, `application_update_user_group`, `application_delete_user_group`, `application_create_user_connection`, `application_get_user_connection`, `application_remove_user_connection` |
-| Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions` (reads only), `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
+| Pages / blocks / permissions | `application_page_list`, `application_page_get`, `application_page_create`, `application_page_get_block`, `application_page_get_permissions`, `application_page_set_permissions` (the page's VIEW only), `application_page_delete`, `application_get_access_overview` (user groups plus counts of redirections and data restrictions) |
 | Navigation | `application_navigation_list`, `application_navigation_get`, `application_navigation_create`, `application_navigation_rename`, `application_navigation_delete`, `application_navigation_set_items`, `application_navigation_set_layout`, `application_navigation_update_settings`, `application_list_icons`, `application_page_set_navigation` (in the roster of 2026-10-23; see [Navigation](#navigation-menus-and-their-items)) |
 | Data restrictions | `application_list_data_restrictions`, `application_set_data_restriction`, `application_delete_data_restriction` (in the roster of 2026-10-13; see [Data restrictions](#data-restrictions)) |
 | Publish / preview | `application_preview`, `application_publish` |
@@ -942,16 +942,17 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   reorders blocks yet (Softr has said placement will come later), so a human drags a misplaced
   block into place in Studio. Say so when you hand the block over.
 - **Studio-only jobs, with no MCP tool** (checked against the roster of 2026-10-23):
-  - setting a page's VIEW or EDIT permissions (`application_page_get_permissions` only reads them).
-    A page made with `application_page_create` starts at VIEW = logged-in users, the app's default
-    (seen 2026-10-05, 2026-10-09 and again 2026-10-22 to 23), and EDIT = all users (seen
-    2026-10-15 and again 2026-10-22 to 23), so narrow the VIEW permission in Studio and keep the block's own Visibility on the
-    same group. A page that must be public (a public form, a sign-up or check-in page) is a Studio
-    step too: list it for the person, read the result back with `application_page_get_permissions`,
-    and do not call a public form live-tested until it has been reached logged out;
+  - setting a page's EDIT permission (`application_page_set_permissions` sets the VIEW permission
+    only, see [Pages: permissions and deleting](#pages-permissions-and-deleting)). A page made with
+    `application_page_create` starts at VIEW = logged-in users, the app's default (seen 2026-10-05,
+    2026-10-09 and 2026-10-22 to 23), and EDIT = all users (seen 2026-10-15 and 2026-10-22 to 23).
+    Since 2026-10-23 the VIEW half is an MCP call: a public page is
+    `application_page_set_permissions` with `ALL_USERS` (or `NON_LOGGED_IN_USERS`), read back with
+    `application_page_get_permissions`; keep the block's own Visibility on the same group, and do not
+    call a public form live-tested until it has been reached logged out;
   - setting a page's title: `application_page_create` takes a name and a path,
     `application_page_list` reads the title, and no tool sets it (2026-10-23);
-  - the Pages panel's folders and nesting: per `application_page_create`'s description a new page
+  - the Pages panel's folders and nesting (a page deleted with `application_page_delete` moves its subpages up one level, but no tool nests or moves a page): per `application_page_create`'s description a new page
     lands at the top level and the tool does not control nesting or order, and no other tool in the
     roster places a page;
   - Page Rules, which are not readable either (`application_get_access_overview` gives only counts of redirections);
@@ -983,6 +984,62 @@ Combined with the database tools (`database_create` / `database_create_table` / 
   alike (per Softr; verified on `vibe_coding_block_list_versions` that day). Before then, studio-side timestamps came back with
   no zone designator and nine fractional digits (`2026-09-09T22:34:11.157881061`). They were UTC, so
   read any older logged value as UTC, never as local time.
+
+### Pages: permissions and deleting
+
+`application_page_set_permissions` and `application_page_delete` joined the roster on 2026-10-23
+(Softr announced them the same day). Both were exercised that day on a throwaway app in Leo's own
+workspace; what was seen is marked, the rest is from the tools' descriptions.
+
+**`application_page_set_permissions`** sets a page's VIEW permission ("Who can view" in Studio) and
+nothing else.
+
+- Arguments: `applicationId`, `pageId`, and two optional ones, each left as it is when omitted:
+  `predefinedUserGroup` (`ALL_USERS`, `LOGGED_IN_USERS` or `NON_LOGGED_IN_USERS`) and
+  `customUserGroupIds` (CUSTOM groups only, valid only with `LOGGED_IN_USERS`; the list replaces the
+  current one and `[]` removes the restriction).
+- Seen: `ALL_USERS` and `NON_LOGGED_IN_USERS` were set on two new pages and read back by
+  `application_page_get_permissions` (an array with an EDIT row and a VIEW row). The result is
+  `{ permission: "VIEW", userGroups: { predefinedUserGroupType, customUserGroupIds, ... } }`. EDIT stayed
+  at `ALL_USERS`: the tool has no EDIT, ADD or DELETE.
+- Seen, refused with `BAD_REQUEST` and a message that names the fix: a custom group id on a page that
+  is not `LOGGED_IN_USERS` ("Set predefinedUserGroup to LOGGED_IN_USERS in the same request"), an
+  unknown value (`EVERYONE`; the message lists the three valid ones), a call with neither argument,
+  an unknown group id ("No custom user groups are defined for this application"), and a utility page
+  (`LOG_IN`: "Only regular pages have a view permission that can be changed").
+- Not exercised: setting a real custom group. `application_create_user_group` is refused on that
+  workspace's plan ("Custom user groups are not included in your plan"), so the group path is from the
+  description only.
+- Seen: a nav item added with `application_navigation_set_items` for a page set to
+  `NON_LOGGED_IN_USERS` came back with the same visibility, so an item takes its page's VIEW group when
+  it is created. Whether it follows later changes was not checked; read the item back and set its
+  visibility yourself.
+- Turning end-user login off (`application_set_login`) does not touch this setting: a page left at
+  `LOGGED_IN_USERS` then opens for nobody, so set `ALL_USERS` on every page of a public app (per the
+  description).
+- Like every page change, it goes live on `application_publish`; a Studio tab that is already open
+  shows the old setting until it is reloaded.
+
+**`application_page_delete`** deletes a page for good. No MCP tool restores it, so confirm with the
+person unless they already named this page.
+
+- Arguments: `applicationId`, `pageId`, and `deleteSubpages` (default `false`: nested pages are kept
+  and move up one level). Result: `{ applicationId, page, deletedSubpageIds, keptSubpageIds }`.
+- Seen: two new pages deleted; `application_page_get` then answers `NOT_FOUND`, and a second delete
+  also answers `NOT_FOUND`. The home page (`/`) and the `LOG_IN` page were refused with `BAD_REQUEST`
+  ("which cannot be deleted"). The same holds for the other utility pages, per the description
+  (a copy can be deleted).
+- Seen: **a nav item for the deleted page is left behind as a dead link.** After the delete the
+  navigation still held the item; its `pageId` was gone and it carried `destination: "/pd-probe-b"` (the
+  old path), and the page had dropped out of the navigation's `pageIds`. Read the navigation with
+  `application_navigation_get` after every delete and remove such items with
+  `application_navigation_set_items`, sending the items to keep as `{ id }` (the dead one left out). Do
+  the same for a link inside a block that points at the path.
+- Not exercised: `deleteSubpages` and a page with subpages (no MCP tool can nest a page), and what a
+  live app serves before and after a publish. Per the description, the deletion does not go live until
+  `application_publish`.
+- A deleted page's blocks go with it ("no tool brings the page or its blocks back"); a table the blocks
+  read is not touched (not checked).
 
 ### Navigation (menus and their items)
 
@@ -1058,8 +1115,8 @@ After the call, read the navigation back with `application_navigation_get` and c
 item's title, icon, target and visibility with the copy you read first, as for a block push.
 
 **Hiding an item is not access control.** Visibility only hides the menu entry: who may open the
-page is the page's own VIEW permission, and that is still set in Studio
-([Studio-only jobs](#application-management-tools) above). A page left out of every menu is still
+page is the page's own VIEW permission, set with `application_page_set_permissions`
+([Pages: permissions and deleting](#pages-permissions-and-deleting)). A page left out of every menu is still
 reachable by its URL.
 
 **The other navigation tools** (per their descriptions, not exercised):
