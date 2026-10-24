@@ -394,7 +394,7 @@ softr-vibe-coding/
 │   │                                 # focus lost on self-removing buttons, grid and overflow traps
 │   │                                 # Oct 16 2026 (2.22.0): a per-row .mutate row and the overlapping-saves scope; a caveat on
 │   │                                 # the refill-the-form row
-│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars)
+│   ├── common-patterns.md            # Small reusable patterns (localStorage state, clipboard, nav blocker, drag-to-reorder, create → open, clickable row + inner link, keyboard picker, measure the block not the window, clear Softr's sticky bars, a modal above Softr's bars, a signature drawn in a popup and uploaded as a PNG)
 │   │                                 # localStorage cross-page state, clipboard copy,
 │   │                                 # navigation blocker, scroll-condensing header,
 │   │                                 # auth-aware CTA, image masks, blobs, dot lists;
@@ -414,6 +414,9 @@ softr-vibe-coding/
 │   │                                 # that unmounts and a disabled focus target
 │   │                                 # Oct 16 2026 (2.22.0): a form open while its record changes (baseline ref, send only
 │   │                                 # changes, merge); Radix Dialog Escape and focus return
+│   │                                 # Oct 24 2026 (2.24.0): Signatures: draw in a popup, upload a PNG (the Add signature popup, the
+│   │                                 # PNG through useUpload with the path kept as text, a linear tokenizer to read it back, the
+│   │                                 # upload as measured 2026-10-23 incl. logged out, testing it, a generic skeleton)
 │   ├── editable-settings.md          # Settings deep-dive: full hook catalog incl.
 │   │                                 # verified-undocumented useLongTextSetting +
 │   │                                 # "navigation" array-schema type, granularity
@@ -526,6 +529,8 @@ softr-vibe-coding/
     │                                 # callbacks, .mutateAsync is per call), send only what changed
     │                                 # Oct 19 2026 (2.22.1): keep single-line text to the documented 1,024 whatever
     │                                 # the field declares
+    │                                 # Oct 24 2026 (2.24.0): useUpload worked logged out; Softr copies the file on create (Softr Database); a signature
+    │                                 # PNG links to common-patterns.md
     ├── fields.md                     # getFieldValue(), field type shapes, record
     │                                 # structure, debug utilities; date-only fields
     │                                 # parsed as local dates, multi-value lookup shape

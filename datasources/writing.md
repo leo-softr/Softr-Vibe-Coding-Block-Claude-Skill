@@ -437,6 +437,8 @@ upload.uploadAsync(Array.from(e.target.files)).then(function(results) {
 
 Always handle the non-`"completed"` branch — a failed result carries `result.error?.message` for the toast.
 
+**On a public page, and for a file the block makes itself.** `useUpload` also worked for a visitor who was not signed in, with a PNG the block drew on a canvas (verified live 2026-10-23, logged out in a draft preview and from a fresh browser session on the published domain). The address `uploadAsync` returns is not what ends up on the record: when the create carries `{ filename, url }` into a Softr Database table, Softr copies the file into the table's own storage (measured on that data source only), and the stored link is signed for 2 hours (the field's link-expiry setting, 2 hours by default; [softr-mcp.md](../references/softr-mcp.md#putting-files-into-attachment-fields)). `useUpload` adds no action of its own. The file rides on the block's ADD action, so the file field's alias must be in the create's `q.select`. The whole flow (time limit, a text copy of the drawing, the busy label, what to test) is a signature pattern: [common-patterns.md → Signatures: draw in a popup, upload a PNG](../references/common-patterns.md#signatures-draw-in-a-popup-upload-a-png).
+
 ### Async/await style
 
 The official Softr Vibe Coding docs use this form; it's more ergonomic when uploading inside a larger async flow:
@@ -661,6 +663,8 @@ createRecord.mutate({
 
 To upload a file from the user's machine before writing it to a record, see
 [File Uploads](#file-uploads) above for the full `useUpload` flow.
+A picture the block draws itself, such as a signature on a canvas, goes in the same way:
+[Signatures: draw in a popup, upload a PNG](../references/common-patterns.md#signatures-draw-in-a-popup-upload-a-png).
 
 A file on the assistant's own machine at build time (a client's photos for a backfill, not a user's
 upload in the block) goes in through the Softr MCP's upload link instead:

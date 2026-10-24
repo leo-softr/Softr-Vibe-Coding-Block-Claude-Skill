@@ -21,6 +21,7 @@ Small reusable patterns that come up across Vibe Coding blocks but don't warrant
 - [Clear Softr's sticky bars](#clear-softrs-sticky-bars)
 - [A modal above Softr's bars](#a-modal-above-softrs-bars)
 - [Inline confirm in place of a button](#inline-confirm-in-place-of-a-button)
+- [Signatures: draw in a popup, upload a PNG](#signatures-draw-in-a-popup-upload-a-png)
 - [A form open while its record changes](#a-form-open-while-its-record-changes)
 - [Drafts that survive a reload](#drafts-that-survive-a-reload)
 - [CSV export](#csv-export)
@@ -867,6 +868,500 @@ function ConfirmStrip({ text, safeLabel, actionLabel, onSafe, onAction }: {
       <button type="button" ref={safeRef} onClick={() => armed() && onSafe()}>{safeLabel}</button>
       <button type="button" onClick={() => armed() && onAction()}>{actionLabel}</button>
     </div>
+  );
+}
+```
+
+## Signatures: draw in a popup, upload a PNG
+
+The default way to ask a person for a signature in a block [house]. An **Add signature** button opens a popup with a drawing box. The person signs with a finger, a stylus or the mouse, and the form keeps the drawing as a preview. On Send the block saves the drawing twice: as plain text (the path) and as a PNG in an ATTACHMENT field, uploaded with `useUpload`. A typed name is the fallback for people who cannot draw, not the main way.
+
+Use it for anything a person signs in a block: an application, an agreement, a waiver, a report, a delivery receipt. A tick box that says "I agree" is not a signature and needs none of this. Whether a drawing or a typed name is enough for a given document is the form owner's call, not the pattern's.
+
+**Status.** The upload facts below were measured live on 2026-10-23. The popup, the preview and the send were built to this list and run the same day in a draft preview in Chromium, with a mouse and the keyboard: no failed checks; one minor (the note sat under the Type the name instead link) was fixed in a later push. Touch and stylus input, backdrop presses on the popup, Firefox and WebKit were not run. The code at the end is a trimmed, generic version of that block. Run in node on 2026-10-24, its path functions gave the same results as the shipped ones on 20,000 generated drawings and 200,000 malformed strings, and the whole skeleton passed an esbuild syntax check. The picture function, the pad, the popup and the field were not run as written: there was no canvas or browser in that check.
+
+If a second block shows or prints the signature (a staff inbox, a printout), keep the path functions in a shared kit between marker lines, so the block that writes the path and the block that reads it cannot disagree: [date-picker.md → The kit between markers](date-picker.md#the-kit-between-markers).
+
+### What the person sees
+
+- **Add signature is the main control.** A full-width button, 44px tall, with a pen icon. The shipped form drew it outlined (its secondary style), which keeps Send the one filled button on the page. A note under it, "Press Add signature, then sign with your finger, a stylus or the mouse.", shows only while nothing is saved. Put the note directly under the button and above the next control; a note slot that sat below the "Type the name instead" link read as the link's note. Link each note to its control with `aria-describedby`, and the error too.
+- **"Type the name instead" is a small link under it,** for anyone who cannot draw. A pad takes a pointer, so keyboard and screen-reader users need this way. The note under the name box says what a typed name counts as ("A typed name counts as a signature." was the shipped line; the owner decides whether that is true for the document). A link back reads "Draw the signature instead". Keep both halves when the person switches way and send only the half that is showing. After the swap, put focus on the name box or on the link back, because the control that had it is gone.
+- **The popup is the in-block modal** of [A modal above Softr's bars](#a-modal-above-softrs-bars), never shadcn's `Dialog`: `fixed inset-0 z-[1000]`, a sibling of the block's `@container` wrapper, with its own focus trap, scroll lock, Escape and focus return to the opener. Inside it:
+  - **A title, the box and three buttons:** **Clear**, **Cancel** and **Save signature**. Save signature is disabled until there is ink.
+  - **Strokes stay local until Save signature.** The draft lives in a hook above the form, so Cancel leaves the answers as they were and nothing is uploaded.
+  - **Unsaved ink asks first.** When the draft differs from the saved drawing, Cancel, Escape and the backdrop swap the buttons for an inline question, "Discard this drawing?", with **Keep drawing** (the safe answer, which takes focus) and **Discard** ([Inline confirm in place of a button](#inline-confirm-in-place-of-a-button)). While it shows, Escape gives the safe answer. When it closes, send focus to Cancel, or it falls to `<body>`. A draft with no unsaved ink closes at once.
+  - **A backdrop press closes the popup only if the press began on the backdrop.** Otherwise a stroke that starts in the box and runs off its edge ends on the backdrop and throws the drawing away. Record `pointerdown` on the backdrop in a ref and reset it from `onPointerDownCapture` on the panel.
+  - **The box** is an SVG with `viewBox="0 0 600 200"` (3:1), full width up to 600px. It uses pointer events with `setPointerCapture`, and `touch-action: none` on the box only, so drawing never scrolls the page. A pointer position becomes a point through the box's own `getBoundingClientRect`, so the picture scales with the block. It reads `getCoalescedEvents()` where the browser has it. One stroke at a time: a second pointer (a palm beside a pen) never takes over a live stroke. A tap draws a dot. "Sign here" and a baseline show while the box is empty, and `role="img"` carries a label that says whether it is empty or signed. When the checked path holds 1,999 points or more (it can stop one short, because a dot takes two) the box says "The box is full. Press Clear to start again."
+  - **A narrow block fills the width.** The popup is outside the `@container` wrapper, so a container query cannot see the block's width: [measure it](#measure-the-block-not-the-window). Below 480px the popup fills the width with a 16px gutter and a line under the box says "Tip: turn your phone sideways for more room." Keep Clear, Cancel and Save signature as the same three DOM nodes in the narrow and the wide layout (put the layout classes on the buttons, not on extra wrappers), so focus on them survives a phone being turned sideways.
+  - **Focus goes back to the opener.** Save signature replaces Add signature with the preview, so the opener is gone by then. Give Add signature and Change the same `id` and pass `#id` as `returnFocusFallback`.
+- **A saved drawing shows as a preview with Change and Remove.** A bordered box holding an SVG drawn from the checked path (never the raw stored text). **Change** reopens the popup with the saved drawing as the draft. **Remove** asks "Remove the signature?" with an inline confirm (Keep, Remove) and sends focus to Add signature afterwards. A saved drawing, a typed name and an open popup with unsaved ink all count as dirty for `useNavigationBlocker`.
+- **Required, and not too short.** A drawing needs at least 8 points and a box at least 24 units wide or tall: "The signature is too short. Please sign again." A typed name needs 2 or more characters. The message for no signature names the button: "Please press Add signature and sign, or choose Type the name instead." The error summary's jump link focuses the Add signature button (or Change), the control that carries the question's `id`.
+
+### Saving it
+
+- **Check the path first.** The pad hands up strokes (lists of `[x, y]` points in the 600 by 200 box). Clamp each point into the box, round it to a whole number, drop a point closer than 1.5 units to the one before it, and stop at 2,000 points. The result is path text with only `M` and `L`: `M12 140L14 138M50 100L51 101`. A stroke of one point is written twice, so it draws a dot.
+- **Upload on Send, never on Save signature.** A form that is never sent uploads nothing, and a person who redraws three times uploads once. A typed name uploads nothing.
+- **Draw it again off screen.** Make the PNG from the checked path (read back through the tokenizer, not the raw string) on an off-screen 600 by 200 canvas: white background, the preview's stroke (3 wide, round caps and joins, a one-point stroke as a dot). `canvas.toBlob(cb, "image/png")` is asynchronous, so await it, and wrap the blob in a `File`. A hand-drawn signature came out at 6 to 8 KB.
+- **`uploadAsync(file)` with a time limit.** The upload is app-level: no `from`. Race it against a 20 second timer. Only a result with `status === "completed"` and an `https://` url counts. Call it on the hook object (`upload.uploadAsync(file)`), never detached; [writing.md](../datasources/writing.md#actions-register-per-table-not-per-hook-or-connection) has the same rule for `mutateAsync`.
+- **The create carries `{ filename, url }`** under the attachment field's alias, flat, like any [attachment write](../datasources/writing.md#attachment). Without a file there is no key at all.
+- **A failed upload never stops the send.** No canvas, no `File`, `toBlob` giving nothing, a refused or failed result, a timeout, a throw: every one is a null, the create goes without the file, and the visitor sees no error. The drawing is in the text copy anyway. (A timed-out upload may still finish and leave a file nothing refers to; inferred, not seen.)
+- **Keep the path as text in the same create,** in a text column or in the JSON column that holds the answers: `{"kind":"drawn","d":"M12 140L14 138…"}`, or `{"kind":"typed","name":"…"}`. Three reasons. The upload is a second request and can fail where the create does not. A printout, an export or another block can draw the path with no network wait, sharper, and it never expires (a link read from the row works for 2 hours; read the row again for a new one). And the drawing survives if the attachment field is not mapped. If an earlier version stored the typed name as a plain string, read a plain string as typed.
+- **The button text says what is happening:** "Saving your signature…" while the picture is made and uploaded, then "Sending…". The double-submit guard (a ref set before the first `await`) covers the whole Send, upload included ([writing.md](../datasources/writing.md#sequential-multi-row-writes-mutateasync)).
+- **Reuse the file when Send is pressed again.** Keep `{ path, file }` in a ref. If the create failed after the upload and the person presses Send again with the same drawing, send the file that is already uploaded instead of uploading twice. Forget it once the answers are wiped.
+- **Map the file field, and read the action back.** The attachment field's alias must be in the create's `q.select`. `useUpload` adds no action of its own: the file rides on the block's ADD action. After a push, read that action back and check the file field is among its mapped fields (verified live 2026-10-23: the action read before the push, from the build without the field, did not map it; after the push of the build whose create select had it, the action mapped 20 fields, the file field among them). Every push resets actions (Hard Constraint 21).
+
+### Reading it back safely
+
+- **A stored path is text a crafted request could have written,** so read it with a **linear tokenizer**: one pass over the characters, no regex (nested quantifiers can hang). Accept only `M`, `L`, digits and spaces. Each command has exactly two numbers of 1 to 3 digits, every coordinate is inside the box (0 to 600 across, 0 to 200 down), and the path has at most 2,000 points and 24,000 characters. Anything else is `null`.
+- **Render only from the parsed numbers.** As a React `<path d={…}>` where `d` is written out again from the parsed points, or as markup you build from those numbers (a printout, see [printing.md](printing.md)). Never put the stored string into markup, an attribute or `dangerouslySetInnerHTML`.
+- **Showing the uploaded PNG in another block:** read the row each time, because the link is signed for a limited time (2 hours by default, see below) and must not be copied anywhere. Render an `<img>` only for an `https://` address, with `referrerPolicy="no-referrer"` and a real `alt`, because a public ADD action lets a crafted request write any link into the field (house rule, from that reasoning). If there is no link, or the image fails to load, draw the path instead. The shipped staff view showed the image on screen (the path when the image failed); the form's own printout drew the path. The read shape is in [fields.md → Attachment thumbnails](../datasources/fields.md#attachment-thumbnails).
+- **A typed signature has no file.** Show the name and "(typed)".
+
+### What the upload does (measured 2026-10-23)
+
+Verified live on 2026-10-23 on a Softr Database table, from a draft preview (signed in, and logged out with no user switched in) and, for the logged-out case, from a brand-new browser session with no cookies on the published domain:
+
+- **The request.** `uploadAsync(file)` sends one XHR, not a `fetch`: `POST /v1/applications/<appId>/upload?file_name=<name>.png_<uuid>`, with FormData whose only part is `file`. It answers 200 with a plain URL (not JSON) on Softr's file host: `app-files-v1.softr-files.com/applications/<appId>/uploads/<uuid>/<name>.png`.
+- **The create** then carries `{ filename, url }`.
+- **Softr copies the file** into the table's own storage on create. Read back with `database_get_record`, the stored value is `{ id, url, filename, type: "image/png", size, thumbnails }`. The `id` looks like `attachments/<databaseId>/<tableId>/<recordId>/<fieldId>/<uuid>/<uuid>`. The `url` is not the one the block wrote: it is a signed S3 link that expires after **2 hours** (the field's link-expiry setting, 2 hours by default; [softr-mcp.md](softr-mcp.md#putting-files-into-attachment-fields)), and the thumbnails (small, medium, large) sit on CloudFront.
+- **Logged out works.** Softr's docs do not say whether `useUpload` works for a visitor who is not signed in. It did: a drawn signature landed with its PNG signed in (6,295 B) and logged out (7,616 B) in the preview, and logged out from a fresh browser session on the published domain (7,711 B). In the preview the page saw no user and only the preview-version cookie.
+- **It displays.** A reading block showed the stored image as an `<img>`, 600 by 200 natural size, loaded, with `referrerPolicy="no-referrer"`.
+- **No action of its own.** The upload added nothing to the block's actions (see above).
+
+### Testing it
+
+- **A recorder for writes must wrap `XMLHttpRequest` as well as `fetch`.** The upload is an XHR and the create is a `fetch`. A recorder that wraps only `fetch` logs the create and misses the file. Install both before the first press, once per page load, and probe one call of each kind before trusting an empty log.
+- **Block the upload path too.** The save guard in [browser-checks.md → Block saves before any click](browser-checks.md#6-block-saves-before-any-click-and-prove-it) routes `*records-trigger*` only. The upload goes to `/upload`, so a Send press that stops at the create can still put a file in Softr's storage. Block that path as well, and probe it.
+- **Prove the logged-out case on your own app.** One marked test submission from a brand-new browser session with no cookies, on the published domain, then read the row back and compare `filename`, `type` and `size`. A preview with no user switched in is a cheap first check, but it may carry a Studio cookie the page cannot see, so it is not the same test.
+
+### Skeleton
+
+A trimmed, generic version of the shipped code. It builds on `InBlockModal` and `ConfirmStrip` from the two sections above and on `useElementWidth` from [Measure the block, not the window](#measure-the-block-not-the-window). Give `ConfirmStrip` the Escape handler its rules ask for (the sketch above leaves it out): `onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onSafe(); } }}` on its wrapper, so the "Remove the signature?" question on the form has an Escape way out. First the path functions and the picture:
+
+```tsx
+import { useEffect, useRef, useState } from "react";
+import { Pen } from "lucide-react";
+import { datasource, q, useRecordCreate, useUpload } from "@/lib/datasource";
+
+// ---- 1. The box, the path and the picture (module scope, plain functions) ----
+const SIG_W = 600; // every drawing lives in one box, 600 by 200 units
+const SIG_H = 200;
+const SIG_MAX_POINTS = 2000;
+const SIG_MAX_CHARS = 24000;
+const SIG_THIN = 1.5; // a point closer than this to the one before it is dropped
+const SIG_MIN_POINTS = 8; // fewer points, or under SIG_MIN_SPAN both ways, is "too short"
+const SIG_MIN_SPAN = 24;
+type Stroke = [number, number][];
+type SigPad = { mode: "draw" | "type"; strokes: Stroke[]; name: string }; // the answer while the form is open
+
+// Strokes as path text, no checks: "M12 140L14 138M50 100L51 101". A one-point stroke is written twice: a dot.
+function sigWrite(strokes: Stroke[]): string {
+  let d = "";
+  for (const pts of strokes) (pts.length === 1 ? [pts[0], pts[0]] : pts).forEach((p, i) => (d += (i === 0 ? "M" : "L") + p[0] + " " + p[1]));
+  return d;
+}
+
+// What the pad collected as path text: clamped into the box, rounded, thinned, capped. "" for nothing.
+function sigPath(strokes: unknown): string {
+  if (!Array.isArray(strokes)) return "";
+  const kept: Stroke[] = [];
+  let room = SIG_MAX_POINTS;
+  for (let s = 0; s < strokes.length && room >= 2; s++) {
+    if (!Array.isArray(strokes[s])) continue;
+    const pts: Stroke = [];
+    for (const p of strokes[s]) {
+      if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+      const x = Math.round(Math.min(SIG_W, Math.max(0, p[0])));
+      const y = Math.round(Math.min(SIG_H, Math.max(0, p[1])));
+      const last = pts[pts.length - 1];
+      if (last && Math.hypot(x - last[0], y - last[1]) < SIG_THIN) continue;
+      pts.push([x, y]);
+      if (pts.length >= room) break;
+    }
+    if (pts.length === 0) continue;
+    room -= pts.length === 1 ? 2 : pts.length;
+    kept.push(pts);
+  }
+  return sigWrite(kept);
+}
+
+// Path text read back as { strokes, points, minX, minY, maxX, maxY }, or null when it is not a signature path. One pass over
+// the characters, no regex. Only M, L, digits and spaces; each command has exactly two numbers of 1 to 3 digits, inside the box.
+function sigParse(d: unknown) {
+  if (typeof d !== "string" || d.length === 0 || d.length > SIG_MAX_CHARS || d.charAt(0) !== "M") return null;
+  const strokes: Stroke[] = [];
+  const nums: number[] = [];
+  let cur: Stroke = [], cmd = "", tok = "", points = 0, minX = SIG_W, minY = SIG_H, maxX = 0, maxY = 0;
+  for (let i = 0; i <= d.length; i++) {
+    const ch = i < d.length ? d.charAt(i) : ""; // "" is the end: it closes the last command
+    if (ch >= "0" && ch <= "9") { tok += ch; if (tok.length > 3) return null; continue; }
+    if (tok !== "") { nums.push(Number(tok)); tok = ""; if (nums.length > 2) return null; }
+    if (ch === " ") continue;
+    if (cmd !== "") { // close the command before this one
+      const [x, y] = nums;
+      if (nums.length !== 2 || x > SIG_W || y > SIG_H || ++points > SIG_MAX_POINTS) return null;
+      if (cmd === "M") strokes.push((cur = [[x, y]])); else cur.push([x, y]);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    if (ch === "") break;
+    if (ch !== "M" && ch !== "L") return null;
+    cmd = ch;
+    nums.length = 0;
+  }
+  for (const pts of strokes) if (pts.length === 1) { pts.push([pts[0][0], pts[0][1]]); points++; } // a one-point stroke comes back as two: a dot
+  return points > SIG_MAX_POINTS ? null : { strokes, points, minX, minY, maxX, maxY };
+}
+
+// The path as the form keeps and shows it: parsed, then written out again from the numbers. "" when it does not parse.
+function sigChecked(d: unknown): string {
+  const info = sigParse(d);
+  return info ? sigWrite(info.strokes) : "";
+}
+
+// null when the signature can be sent, else the sentence for under the question.
+function sigProblem(pad: SigPad): string | null {
+  if (pad.mode === "type") return pad.name.trim().length >= 2 ? null : "Type your full name.";
+  const info = sigParse(sigPath(pad.strokes));
+  if (!info) return "Please press Add signature and sign, or choose Type the name instead.";
+  const wide = info.maxX - info.minX >= SIG_MIN_SPAN || info.maxY - info.minY >= SIG_MIN_SPAN;
+  return info.points >= SIG_MIN_POINTS && wide ? null : "The signature is too short. Please sign again.";
+}
+
+// The picture: the checked path on an off-screen white canvas, as a PNG File. null when the browser cannot make one.
+async function sigPngFile(d: string, fileName: string): Promise<File | null> {
+  const info = sigParse(d); // from the checked numbers, never from the raw string
+  if (!info || typeof File === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = SIG_W;
+  canvas.height = SIG_H;
+  const g = canvas.getContext("2d");
+  if (!g) return null;
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, SIG_W, SIG_H);
+  g.strokeStyle = "#1f2937"; // the preview's stroke: 3 wide, round
+  g.fillStyle = "#1f2937";
+  g.lineWidth = 3;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  for (const pts of info.strokes) {
+    g.beginPath();
+    if (pts.length === 2 && pts[0][0] === pts[1][0] && pts[0][1] === pts[1][1]) { g.arc(pts[0][0], pts[0][1], 1.5, 0, Math.PI * 2); g.fill(); continue; } // a dot
+    pts.forEach((p, i) => (i === 0 ? g.moveTo(p[0], p[1]) : g.lineTo(p[0], p[1])));
+    g.stroke();
+  }
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  return blob ? new File([blob], fileName, { type: "image/png" }) : null;
+}
+```
+
+Three small changes to `InBlockModal`; everything else stays as in [its section](#a-modal-above-softrs-bars):
+
+```tsx
+// 1. Size comes from the caller: props `overlayClass` and `panelClass` replace the fixed "p-2 sm:p-6" and "max-w-4xl".
+// 2. The X is optional: `showClose?: boolean`. Cancel is the way out of this popup.
+// 3. A backdrop click counts only if its press began on the backdrop:
+const downOnBackdrop = useRef(false);
+//    backdrop:  onPointerDown={(e) => { e.preventDefault(); downOnBackdrop.current = true; }}
+//               onClick={() => { if (!downOnBackdrop.current) return; downOnBackdrop.current = false; dismissRef.current(); }}
+//    panel:     onPointerDownCapture={() => { downOnBackdrop.current = false; }}
+```
+
+The upload, and the draft that lives above the form:
+
+```tsx
+// ---- 2. The upload and the popup's state (module scope hooks) ----
+const SIG_FILE = "signature.png";
+const SIG_UPLOAD_MS = 20000; // the most Send waits for the picture to be made and uploaded
+type Stored = { filename: string; url: string };
+
+// Anything that goes wrong is a null, and the send goes on without the file.
+function useSignatureUpload() {
+  const upload = useUpload(); // app-level: no `from`
+  const kept = useRef<{ d: string; file: Stored } | null>(null);
+  async function store(d: string, busy: (on: boolean) => void): Promise<Stored | null> {
+    if (kept.current && kept.current.d === d) return kept.current.file; // Send pressed again: reuse it
+    busy(true);
+    let timer = 0;
+    try {
+      const limit = new Promise<null>((resolve) => { timer = window.setTimeout(() => resolve(null), SIG_UPLOAD_MS); });
+      const made = async (): Promise<any> => {
+        try {
+          const file = await sigPngFile(d, SIG_FILE);
+          if (!file) return null;
+          const out: any = await upload.uploadAsync(file); // on the hook object, never detached
+          return Array.isArray(out) ? out[0] : out;
+        } catch { return null; }
+      };
+      const res = await Promise.race([made(), limit]);
+      if (!res || res.status !== "completed" || typeof res.url !== "string" || res.url.indexOf("https://") !== 0) return null;
+      kept.current = { d, file: { filename: SIG_FILE, url: res.url } };
+      return kept.current.file;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timer);
+      busy(false);
+    }
+  }
+  return { store, forget: () => { kept.current = null; } };
+}
+
+// The draft lives here, above the form, so the answers change only on Save signature.
+function useSigPopup(saved: Stroke[], onSave: (strokes: Stroke[]) => void) {
+  const [open, setOpen] = useState<{ opener: HTMLElement | null } | null>(null);
+  const [draft, setDraft] = useState<Stroke[]>([]);
+  const dirty = open !== null && sigPath(draft) !== sigPath(saved); // also feeds useNavigationBlocker
+  const close = () => { setOpen(null); setDraft([]); };
+  return {
+    open, draft, dirty, setDraft, close,
+    openFor: (opener: HTMLElement | null) => { setDraft(saved); setOpen({ opener }); },
+    save: () => { if (sigPath(draft) !== "") { onSave(draft); close(); } },
+  };
+}
+```
+
+The box and the popup:
+
+```tsx
+// ---- 3. The box and the popup ----
+const BTN = "inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium disabled:opacity-40";
+type PE = React.PointerEvent<SVGSVGElement>;
+
+// Strokes are collected while a pointer is down and handed up once, when it lifts. (The shipped box also shows
+// "The box is full. Press Clear to start again." when sigParse(d).points >= SIG_MAX_POINTS - 1, because a dot takes two points
+// and a full path can stop one short; add it where `d` is computed.)
+function SigSurface({ strokes, onChange }: { strokes: Stroke[]; onChange: (s: Stroke[]) => void }) {
+  const [live, setLive] = useState<Stroke[] | null>(null); // the strokes while a pointer is down
+  const liveRef = useRef<{ pointer: number; strokes: Stroke[] } | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const d = sigPath(live ?? strokes);
+
+  // Pointer positions as points in the box: its own rectangle maps the screen to 600 by 200.
+  function pointsOf(list: { clientX: number; clientY: number }[]): Stroke {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r || !(r.width > 0) || !(r.height > 0)) return [];
+    return list.map((e): [number, number] => [
+      Math.min(SIG_W, Math.max(0, ((e.clientX - r.left) * SIG_W) / r.width)),
+      Math.min(SIG_H, Math.max(0, ((e.clientY - r.top) * SIG_H) / r.height)),
+    ]);
+  }
+  function down(e: PE) {
+    if (liveRef.current || e.isPrimary === false || (e.pointerType === "mouse" && e.button !== 0)) return; // one stroke at a time
+    const [p] = pointsOf([e.nativeEvent]);
+    if (!p) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not every browser can capture */ }
+    liveRef.current = { pointer: e.pointerId, strokes: [...strokes, [p]] };
+    setLive(liveRef.current.strokes);
+  }
+  function move(e: PE) {
+    const cur = liveRef.current;
+    if (!cur || cur.pointer !== e.pointerId) return;
+    let events: { clientX: number; clientY: number }[] = [e.nativeEvent];
+    try { const more = e.nativeEvent.getCoalescedEvents?.() ?? []; if (more.length > 0) events = more; } catch { /* the one event is the point */ }
+    const last = cur.strokes[cur.strokes.length - 1];
+    const add: Stroke = [];
+    for (const p of pointsOf(events)) {
+      const prev = add[add.length - 1] ?? last[last.length - 1];
+      if (Math.hypot(p[0] - prev[0], p[1] - prev[1]) >= SIG_THIN) add.push(p); // thinned the way sigPath thins
+    }
+    const total = cur.strokes.reduce((n, s) => n + s.length, 0);
+    if (add.length === 0 || total + add.length > SIG_MAX_POINTS * 2) return;
+    liveRef.current = { pointer: cur.pointer, strokes: [...cur.strokes.slice(0, -1), [...last, ...add]] };
+    setLive(liveRef.current.strokes);
+  }
+  function end(e: PE, keep: boolean) {
+    const cur = liveRef.current;
+    if (!cur || cur.pointer !== e.pointerId) return;
+    liveRef.current = null;
+    setLive(null);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* nothing was captured */ }
+    if (keep) onChange(cur.strokes); // a cancelled pointer (a palm, or the browser taking the gesture over) keeps nothing
+  }
+
+  return (
+    <div className="relative rounded-xl border bg-white" style={{ maxWidth: SIG_W }}>
+      <svg ref={svgRef} viewBox={`0 0 ${SIG_W} ${SIG_H}`} role="img" aria-label={d === "" ? "Signature box, empty" : "Signature box, signed"}
+        className="block h-auto w-full select-none" style={{ touchAction: "none", cursor: "crosshair" }} // touch-action: none on the box only
+        onPointerDown={down} onPointerMove={move} onPointerUp={(e) => end(e, true)} onPointerLeave={(e) => end(e, true)}
+        onPointerCancel={(e) => end(e, false)} onContextMenu={(e) => e.preventDefault()}>
+        {d === "" ? <line x1="24" y1="150" x2="576" y2="150" stroke="#d1d5db" />
+          : <path d={d} fill="none" stroke="#1f2937" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+      </svg>
+      {d === "" ? <span aria-hidden="true" className="pointer-events-none absolute left-[4%] top-[55%] text-sm text-gray-400">Sign here</span> : null}
+    </div>
+  );
+}
+
+function SigDialog({ narrow, draft, saved, onDraft, onSave, onClose, opener, fallback }: {
+  narrow: boolean; draft: Stroke[]; saved: Stroke[]; onDraft: (s: Stroke[]) => void;
+  onSave: () => void; onClose: () => void; opener: HTMLElement | null; fallback: string;
+}) {
+  const [asking, setAsking] = useState(false); // "Discard this drawing?" in place of the buttons
+  const [epoch, setEpoch] = useState(0); // Clear remounts the box, which drops a stroke that is still live
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const wasAsking = useRef(false);
+  const ask = () => (sigPath(draft) !== sigPath(saved) ? setAsking(true) : onClose()); // Cancel: unsaved ink asks first
+  const dismiss = () => (asking ? setAsking(false) : ask()); // Escape, the backdrop: while the question shows, its safe answer (the shipped form left it open on a backdrop press)
+  useEffect(() => { // the buttons are back after "Keep drawing": focus goes to Cancel, not to <body>
+    if (asking) wasAsking.current = true;
+    else if (wasAsking.current) { wasAsking.current = false; cancelRef.current?.focus({ preventScroll: true }); }
+  }, [asking]);
+
+  return (
+    <InBlockModal labelledBy="sig-title" onDismiss={dismiss} returnFocusTo={opener} returnFocusFallback={fallback}
+      overlayClass="p-4" panelClass={narrow ? "" : "max-w-[640px]"} showClose={false}>
+      <div className={`min-h-0 flex-1 overflow-y-auto ${narrow ? "p-4" : "p-6"}`}>
+        <h2 id="sig-title" className="text-lg font-semibold">Draw your signature</h2>
+        <div className="mt-3"><SigSurface key={epoch} strokes={draft} onChange={onDraft} /></div>
+        {narrow ? <p className="mt-2 text-sm text-gray-500">Tip: turn your phone sideways for more room.</p> : null}
+        <div className="mt-4">
+          {asking ? (
+            <ConfirmStrip key="discard" text="Discard this drawing?" safeLabel="Keep drawing" actionLabel="Discard" onSafe={() => setAsking(false)} onAction={onClose} />
+          ) : (
+            // the same three nodes in both layouts: the layout classes sit on the buttons, not on wrappers
+            <div className={narrow ? "grid grid-cols-2 gap-3" : "flex flex-wrap items-center gap-3"}>
+              <button type="button" className={BTN} onClick={() => { setEpoch((n) => n + 1); onDraft([]); }}>Clear</button>
+              <button type="button" ref={cancelRef} className={`${BTN} ${narrow ? "" : "ml-auto"}`} onClick={ask}>Cancel</button>
+              <button type="button" className={`${BTN} ${narrow ? "col-span-2" : ""}`} onClick={onSave} disabled={sigPath(draft) === ""}>Save signature</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </InBlockModal>
+  );
+}
+```
+
+The question on the form, and the Send that ties it together:
+
+```tsx
+// ---- 4. The question on the form, and Send ----
+// `id` is on Add signature, or on Change once there is a drawing, or on the name box: the error summary's jump link finds it.
+function SignatureField({ id, pad, onChange, onOpen, error }: {
+  id: string; pad: SigPad; onChange: (p: SigPad) => void; onOpen: (opener: HTMLElement) => void; error?: string;
+}) {
+  const d = sigChecked(sigPath(pad.strokes)); // the preview is drawn from the checked numbers
+  const signed = d !== "";
+  const typing = pad.mode === "type";
+  const [asking, setAsking] = useState(false); // "Remove the signature?" in place of Remove
+  const host = useRef<HTMLDivElement | null>(null);
+  // Each note and the error get an id, and the control they belong to names them: a screen reader reads them with it.
+  const describedBy = (withHint: boolean) => [withHint ? `${id}-hint` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ") || undefined;
+  const focusAfter = useRef(""); // a selector: the control that had focus is gone after these changes
+  useEffect(() => {
+    const sel = focusAfter.current;
+    focusAfter.current = "";
+    if (sel) host.current?.querySelector<HTMLElement>(sel)?.focus();
+  }, [typing, signed, asking]);
+  const swap = () => {
+    focusAfter.current = typing ? `#${id}-mode` : `#${id}`;
+    setAsking(false);
+    onChange({ ...pad, mode: typing ? "draw" : "type" }); // both halves are kept; only the one showing is sent
+  };
+
+  return (
+    <div ref={host} className="space-y-1">
+      {error ? <p id={`${id}-err`} role="alert" className="text-sm text-red-600">{error}</p> : null}
+      {typing ? (
+        <>
+          <input id={id} type="text" value={pad.name} maxLength={200} autoComplete="off" aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy(true)} onChange={(e) => onChange({ ...pad, name: e.target.value })} className="min-h-11 w-full rounded-lg border px-3" />
+          <p id={`${id}-hint`} className="text-sm text-gray-500">A typed name counts as a signature.</p>
+        </>
+      ) : signed ? (
+        <>
+          <div className="rounded-xl border bg-white" style={{ maxWidth: SIG_W }}>
+            <svg viewBox={`0 0 ${SIG_W} ${SIG_H}`} role="img" aria-label="Your signature" className="block h-auto w-full">
+              <path d={d} fill="none" stroke="#1f2937" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button id={id} type="button" aria-describedby={describedBy(false)} className={BTN} onClick={(e) => onOpen(e.currentTarget)}>Change</button>
+            {asking ? (
+              <ConfirmStrip key="remove" text="Remove the signature?" safeLabel="Keep" actionLabel="Remove"
+                onSafe={() => { focusAfter.current = `#${id}-remove`; setAsking(false); }}
+                onAction={() => { focusAfter.current = `#${id}`; setAsking(false); onChange({ ...pad, strokes: [] }); }} />
+            ) : (
+              <button id={`${id}-remove`} type="button" className={BTN} onClick={() => setAsking(true)}>Remove</button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <button id={id} type="button" aria-describedby={describedBy(true)} className={`${BTN} w-full`} onClick={(e) => onOpen(e.currentTarget)}>
+            <Pen className="mr-2 h-4 w-4" aria-hidden="true" />Add signature
+          </button>
+          <p id={`${id}-hint`} className="text-sm text-gray-500">Press Add signature, then sign with your finger, a stylus or the mouse.</p>
+        </>
+      )}
+      <button id={`${id}-mode`} type="button" onClick={swap} className="min-h-11 text-sm font-medium underline underline-offset-2">
+        {typing ? "Draw the signature instead" : "Type the name instead"}
+      </button>
+    </div>
+  );
+}
+
+// Placeholders: your own data source id (a string literal, see multi-datasource.md) and your own field ids (from database_list_fields).
+const ds = datasource.define({ rows: "DATASOURCE_UUID" });
+const createSelect = q.select({ signature: "TEXT_FIELD_ID", signatureFile: "ATTACHMENT_FIELD_ID" }); // the text copy, and the ATTACHMENT field
+
+export default function Block() {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const narrow = useElementWidth(rootRef) < 480; // the popup is outside the @container, so measure the block
+  const [pad, setPad] = useState<SigPad>({ mode: "draw", strokes: [], name: "" });
+  const popup = useSigPopup(pad.strokes, (strokes) => setPad((p) => ({ ...p, strokes })));
+  const SU = useSignatureUpload();
+  const [packing, setPacking] = useState(false); // the picture is being made and uploaded
+  const [sending, setSending] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const sendingRef = useRef(false); // the double-send guard, set before the first await
+  // ds and createSelect are the placeholders above: `signature` is the text column, `signatureFile` the ATTACHMENT field.
+  const create = useRecordCreate({ from: ds.rows, fields: createSelect });
+  // useNavigationBlocker(popup.dirty || the form's own dirty rule): see Navigation Blocker for Unsaved Changes.
+
+  async function send() {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    try {
+      const bad = sigProblem(pad);
+      setProblem(bad);
+      if (bad) return;
+      if (!create.enabled) { // nothing is uploaded when the create cannot run
+        // ... the "not available" error ...
+        return;
+      }
+      setSending(true); // only now: "Sending…" does not flash on a form that fails its checks
+      const drawn = pad.mode === "draw" ? sigChecked(sigPath(pad.strokes)) : ""; // a typed name uploads nothing
+      const value = drawn ? { kind: "drawn", d: drawn } : { kind: "typed", name: pad.name.trim() };
+      const file = drawn ? await SU.store(drawn, setPacking) : null; // a null never stops the send
+      const row: Record<string, unknown> = { signature: JSON.stringify(value) }; // the text copy, always
+      if (file) row.signatureFile = { filename: file.filename, url: file.url }; // no key at all without a file
+      await create.mutateAsync(row);
+      SU.forget();
+      // ... wipe the answers, show the thank-you screen ...
+    } catch {
+      // ... the one send error ...
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  }
+
+  return (
+    <>
+      <div ref={rootRef} className="@container">
+        <SignatureField id="field-signature" pad={pad} onChange={setPad} onOpen={popup.openFor} error={problem ?? undefined} />
+        <button type="button" disabled={sending} onClick={() => void send()}>
+          {packing ? "Saving your signature…" : sending ? "Sending…" : "Send"}
+        </button>
+      </div>
+      {/* A sibling of the @container wrapper, not a child of it. */}
+      {popup.open ? (
+        <SigDialog narrow={narrow} draft={popup.draft} saved={pad.strokes} onDraft={popup.setDraft} onSave={popup.save}
+          onClose={popup.close} opener={popup.open.opener} fallback="#field-signature" />
+      ) : null}
+    </>
   );
 }
 ```
