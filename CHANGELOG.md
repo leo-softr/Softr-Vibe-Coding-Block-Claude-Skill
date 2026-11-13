@@ -4,6 +4,9 @@ All notable changes to this skill are documented here. Versions follow [Semantic
 
 Entries from 1.3.1 onward are generated automatically from git commit subjects between version bumps (see `.github/workflows/publish.yml`). Entries before 1.3.1 were backfilled by hand from the existing commit history.
 
+## [2.25.0] - 2026-11-13
+- Workflow FILTER conditions are written over MCP with workflow_update_filter_node_condition; run history, 36 Workflows tools (2.25.0)
+
 ## [2.24.1] - 2026-11-06
 - Move the npx installer from bin/ to cli/ so claude.ai can host the skill as a plugin (2.24.1)
 
