@@ -221,7 +221,7 @@ softr-vibe-coding/
 │   │                                 # browsing (Airtable/Sheets/Notion/Supabase),
 │   │                                 # Softr DB schema + record tools incl. deletes,
 │   │                                 # app management/scaffolding, Workflows suite
-│   │                                 # (28 tools, 418-node catalog), per-application
+│   │                                 # (36 tools, 418-node catalog), per-application
 │   │                                 # MCP servers, auth, permissions; what the server
 │   │                                 # enforces on block data endpoints, "Preview as"
 │   │                                 # role testing, search-replace on 100KB+ blocks
@@ -229,8 +229,8 @@ softr-vibe-coding/
 │   │                                 # push verification by sourceSha256, stub tools
 │   │                                 # after a resume, update_field/update_table fixes;
 │   │                                 # Oct 6 2026: MCP-written Workflow FILTER conditions
-│   │                                 # are inert (set them in Studio; Source conditions
-│   │                                 # set over MCP do work), Workflows tools as
+│   │                                 # are inert (superseded Nov 13 2026: see below;
+│   │                                 # Source conditions set over MCP do work), Workflows tools as
 │   │                                 # workflow_*, denied by-id fetch per backend;
 │   │                                 # Workflows engine facts (CUSTOM_CODE contract,
 │   │                                 # string-array loops, sample-based validation,
@@ -298,6 +298,14 @@ softr-vibe-coding/
 │   │                                 # nav items with existing ones sent as { id } (verified live), the menu model,
 │   │                                 # layouts and settings; still Studio-only: a page's EDIT permission, its
 │   │                                 # title, Pages panel folders and nesting
+│   │                                 # Nov 13 2026 (2.25.0): FILTER conditions written over MCP with
+│   │                                 # workflow_update_filter_node_condition (onto the outgoing path;
+│   │                                 # update_node_inputs "condition" stays inert; no caseSensitive;
+│   │                                 # [*] paths are lists; blank-sample refusal; read paths[] back;
+│   │                                 # workflow_validate ignores conditions), run history
+│   │                                 # (workflow_list_runs / workflow_get_run), 36 Workflows tools,
+│   │                                 # SELECT choices via database_update_field, a view filter
+│   │                                 # proven with database_aggregate_records first
 │   │                                 # Oct 23 2026 (2.22.3): roster drift outside navigation: send_feedback
 │   │                                 # replaces report_missing_capability (four types), application_update_data_source
 │   │                                 # and application_update_pwa_settings are gone, new application_configure_user_sessions,
