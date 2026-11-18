@@ -1,7 +1,7 @@
 {
   "name": "softr-vibe-coding",
-  "version": "2.25.0",
-  "description": "Claude Code skill for generating production-ready Softr Vibe Coding blocks (JSX). Installs into ~/.claude/skills/ and auto-updates on each Claude Code session.",
+  "version": "2.26.0",
+  "description": "Claude Code skill for building and fixing Softr apps: Vibe Coding blocks (TSX/JSX), Softr MCP work, Custom Code CSS for Softr's header and navigation, and app QA. Installs into ~/.claude/skills/ and auto-updates on each Claude Code session.",
   "bin": {
     "softr-vibe-coding": "cli/cli.js"
   },
@@ -24,7 +24,11 @@
     "vibe-coding",
     "no-code",
     "jsx",
-    "react"
+    "react",
+    "tsx",
+    "softr-mcp",
+    "client-portal",
+    "custom-code"
   ],
   "homepage": "https://github.com/leo-softr/Softr-Vibe-Coding-Block-Claude-Skill#readme",
   "repository": {

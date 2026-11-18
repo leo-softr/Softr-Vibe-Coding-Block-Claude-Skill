@@ -1,19 +1,19 @@
 ---
 name: softr-vibe-coding
-description: >
-  Generate custom Softr Vibe Coding blocks as complete React components (TSX/JSX). Use this skill whenever the user
-  mentions Softr, Vibe Coding, Softr blocks, or wants to build a custom UI component for a Softr app.
-  Also trigger when the user asks to create cards, lists, forms, dashboards, charts, detail pages,
-  or any interactive block intended for Softr — even if they don't say "Vibe Coding" explicitly.
-  If the user mentions Softr in the context of building a custom UI component, creating a JSX block,
-  or vibe coding, use this skill. Do NOT use for standalone brand-token extraction with no Softr app
-  involved (that is the dembrandt tool on its own — this skill drives dembrandt in Step 1 when a
-  project needs a DESIGN.md), or for charts/dashboards with no Softr app involved.
-when_to_use: >
-  Triggers on "build me a Softr block", "create a card component", "make a dashboard",
-  "vibe code this", "custom block for Softr", "JSX component for Softr app",
-  "create a form block", "build a list view", "make a portal page",
-  "Softr custom component", "vibe coding block".
+description: >-
+  Build, fix and run Softr apps and client portals, with custom Softr Vibe
+  Coding blocks at the core: React (TSX) components on a Softr page, wired to
+  any Softr data source. Use for any work on a Softr app: a list, form,
+  dashboard, chart, detail page or hero block; a block that renders empty,
+  crashes or loses Action permissions after a push; code with useRecords,
+  q.select or @/lib/datasource; pushing a block, or making apps, pages, users,
+  databases or workflows, with the Softr MCP; native block settings in Studio;
+  Custom Code CSS for Softr's header, sidebar or footer; QA of a Softr app
+  before go-live. Not for vibe coding in general or the same UI outside Softr:
+  charts go to dataviz, React pages to artifact-design or plain code. Not for
+  Airtable scripts or formulas (airtable-automation), website copy about Softr
+  (flow-digital-voice-copywriting), or brand tokens with no Softr app (run
+  dembrandt directly).
 effort: max
 allowed-tools: Read Write Glob Grep Bash
 ---
@@ -24,9 +24,11 @@ You generate complete, production-ready Softr Vibe Coding blocks as TypeScript R
 
 > **Scope note — blocks vs. native chrome.** A block is page *content*, rendered inside a shadow DOM. Softr's global **header / top bar / sidebar / phone tab bar / nav / dropdown menus** are native chrome (configured in Studio, rendered in the main document) — you **cannot** build or replace them as a block. To restyle them, or to paint them into one app frame around the content, add CSS to Settings → Custom Code → Code inside header. See [references/native-chrome-styling.md](references/native-chrome-styling.md) (app frame: [App frame (navigation layout)](references/native-chrome-styling.md#app-frame-navigation-layout); the blocks that sit inside it: [App pages beside Softr navigation](#app-pages-beside-softr-navigation)). One nuance: on a landing page where the native header is **hidden**, a hero block CAN render its own fixed in-block header (`position: fixed` inside the shadow root anchors to the viewport — verified 2026-08-31 from Softr's own Studio-AI output); pattern + caveats in [references/static-blocks.md](references/static-blocks.md#block-owned-landing-page-header).
 
+> **Scope note: Softr work with no block.** When no block or Custom Code is involved (creating or changing apps, pages, navigation, users, databases or workflows over the Softr MCP, or a native block's settings in Studio), skip the workflow below, including the DESIGN.md step. Read [references/softr-mcp.md](references/softr-mcp.md) for the task, next to the Softr connector's own guides (`application_read_guide`, `workflow_guide`). Airtable scripts and formulas belong to the `airtable-automation` skill when it is installed (else [references/airtable-automations.md](references/airtable-automations.md)). Website copy about Softr is not this skill's job.
+
 ## Your Workflow
 
-1. **Detect the brand source (always run first, before any block work).** Check if a `./DESIGN.md` file exists in the project folder you're about to work in.
+1. **Detect the brand source (always run first, before any new block).** Check if a `./DESIGN.md` file exists in the project folder you're about to work in. A fix to an existing block keeps the colors and fonts the block already has: skip this step unless the user asks for a restyle.
 
    - **If `./DESIGN.md` is found:** Read its frontmatter and confirm with the user:
 
@@ -194,7 +196,7 @@ For advanced patterns beyond data fetching, load the relevant reference when the
 | Any **date field** in a block — why `<input type="date">` can't carry a brand (its calendar is browser UI), the `DatePicker` kit (API, the full component), the kit-between-markers convention with a sync script for shared components, lessons from a 12-block rollout (clipping, short modal bodies, named containers and `textClass`, Escape, backdrop clicks, a modal's focus fix-up, Safari focus, `"yyyy-MM-dd"` values), short-screen placement (compact and capped calendar, phone spacer, instant scrolls), how to verify a block and verifying a change to the kit, the comments beside the kit and the block's size after a kit change | [references/date-picker.md](references/date-picker.md) |
 | **Printing** anything from a block — always a new window/tab holding its own document, never `window.print()` on the page or an in-page print view: the escaped HTML builder, pop-up-safe opening from the click, print-when-ready (stylesheets, fonts and images, capped), Print disabled until the data has loaded, the `?print=1` deep link from another page, paper layout (shared `<colgroup>`, `vertical-align: middle`, tick boxes) | [references/printing.md](references/printing.md) |
 | Small reusable patterns — `localStorage` cross-page state, clipboard copy button, measuring the block's own width (not the window's), clearing Softr's sticky top bar and phone tab bar, an in-block modal above Softr's bars (instead of shadcn `Dialog`), a **signature** drawn in a popup and uploaded as a PNG into an attachment field (the path kept as text, the upload's measured behaviour, reading a stored path back safely) | [references/common-patterns.md](references/common-patterns.md) |
-| Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values | [references/airtable-automations.md](references/airtable-automations.md) |
+| Writing Airtable Automation Scripts / Scripting Extension scripts / Airtable formulas — companion to Softr blocks for cross-table cascades and computed values. If the `airtable-automation` skill is installed, use it instead: it holds the team's conventions | [references/airtable-automations.md](references/airtable-automations.md) |
 | The official **Softr MCP server** — Softr DB schema + full record/table/field/database CRUD (deletes included), putting files into attachment fields (a local file through an upload link, or a URL), choosing a table's primary field, creating saved views (hidden fields, sorting, grouping, filter), an app's data restrictions (read and set; enforced on a block's records endpoint), field-level browsing of connected integrations (Airtable / Google Sheets / Notion / Supabase and more) and a sample of their real records, **creating, editing, versioning, and deploying Vibe Coding blocks directly** (`vibe_coding_block_get_docs`, `vibe_coding_block_create`, ...), push verification by `sourceSha256`, a connector signed in to the wrong Softr account (`application_get` and `workspace_list` first), a blocked push and keeping the finished work, a large push cut by size and op count, a new block created, pushed and mirrored by one job, the records endpoint of a create-only connection and its guard (a Source condition that matches nothing), app management/scaffolding, navigation menus (items with `application_navigation_set_items`, layout, display settings, which menu a page shows; a page's VIEW permission and title stay Studio-only), the **Softr Workflows** suite (36 tools, 418-node catalog; FILTER conditions are written over MCP with `workflow_update_filter_node_condition` since 2026-11-13, never with `workflow_update_node_inputs`), and **per-application MCP servers**. Tool names changed on 2026-10-01; the file carries the old → new map | [references/softr-mcp.md](references/softr-mcp.md) |
 | **Checking a pushed block in a browser** — rendering and behaviour in a Softr preview with the agent-browser CLI (ask before installing it): running it in the client's time zone (`TZ` when the session starts) and comparing shown date-only values with the stored ones, the preview cookie, reaching into the block's shadow DOM through accessibility refs, measuring with `eval`, blocking and proving the save endpoint before any click, reading what a click sent, screenshots to disk, testing Custom Code header CSS | [references/browser-checks.md](references/browser-checks.md) |
 | **QA of a whole app** — the order to run a pass after the blocks are pushed: set-up (the draft, the served build, the client's zone, one session per agent), never writing by accident, roles, logged-out access, figures checked against the database, edges tested on purpose, proving a fix before and after in a local harness, a live write pass with a read-only checker, proving a read guard on a create-only connection, rendering a block's own code in jsdom, a cross-block contract check, gating a pipeline's stages on the evidence of the one before, running QA with several agents and skeptics, saying what did not run | [references/qa-playbook.md](references/qa-playbook.md) |

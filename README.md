@@ -136,7 +136,7 @@ The skill activates automatically when you mention Softr, Vibe Coding, or ask to
 
 **Simple card grid:**
 ```
-Build a team directory with cards showing name, role, and photo from Airtable
+Build a team directory for our Softr app with cards showing name, role, and photo from Airtable
 ```
 
 **REST API integration:**
@@ -151,7 +151,7 @@ Build a KPI dashboard showing revenue, active users, and churn rate from our Sof
 
 **Form with mutations:**
 ```
-Create a contact form that creates records in our Airtable Contacts table
+Create a contact form block in Softr that creates records in our Airtable Contacts table
 ```
 
 ### What the skill does
